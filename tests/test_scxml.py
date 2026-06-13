@@ -1,10 +1,9 @@
+import xml.etree.ElementTree as ET
+from typing import Optional, Dict, List
 import json
-from pprint import PrettyPrinter
-from typing import Dict, List
-
 import pytest
-
 from xstate.scxml import scxml_to_machine
+from pprint import PrettyPrinter
 
 pp = PrettyPrinter(indent=2)
 
@@ -31,6 +30,36 @@ test_groups: Dict[str, List[str]] = {
     "hierarchy": ["hier0", "hier1", "hier2"],
     "hierarchy+documentOrder": ["test0", "test1"],
     "parallel": ["test0", "test1", "test2", "test3"],
+    "parallel+interrupt": [
+        "test0",
+        "test1",
+        "test2",
+        "test3",
+        "test4",
+        "test5",
+        "test6",
+        "test7",
+        "test8",
+        "test9",
+        "test10",
+    ],
+    "more-parallel": [
+        "test0",
+        "test1",
+        "test2",
+        "test2b",
+        "test3",
+        "test3b",
+        "test4",
+        "test5",
+        "test6",
+        "test6b",
+        "test7",
+        "test8",
+        "test9",
+        # "test10", # TODO: needs assign()
+        # "test10b", # TODO: needs assign()
+    ],
 }
 
 test_files = [
@@ -63,6 +92,6 @@ def test_scxml(scxml_source, scxml_test_source):
                 assert sorted(
                     [sn.key for sn in state.configuration if sn.type == "atomic"]
                 ) == sorted(next_configuration)
-    except Exception:
+    except:
         pp.pprint(machine.config)
         raise

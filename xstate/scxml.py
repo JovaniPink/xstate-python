@@ -1,17 +1,43 @@
 import xml.etree.ElementTree as ET
-from typing import Optional
-
-import js2py
+from typing import List, Optional
+import json
 
 from xstate.machine import Machine
 
 ns = {"scxml": "http://www.w3.org/2005/07/scxml"}
 
 
+def _eval_scxml_cond(event_cond_str: str):
+    """Compile an SCXML ``cond`` (a JavaScript boolean expression) into a callable.
+
+    JavaScript evaluation is an optional feature; ``js2py`` is imported lazily so
+    that importing :mod:`xstate` and running native (Python-config) machines never
+    requires it. A pure-Python SCXML condition evaluator is planned to replace this.
+    """
+    try:
+        import js2py
+    except ImportError as exc:  # pragma: no cover - depends on optional extra
+        raise ImportError(
+            "Evaluating SCXML 'cond' expressions requires the optional 'js2py' "
+            "dependency. Install it with `pip install xstate[scxml]`."
+        ) from exc
+
+    return js2py.eval_js("function cond() { return %s }" % event_cond_str)
+
+
+def get_all_state_els(element: ET.Element) -> List[ET.Element]:
+    all_state_els = [
+        e for e in element if get_tag(e) == "state" or get_tag(e) == "parallel"
+    ]
+
+    return all_state_els
+
+
 def convert_scxml(element: ET.Element, parent):
+    states = element.findall("scxml:state", namespaces=ns)
     state_els = element.findall("scxml:state", namespaces=ns)
     parallel_els = element.findall("scxml:parallel", namespaces=ns)
-    all_state_els = state_els + parallel_els
+    all_state_els = get_all_state_els(element)
 
     initial_state_key = element.attrib.get(
         "initial",
@@ -25,10 +51,15 @@ def convert_scxml(element: ET.Element, parent):
     }
 
 
+def get_tag(element: ET.Element) -> str:
+    _, _, tag = element.tag.rpartition("}")
+    return tag
+
+
 def accumulate_states(element: ET.Element, parent: ET.Element):
-    state_els = element.findall("scxml:state", namespaces=ns)
-    parallel_els = element.findall("scxml:parallel", namespaces=ns)
-    all_state_els = state_els + parallel_els
+    all_state_els = [
+        e for e in element if get_tag(e) == "state" or get_tag(e) == "parallel"
+    ]
     states = [convert_state(state_el, element) for state_el in all_state_els]
 
     states_dict = {}
@@ -40,6 +71,7 @@ def accumulate_states(element: ET.Element, parent: ET.Element):
 
 
 def convert_state(element: ET.Element, parent: ET.Element):
+    parent_id = parent.attrib.get("id", "") if parent else None
     id = element.attrib.get("id")
     transition_els = element.findall("scxml:transition", namespaces=ns)
     transitions = [convert_transition(el, element) for el in transition_els]
@@ -53,21 +85,14 @@ def convert_state(element: ET.Element, parent: ET.Element):
     onentry_el = element.find("scxml:onentry", namespaces=ns)
     onentry = convert_onentry(onentry_el, parent=element) if onentry_el else None
 
-    _, _, tag = element.tag.rpartition("}")
-
-    initial_state_key = element.attrib.get(
-        "initial",
-        convert_state(state_els[0], parent=element).get("key") if state_els else None,
-    )
-
     result = {
-        "type": "parallel" if tag == "parallel" else None,
+        "type": "parallel" if get_tag(element) == "parallel" else None,
         "id": f"{id}",
         "key": id,
         "exit": onexit,
         "entry": onentry,
         "states": states,
-        "initial": initial_state_key,
+        "initial": state_els[0].attrib.get("id") if state_els else None,
     }
 
     if len(transitions) > 0:
@@ -84,11 +109,11 @@ def convert_state(element: ET.Element, parent: ET.Element):
 
 def convert_transition(element: ET.Element, parent: ET.Element):
     event_type = element.attrib.get("event")
-    event_target = element.attrib.get("target")
+    event_targets = element.attrib.get("target").split(" ")
     event_cond_str = element.attrib.get("cond")
 
     event_cond = (
-        js2py.eval_js("function cond() { return %s }" % event_cond_str)
+        _eval_scxml_cond(event_cond_str)
         if event_cond_str
         else None
     )
@@ -99,7 +124,7 @@ def convert_transition(element: ET.Element, parent: ET.Element):
 
     return {
         "event": event_type,
-        "target": ["#%s" % event_target],
+        "target": ["#%s" % t for t in event_targets],
         "actions": actions,
         "cond": event_cond,
     }

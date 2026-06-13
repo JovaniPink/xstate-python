@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Optional
+from typing import Callable, Optional, Dict, Any
 
 
 def not_implemented():

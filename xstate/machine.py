@@ -1,14 +1,14 @@
 from typing import Dict, List
-
+from xstate.state_node import StateNode
+from xstate.state import State
 from xstate.algorithm import (
     enter_states,
     get_configuration_from_state,
-    macrostep,
+    get_state_value,
     main_event_loop,
+    main_event_loop2,
 )
 from xstate.event import Event
-from xstate.state import State
-from xstate.state_node import StateNode
 
 
 class Machine:
@@ -18,10 +18,12 @@ class Machine:
     config: object
     states: Dict[str, StateNode]
     actions: List[lambda: None]
+    _order: int
 
     def __init__(self, config: object, actions={}):
         self.id = config["id"]
         self._id_map = {}
+        self._order = 0
         self.root = StateNode(
             config, machine=self, key=config.get("id", "(machine)"), parent=None
         )
@@ -29,11 +31,18 @@ class Machine:
         self.config = config
         self.actions = actions
 
+    def _get_order(self) -> int:
+        order = self._order
+        self._order += 1
+        return order
+
     def transition(self, state: State, event: str):
         configuration = get_configuration_from_state(
             from_node=self.root, state_value=state.value, partial_configuration=set()
         )
         (configuration, _actions) = main_event_loop(configuration, Event(event))
+
+        value = get_state_value(self.root, configuration=configuration)
 
         actions, warnings = self._get_actions(_actions)
         for w in warnings:
@@ -100,7 +109,7 @@ class Machine:
             internal_queue=[],
         )
 
-        (configuration, _actions) = macrostep(
+        (configuration, _actions) = main_event_loop2(
             configuration=configuration, actions=_actions, internal_queue=internal_queue
         )
 

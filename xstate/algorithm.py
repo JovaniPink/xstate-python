@@ -1,9 +1,9 @@
-from typing import Dict, List, Optional, Set, Tuple, Union
-
+from __future__ import annotations
+from typing import List, Set, Dict, Optional, Tuple, Union, TYPE_CHECKING
+from xstate.transition import Transition
+from xstate.state_node import StateNode
 from xstate.action import Action
 from xstate.event import Event
-from xstate.state_node import StateNode
-from xstate.transition import Transition
 
 HistoryValue = Dict[str, Set[StateNode]]
 
@@ -36,7 +36,7 @@ def compute_entry_set(
             )
 
 
-def add_descendent_states_to_enter(  # noqa C901 too complex. TODO: simplify function
+def add_descendent_states_to_enter(
     state: StateNode,
     states_to_enter: Set[StateNode],
     states_for_default_entry: Set[StateNode],
@@ -138,9 +138,17 @@ def is_descendent(state: StateNode, state2: StateNode) -> bool:
     return marker.parent == state2
 
 
+# function getTransitionDomain(t)
+#     tstates = getEffectiveTargetStates(t)
+#     if not tstates:
+#         return null
+#     elif t.type == "internal" and isCompoundState(t.source) and tstates.every(lambda s: isDescendant(s,t.source)):
+#         return t.source
+#     else:
+#         return findLCCA([t.source].append(tstates))
 def get_transition_domain(
     transition: Transition, history_value: HistoryValue
-) -> StateNode:
+) -> Optional[StateNode]:
     tstates = get_effective_target_states(transition, history_value=history_value)
     if not tstates:
         return None
@@ -181,6 +189,13 @@ def get_effective_target_states(
     return targets
 
 
+# procedure addAncestorStatesToEnter(state, ancestor, statesToEnter, statesForDefaultEntry, defaultHistoryContent)
+#     for anc in getProperAncestors(state,ancestor):
+#         statesToEnter.add(anc)
+#         if isParallelState(anc):
+#             for child in getChildStates(anc):
+#                 if not statesToEnter.some(lambda s: isDescendant(s,child)):
+#                     addDescendantStatesToEnter(child,statesToEnter,statesForDefaultEntry, defaultHistoryContent)
 def add_ancestor_states_to_enter(
     state: StateNode,
     ancestor: StateNode,
@@ -208,8 +223,11 @@ def get_proper_ancestors(
 ) -> List[StateNode]:
     ancestors: List[StateNode] = []
     marker = state1.parent
-    while marker and marker != state2:
+    while marker:
         ancestors.append(marker)
+        if marker == state2:
+            break
+
         marker = marker.parent
 
     return ancestors
@@ -289,7 +307,7 @@ def enter_states(
             grandparent = parent.parent
             internal_queue.append(Event(f"done.state.{parent.id}", s.donedata))
 
-            if grandparent and is_parallel_state(grandparent):
+            if is_parallel_state(grandparent):
                 if all(
                     is_in_final_state(parent_state, configuration)
                     for parent_state in get_child_states(grandparent)
@@ -364,12 +382,11 @@ def select_transitions(event: Event, configuration: Set[StateNode]):
                 if t.event and name_match(t.event, event.name) and condition_match(t):
                     enabled_transitions.add(t)
                     break_loop = True
-
     enabled_transitions = remove_conflicting_transitions(
         enabled_transitions, configuration=configuration, history_value={}  # TODO
     )
 
-    return enabled_transitions
+    return sorted(enabled_transitions, key=lambda t: t.order)
 
 
 def select_eventless_transitions(configuration: Set[StateNode]):
@@ -438,22 +455,20 @@ def main_event_loop(
     states_to_invoke: Set[StateNode] = set()
     history_value = {}
     enabled_transitions = select_transitions(event=event, configuration=configuration)
-
     (configuration, actions, internal_queue) = microstep(
         enabled_transitions,
         configuration=configuration,
         states_to_invoke=states_to_invoke,
         history_value=history_value,
     )
-
-    (configuration, actions) = macrostep(
+    (configuration, actions) = main_event_loop2(
         configuration=configuration, actions=actions, internal_queue=internal_queue
     )
 
     return (configuration, actions)
 
 
-def macrostep(
+def main_event_loop2(
     configuration: Set[StateNode], actions: List[Action], internal_queue: List[Event]
 ) -> Tuple[Set[StateNode], List[Action]]:
     enabled_transitions = set()
@@ -516,7 +531,6 @@ def microstep(
         actions=actions,
         internal_queue=internal_queue,
     )
-
     execute_transition_content(
         enabled_transitions, actions=actions, internal_queue=internal_queue
     )
@@ -529,7 +543,6 @@ def microstep(
         actions=actions,
         internal_queue=internal_queue,
     )
-
     return (configuration, actions, internal_queue)
 
 

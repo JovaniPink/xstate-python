@@ -1,23 +1,23 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Set
-
+from __future__ import annotations
+from typing import Any, Dict, List, Set, TYPE_CHECKING
 from xstate.algorithm import get_state_value
 
 if TYPE_CHECKING:
-    from xstate.action import Action
     from xstate.state_node import StateNode
+    from xstate.action import Action
 
 
 class State:
-    configuration: Set["StateNode"]
+    configuration: Set[StateNode]
     value: str
     context: Dict[str, Any]
-    actions: List["Action"]
+    actions: List[Action]
 
     def __init__(
         self,
-        configuration: Set["StateNode"],
+        configuration: Set[StateNode],
         context: Dict[str, Any],
-        actions: List["Action"] = [],
+        actions: List[Action] = [],
     ):
         root = next(iter(configuration)).machine.root
         self.configuration = configuration
@@ -27,9 +27,5 @@ class State:
 
     def __repr__(self):
         return repr(
-            {
-                "value": self.value,
-                "context": self.context,
-                "actions": self.actions,
-            }
+            {"value": self.value, "context": self.context, "actions": self.actions,}
         )

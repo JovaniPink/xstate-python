@@ -1,7 +1,9 @@
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from __future__ import annotations
+from typing import Dict, TYPE_CHECKING, Optional, Union, List
+from enum import Enum
 
-from xstate.action import Action
 from xstate.transition import Transition
+from xstate.action import Action
 
 if TYPE_CHECKING:
     from xstate.machine import Machine
@@ -9,8 +11,8 @@ if TYPE_CHECKING:
 
 class StateNode:
     on: Dict[str, List[Transition]]
-    machine: "Machine"
-    parent: Optional["StateNode"]
+    machine: Machine
+    parent: Optional[StateNode]
     initial: Optional[Transition]
     entry: List[Action]
     exit: List[Action]
@@ -19,24 +21,21 @@ class StateNode:
     transitions: List[Transition]
     id: str
     key: str
-    states: Dict[str, "StateNode"]
-
-    def get_actions(self, action):
-        if callable(action):
-            return Action(action)
-        else:
-            return Action(action.get("type"), exec=None, data=action)
+    states: Dict[str, StateNode]
+    order: int
 
     def __init__(
         self,
         # { "type": "compound", "states": { ... } }
         config,
-        machine: "Machine",
+        machine: Machine,
         key: str,
-        parent: Union["StateNode", "Machine"] = None,
+        parent: Union[StateNode, Machine] = None,
     ):
+        self.order = machine._get_order()
         self.config = config
         self.parent = parent
+        self.machine = machine
         self.id = (
             config.get("id", parent.id + "." + key)
             if parent
@@ -70,7 +69,7 @@ class StateNode:
                     transition_config,
                     source=self,
                     event=k,
-                    order=len(self.transitions),
+                    order=self.machine._get_order(),
                 )
                 self.on[k].append(transition)
                 self.transitions.append(transition)
@@ -89,12 +88,18 @@ class StateNode:
                 config.get("onDone"),
                 source=self,
                 event=done_event,
-                order=len(self.transitions),
+                order=self.machine._get_order(),
             )
             self.on[done_event] = done_transition
             self.transitions.append(done_transition)
 
         machine._register(self)
+
+    def get_actions(self, action):
+        if callable(action):
+            return Action(action)
+        else:
+            return Action(action.get("type"), exec=None, data=action)
 
     @property
     def initial(self):
@@ -110,7 +115,7 @@ class StateNode:
                 self.states.get(initial_key), source=self, event=None, order=-1
             )
 
-    def _get_relative(self, target: str) -> "StateNode":
+    def _get_relative(self, target: str) -> StateNode:
         if target.startswith("#"):
             return self.machine._get_by_id(target[1:])
 
@@ -118,7 +123,7 @@ class StateNode:
 
         if not state_node:
             raise ValueError(
-                f"Relative state node '{target}' does not exist on state node '#{self.id}'"  # noqa
+                f"Relative state node '{target}' does not exist on state node '#{self.id}'"
             )
 
         return state_node

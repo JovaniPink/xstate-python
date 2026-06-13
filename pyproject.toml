@@ -1,36 +1,60 @@
-[tool.poetry]
+[project]
 name = "xstate"
-version = "0.0.1"
-description = "XState for Python"
+version = "0.1.0"
+description = "Statecharts and state machines for Python, inspired by XState."
 readme = "README.md"
-authors = ["David Khourshid <davidkpiano@gmail.com>"]
+requires-python = ">=3.9"
 license = "MIT"
-keywords = ["Answer Set Programming", "wrapper", "clingo"]
-classifiers = [
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9"
+license-files = ["LICENSE"]
+authors = [
+    { name = "David Khourshid", email = "davidkpiano@gmail.com" },
 ]
+maintainers = [
+    { name = "Jovani Pink", email = "jovanipink1@gmail.com" },
+]
+keywords = [
+    "state machine",
+    "statechart",
+    "finite state machine",
+    "fsm",
+    "xstate",
+    "scxml",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = []
+
+[project.optional-dependencies]
+# Js2Py powers SCXML `cond` (JavaScript) evaluation only. It is optional so the
+# core library installs and imports cleanly on modern Python.
+# TODO(0.2.0): replace with a pure-Python SCXML condition evaluator.
+scxml = ["Js2Py>=0.71"]
+
+[project.urls]
+homepage = "https://github.com/JovaniPink/xstate-python"
+repository = "https://github.com/JovaniPink/xstate-python"
+
+[tool.poetry]
 packages = [
     { include = "xstate" },
 ]
 
-[tool.poetry.urls]
-docs = "https://github.com/davidkpiano/xstate-python"
-
-[tool.poetry.dependencies]
-python = "^3.6.2"
-Js2Py = "^0.71"
-
-[tool.poetry.dev-dependencies]
-pytest-cov = "^2.12.0"
-black = "^21.5b1"
-isort = "^5.8.0"
-flake8 = "^3.9.2"
-mypy = "^0.812"
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0"
+pytest-cov = "^4.0"
+black = "^24.0"
+isort = "^5.12"
+flake8 = "^7.0"
+mypy = "^1.0"
 
 [tool.isort]
 profile = "black"
@@ -54,5 +78,5 @@ fail_under = 50
 show_missing = true
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core>=2.0.0"]
 build-backend = "poetry.core.masonry.api"
