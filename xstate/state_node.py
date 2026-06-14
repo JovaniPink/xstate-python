@@ -23,6 +23,7 @@ class StateNode:
     states: Dict[str, StateNode]
     order: int
     after: List[tuple]
+    invoke: List[dict]
 
     def __init__(  # noqa: C901
         self,
@@ -130,6 +131,58 @@ class StateNode:
                 )
                 self.on[done_event].append(done_transition)
                 self.transitions.append(done_transition)
+
+        # Invoked actors. `invoke` runs a child actor for the lifetime of this
+        # state. Each invocation is normalised to a descriptor
+        # {"id", "src", "input", ...}; `onDone` / `onError` become transitions
+        # keyed by the generated `done.invoke.<id>` / `error.platform.<id>`
+        # events that the actor layer feeds back when the child completes.
+        # `self.invoke` lets the actor layer discover which invocations a node
+        # owns (mirroring `self.after` for delayed transitions).
+        self.invoke: List[dict] = []
+        invoke_configs = config.get("invoke")
+        if invoke_configs is not None:
+            if not isinstance(invoke_configs, list):
+                invoke_configs = [invoke_configs]
+            for index, invoke_config in enumerate(invoke_configs):
+                raw_id = invoke_config.get("id")
+                invoke_id = (
+                    raw_id if raw_id is not None else f"{self.id}:invocation[{index}]"
+                )
+                src = invoke_config.get("src")
+                if src is None:
+                    raise ValueError(
+                        f"invoke on state '{self.id}' is missing a 'src'. "
+                        f"Provide actor logic or a name registered via "
+                        f"Machine(config, actors={{...}})."
+                    )
+                descriptor = {
+                    "id": invoke_id,
+                    "src": src,
+                    "input": invoke_config.get("input"),
+                }
+                self.invoke.append(descriptor)
+
+                for event_name, key in (
+                    (f"done.invoke.{invoke_id}", "onDone"),
+                    (f"error.platform.{invoke_id}", "onError"),
+                ):
+                    handler = invoke_config.get(key)
+                    if handler is None:
+                        continue
+                    handler_configs = (
+                        handler if isinstance(handler, list) else [handler]
+                    )
+                    self.on.setdefault(event_name, [])
+                    for handler_config in handler_configs:
+                        transition = Transition(
+                            handler_config,
+                            source=self,
+                            event=event_name,
+                            order=self.machine._get_order(),
+                        )
+                        self.on[event_name].append(transition)
+                        self.transitions.append(transition)
 
         # Delayed transitions. `after` maps a delay (ms number or a delay-ref
         # string resolved from Machine(delays=...)) to a transition. Each becomes
