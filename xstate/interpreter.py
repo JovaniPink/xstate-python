@@ -30,6 +30,7 @@ from typing import Callable, Dict, List, Optional
 from xstate.machine import Machine
 from xstate.state import State
 from xstate.scheduler import Clock, ThreadClock
+from xstate.action import Action, SEND_TYPE, CANCEL_TYPE
 
 # Interpreter lifecycle states.
 NOT_STARTED = "not_started"
@@ -63,8 +64,10 @@ class Interpreter:
         self._listeners: set = set()
         self._event_queue: List = []
         self._processing = False
-        # generated after-event name -> clock timeout id
+        # `after`-event name → clock timeout id
         self._scheduled: Dict[str, int] = {}
+        # named `send(..., id=...)` → clock timeout id
+        self._send_timers: Dict[str, int] = {}
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -142,10 +145,35 @@ class Interpreter:
     # -- side effects -------------------------------------------------------
 
     def _execute(self, state: State) -> None:
-        """Run resolved (non-assign) action callables for the current state."""
+        """Run resolved action callables and handle interpreter-owned actions."""
         for action in state.actions:
-            if callable(action):
+            if isinstance(action, Action):
+                if action.type == SEND_TYPE:
+                    self._execute_send(action)
+                elif action.type == CANCEL_TYPE:
+                    self._execute_cancel(action)
+            elif callable(action):
                 action()
+
+    def _execute_send(self, action: Action) -> None:
+        event = action.data.get("event")
+        delay = action.data.get("delay")
+        send_id = action.data.get("id")
+        if delay is not None:
+            tid = self.clock.set_timeout(
+                (lambda e: lambda: self.send(e))(event), float(delay)
+            )
+            if send_id:
+                self._send_timers[send_id] = tid
+        else:
+            self.send(event)
+
+    def _execute_cancel(self, action: Action) -> None:
+        send_id = action.data.get("sendid")
+        if send_id:
+            tid = self._send_timers.pop(send_id, None)
+            if tid is not None:
+                self.clock.clear_timeout(tid)
 
     # -- delayed transitions ------------------------------------------------
 

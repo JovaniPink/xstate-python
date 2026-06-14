@@ -368,7 +368,12 @@ def enter_states(
         if is_final_state(s):
             parent = s.parent
             grandparent = parent.parent
-            internal_queue.append(Event(f"done.state.{parent.id}", s.donedata))
+            donedata = (
+                _invoke(s.donedata, context, event)
+                if callable(s.donedata)
+                else s.donedata
+            )
+            internal_queue.append(Event(f"done.state.{parent.id}", donedata))
 
             if is_parallel_state(grandparent):
                 if all(

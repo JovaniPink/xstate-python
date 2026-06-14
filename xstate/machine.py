@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from xstate.state_node import StateNode
 from xstate.state import State
 from xstate.algorithm import (
@@ -9,6 +9,7 @@ from xstate.algorithm import (
     main_event_loop2,
 )
 from xstate.event import Event
+from xstate.action import INTERPRETER_TYPES
 
 
 class Machine:
@@ -80,11 +81,14 @@ class Machine:
 
     def _get_actions(
         self, actions: List
-    ) -> Tuple[List[Callable], List[str]]:
-        result: List[Callable] = []
+    ) -> Tuple[List[Union[Callable, Any]], List[str]]:
+        result: List[Union[Callable, Any]] = []
         errors: List[str] = []
         for action in actions:
-            if action.type in self.actions:
+            if action.type in INTERPRETER_TYPES:
+                # Passed through as raw Action; the interpreter handles them.
+                result.append(action)
+            elif action.type in self.actions:
                 result.append(self.actions[action.type])
             elif callable(action.type):
                 result.append(action.type)

@@ -98,14 +98,19 @@ class StateNode:
 
         if config.get("onDone"):
             done_event = f"done.state.{self.id}"
-            done_transition = Transition(
-                config.get("onDone"),
-                source=self,
-                event=done_event,
-                order=self.machine._get_order(),
-            )
-            self.on[done_event] = [done_transition]
-            self.transitions.append(done_transition)
+            done_configs = config.get("onDone")
+            if not isinstance(done_configs, list):
+                done_configs = [done_configs]
+            self.on[done_event] = []
+            for done_config in done_configs:
+                done_transition = Transition(
+                    done_config,
+                    source=self,
+                    event=done_event,
+                    order=self.machine._get_order(),
+                )
+                self.on[done_event].append(done_transition)
+                self.transitions.append(done_transition)
 
         # Delayed transitions. `after` maps a delay (ms number or a delay-ref
         # string resolved from Machine(delays=...)) to a transition. Each becomes
