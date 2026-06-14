@@ -96,6 +96,9 @@ class Interpreter:
         for timeout_id in self._scheduled.values():
             self.clock.clear_timeout(timeout_id)
         self._scheduled.clear()
+        for timeout_id in self._send_timers.values():
+            self.clock.clear_timeout(timeout_id)
+        self._send_timers.clear()
         self._listeners.clear()
         self._event_queue.clear()
         self._status = STOPPED
@@ -195,7 +198,7 @@ class Interpreter:
         if callable(delay):
             from xstate.algorithm import _invoke
 
-            return float(_invoke(delay, self.state.context, None))
+            return float(_invoke(delay, self.state.context, self.state.event if hasattr(self.state, "event") else None))
         return float(delay)
 
     def _sync_delays(self) -> None:

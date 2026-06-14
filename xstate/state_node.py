@@ -93,8 +93,7 @@ class StateNode:
                 config.get("target"), source=self, event=None, order=-1
             )
 
-        if self.type == "final":
-            self.donedata = config.get("data")
+        self.donedata = config.get("data") if self.type == "final" else None
 
         if config.get("onDone"):
             done_event = f"done.state.{self.id}"

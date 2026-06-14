@@ -3,7 +3,7 @@ import inspect
 from typing import Any, List, Set, Dict, Optional, Tuple, Union, TYPE_CHECKING
 from xstate.transition import Transition
 from xstate.state_node import StateNode
-from xstate.action import Action, ASSIGN_TYPE
+from xstate.action import Action, ASSIGN_TYPE, RAISE_TYPE
 from xstate.event import Event
 
 HistoryValue = Dict[str, Set[StateNode]]
@@ -692,7 +692,7 @@ def main_event_loop2(
             if not internal_queue:
                 macrostep_done = True
             else:
-                internal_event = internal_queue.pop()
+                internal_event = internal_queue.pop(0)
                 event = internal_event
                 enabled_transitions = select_transitions(
                     event=internal_event,
@@ -732,7 +732,7 @@ def execute_content(
     context: Optional[Dict] = None,
     event: Optional[Event] = None,
 ):
-    if action.type == "xstate:raise":
+    if action.type == RAISE_TYPE:
         internal_queue.append(Event(action.data.get("event")))
     elif action.type == ASSIGN_TYPE:
         _apply_assignment(action, context, event)
