@@ -74,6 +74,23 @@ class StateNode:
                 self.on[k].append(transition)
                 self.transitions.append(transition)
 
+        # `always:` is XState v5 syntax for eventless transitions (v4: on: {"": ...}).
+        # Both forms populate self.on[""] so the algorithm handles them identically.
+        always_configs = config.get("always")
+        if always_configs is not None:
+            if not isinstance(always_configs, list):
+                always_configs = [always_configs]
+            self.on.setdefault("", [])
+            for always_config in always_configs:
+                transition = Transition(
+                    always_config,
+                    source=self,
+                    event="",
+                    order=self.machine._get_order(),
+                )
+                self.on[""].append(transition)
+                self.transitions.append(transition)
+
         self.type = config.get("type")
 
         if self.type is None:
@@ -93,7 +110,10 @@ class StateNode:
                 config.get("target"), source=self, event=None, order=-1
             )
 
-        self.donedata = config.get("data") if self.type == "final" else None
+        # XState v5 renamed `data` to `output` on final states; both accepted.
+        self.donedata = (
+            config.get("output", config.get("data")) if self.type == "final" else None
+        )
 
         if config.get("onDone"):
             done_event = f"done.state.{self.id}"

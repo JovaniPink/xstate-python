@@ -37,7 +37,10 @@ class Transition:
         self.config = config
         self.source = source
         self.type = "external"
-        self.cond = config.get("cond", None) if isinstance(config, dict) else None
+        # XState v5 renamed `cond` to `guard`; both are accepted for compat.
+        self.cond = (
+            config.get("guard", config.get("cond")) if isinstance(config, dict) else None
+        )
         self.in_state = config.get("in", None) if isinstance(config, dict) else None
         self.order = order
 
