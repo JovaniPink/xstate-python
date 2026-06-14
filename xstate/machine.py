@@ -22,6 +22,7 @@ class Machine:
     actions: Dict[str, Callable]
     guards: Dict[str, Callable]
     delays: Dict[str, Any]
+    actors: Dict[str, Any]
     _order: int
 
     def __init__(
@@ -30,6 +31,7 @@ class Machine:
         actions: Dict[str, Callable] = {},
         guards: Dict[str, Callable] = {},
         delays: Dict[str, Any] = {},
+        actors: Dict[str, Any] = {},
     ):
         self.id = config["id"]
         self._id_map = {}
@@ -42,6 +44,9 @@ class Machine:
         self.actions = actions
         self.guards = guards
         self.delays = delays
+        # Named actor logic referenced by `invoke: {"src": "<name>"}`; resolved
+        # by the actor layer when an invoking state is entered.
+        self.actors = actors
         self.context = config.get("context", {}) or {}
 
     def _get_order(self) -> int:
