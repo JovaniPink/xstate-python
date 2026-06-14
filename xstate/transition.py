@@ -14,9 +14,9 @@ class TransitionConfig(NamedTuple):
 
 
 class Transition:
-    event: str
+    event: Optional[str]
     source: StateNode
-    config: Union[str, StateNode, TransitionConfig]
+    config: Union[str, StateNode]
     actions: List[Action]
     cond: Optional[CondFunction]
     order: int
@@ -27,7 +27,7 @@ class Transition:
         self,
         config,
         source: StateNode,
-        event: str,
+        event: Optional[str],
         order: int,
         cond: Optional[CondFunction] = None,
     ):

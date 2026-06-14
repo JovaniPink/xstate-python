@@ -13,13 +13,13 @@ implementations are provided:
 from __future__ import annotations
 
 import threading
-from typing import Callable, Dict
+from typing import Any, Callable, Dict
 
 
 class Clock:
     """Interface the interpreter uses to schedule and cancel delayed events."""
 
-    def set_timeout(self, fn: Callable[[], None], delay_ms: float) -> int:
+    def set_timeout(self, fn: Callable[[], Any], delay_ms: float) -> int:
         raise NotImplementedError
 
     def clear_timeout(self, timeout_id: int) -> None:
@@ -35,7 +35,7 @@ class SimulatedClock(Clock):
         # timeout_id -> {"due": float, "fn": Callable}
         self._timeouts: Dict[int, dict] = {}
 
-    def set_timeout(self, fn: Callable[[], None], delay_ms: float) -> int:
+    def set_timeout(self, fn: Callable[[], Any], delay_ms: float) -> int:
         timeout_id = self._next_id
         self._next_id += 1
         self._timeouts[timeout_id] = {"due": self._now + delay_ms, "fn": fn}
@@ -74,7 +74,7 @@ class ThreadClock(Clock):
         self._next_id: int = 0
         self._lock = threading.Lock()
 
-    def set_timeout(self, fn: Callable[[], None], delay_ms: float) -> int:
+    def set_timeout(self, fn: Callable[[], Any], delay_ms: float) -> int:
         with self._lock:
             timeout_id = self._next_id
             self._next_id += 1

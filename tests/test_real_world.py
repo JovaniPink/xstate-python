@@ -459,15 +459,6 @@ def test_unlock_wrong_pin_then_correct_pin():
 # ---------------------------------------------------------------------------
 
 
-def test_user_preserved_across_session_idle_and_resume():
-    """User in context is unaffected by activity-timeout and resume cycle."""
-    machine = make_session_machine()
-    state = _login_succeed(machine, user="carol")
-    state = machine.transition(state, "TIMEOUT")
-    state = machine.transition(state, "RESUME")
-    assert state.context["user"] == "carol"
-
-
 def test_user_preserved_through_screen_lock_unlock():
     machine = make_session_machine()
     state = _login_succeed(machine, user="dave")

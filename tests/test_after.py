@@ -105,12 +105,14 @@ def test_timer_fires_if_no_event():
 # ---------------------------------------------------------------------------
 
 
-def test_after_with_guard_blocks_when_false():
+@pytest.mark.parametrize("ready,expected", [(False, "stay"), (True, "go")])
+def test_after_with_guard(ready, expected):
+    """First guard wins when true; falls through to second target when false."""
     machine = Machine(
         {
             "id": "guarded",
             "initial": "waiting",
-            "context": {"ready": False},
+            "context": {"ready": ready},
             "states": {
                 "waiting": {
                     "after": {
@@ -128,33 +130,7 @@ def test_after_with_guard_blocks_when_false():
     clock = SimulatedClock()
     service = interpret(machine, clock=clock).start()
     clock.increment(1000)
-    assert service.state.value == "stay"
-
-
-def test_after_with_guard_fires_when_true():
-    machine = Machine(
-        {
-            "id": "guarded",
-            "initial": "waiting",
-            "context": {"ready": True},
-            "states": {
-                "waiting": {
-                    "after": {
-                        1000: [
-                            {"target": "go", "cond": lambda ctx, _: ctx["ready"]},
-                            {"target": "stay"},
-                        ]
-                    }
-                },
-                "go": {},
-                "stay": {},
-            },
-        }
-    )
-    clock = SimulatedClock()
-    service = interpret(machine, clock=clock).start()
-    clock.increment(1000)
-    assert service.state.value == "go"
+    assert service.state.value == expected
 
 
 # ---------------------------------------------------------------------------

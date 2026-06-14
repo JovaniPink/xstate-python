@@ -4,19 +4,15 @@ from typing import Callable, Optional, Dict, Any
 ASSIGN_TYPE = "xstate.assign"
 
 
-def not_implemented():
-    pass
-
-
 class Action:
     type: str
-    exec: Callable[[], None]
+    exec: Optional[Callable[[], None]]
     data: Dict[str, Any]
 
     def __init__(
         self,
         type: str,
-        exec: Optional[Callable[[], None]] = not_implemented,
+        exec: Optional[Callable[[], None]] = None,
         data: Dict[str, Any] = {},
     ):
         self.type = type

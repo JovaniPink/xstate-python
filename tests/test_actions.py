@@ -1,6 +1,6 @@
-from xstate.machine import Machine
-from xstate.state import State
 from unittest.mock import Mock
+from xstate.machine import Machine
+
 
 def test_action():
     entry_mock = Mock()
@@ -11,47 +11,41 @@ def test_action():
             "id": "machine",
             "initial": "on",
             "states": {
-                "on" : {
+                "on": {
                     "on": {"TOGGLE": "off"},
                     "entry": [{"type": "entry_action"}],
-                    "exit": [{"type": "exit_action"}]
+                    "exit": [{"type": "exit_action"}],
                 },
-                "off": {
-                    "on": {"TOGGLE": "on"}
-                }
+                "off": {"on": {"TOGGLE": "on"}},
             },
         },
-        actions = {
+        actions={
             "entry_action": entry_mock,
             "exit_action": exit_mock,
-        }
+        },
     )
 
-
     state = machine.initial_state
-    assert state.value is "on"
-    
+    assert state.value == "on"
+
     for action in state.actions:
         action()
-    
+
     entry_mock.assert_called_with()
-    assert entry_mock.call_count is 1
-    assert exit_mock.call_count is 0
-    
-    # ------------------------
-    
+    assert entry_mock.call_count == 1
+    assert exit_mock.call_count == 0
+
     state = machine.transition(state, "TOGGLE")
-    
-    assert state.value is "off"
-    
+    assert state.value == "off"
+
     for action in state.actions:
         action()
-    
+
     exit_mock.assert_called_with()
-    assert entry_mock.call_count is 1
-    assert exit_mock.call_count is 1
-    
-    
+    assert entry_mock.call_count == 1
+    assert exit_mock.call_count == 1
+
+
 def test_entry_action_inline():
     mock = Mock()
 
@@ -60,29 +54,25 @@ def test_entry_action_inline():
             "id": "machine",
             "initial": "on",
             "states": {
-                "on" : {
+                "on": {
                     "on": {"TOGGLE": "off"},
-                    "entry": [
-                        lambda: mock()
-                    ]
+                    "entry": [lambda: mock()],
                 },
-                "off": {
-                    "on": {"TOGGLE": "on"}
-                }
+                "off": {"on": {"TOGGLE": "on"}},
             },
         }
     )
 
-
     state = machine.initial_state
-    assert state.value is "on"
-    
+    assert state.value == "on"
+
     for action in state.actions:
         action()
-    
+
     mock.assert_called_with()
-    assert mock.call_count is 1
-    
+    assert mock.call_count == 1
+
+
 def test_exit_action_inline():
     mock = Mock()
 
@@ -91,32 +81,25 @@ def test_exit_action_inline():
             "id": "machine",
             "initial": "on",
             "states": {
-                "on" : {
+                "on": {
                     "on": {"TOGGLE": "off"},
-                    "exit": [
-                        lambda: mock()
-                    ]
+                    "exit": [lambda: mock()],
                 },
-                "off": {
-                    "on": {"TOGGLE": "on"}
-                }
+                "off": {"on": {"TOGGLE": "on"}},
             },
         }
     )
 
-
     state = machine.initial_state
-    assert state.value is "on"
-    
+    assert state.value == "on"
+
     for action in state.actions:
         action()
-    
-    assert mock.call_count is 0
-    
+
+    assert mock.call_count == 0
+
     state = machine.transition(state, "TOGGLE")
-    
     for action in state.actions:
         action()
-        
-    assert mock.call_count is 1
-    
+
+    assert mock.call_count == 1

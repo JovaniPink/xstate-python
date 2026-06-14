@@ -593,11 +593,11 @@ def remove_conflicting_transitions(
     enabled_transitions: Set[Transition],
     configuration: Set[StateNode],
     history_value: HistoryValue,
-):
-    enabled_transitions = sorted(enabled_transitions, key=lambda t: t.order)
+) -> Set[Transition]:
+    ordered = sorted(enabled_transitions, key=lambda t: t.order)
 
     filtered_transitions: Set[Transition] = set()
-    for t1 in enabled_transitions:
+    for t1 in ordered:
         t1_preempted = False
         transitions_to_remove: Set[Transition] = set()
         for t2 in filtered_transitions:

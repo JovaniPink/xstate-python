@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from xstate.state_node import StateNode
 from xstate.state import State
 from xstate.algorithm import (
@@ -15,13 +15,20 @@ class Machine:
     id: str
     root: StateNode
     _id_map: Dict[str, StateNode]
-    config: object
+    config: Dict[str, Any]
     states: Dict[str, StateNode]
-    actions: List[lambda: None]
-    delays: Dict
+    actions: Dict[str, Callable]
+    guards: Dict[str, Callable]
+    delays: Dict[str, Any]
     _order: int
 
-    def __init__(self, config: object, actions={}, guards={}, delays={}):
+    def __init__(
+        self,
+        config: Dict[str, Any],
+        actions: Dict[str, Callable] = {},
+        guards: Dict[str, Callable] = {},
+        delays: Dict[str, Any] = {},
+    ):
         self.id = config["id"]
         self._id_map = {}
         self._order = 0
@@ -46,8 +53,8 @@ class Machine:
         if isinstance(event, str):
             return Event(event)
         if isinstance(event, dict):
-            return Event(event.get("type"), event)
-        return Event(event)
+            return Event(event.get("type", ""), event)
+        return Event(str(event))
 
     def transition(self, state: State, event):
         event = self._to_event(event)
@@ -71,9 +78,11 @@ class Machine:
             history_value=history_value,
         )
 
-    def _get_actions(self, actions) -> List[lambda: None]:
-        result = []
-        errors = []
+    def _get_actions(
+        self, actions: List
+    ) -> Tuple[List[Callable], List[str]]:
+        result: List[Callable] = []
+        errors: List[str] = []
         for action in actions:
             if action.type in self.actions:
                 result.append(self.actions[action.type])
@@ -84,15 +93,14 @@ class Machine:
         return result, errors
 
     def state_from(self, state_value) -> State:
-        configuration = self._get_configuration(state_value=state_value)
-
-        return State(configuration=configuration, context=None)
+        configuration = set(self._get_configuration(state_value=state_value))
+        return State(configuration=configuration, context={})
 
     def _register(self, state_node: StateNode):
         state_node.machine = self
         self._id_map[state_node.id] = state_node
 
-    def _get_by_id(self, id: str) -> StateNode:
+    def _get_by_id(self, id: str) -> Optional[StateNode]:
         return self._id_map.get(id, None)
 
     def _get_configuration(self, state_value, parent=None) -> List[StateNode]:
@@ -122,7 +130,7 @@ class Machine:
     @property
     def initial_state(self) -> State:
         context = dict(self.context)
-        history_value = {}
+        history_value: Dict[str, Any] = {}
         init_event = Event("xstate.init")
         configuration, _actions, internal_queue = enter_states(
             [self.root.initial],

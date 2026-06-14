@@ -1,9 +1,9 @@
-from typing import Dict, Optional, Union
+from typing import Dict, Optional
 
 
 class Event:
     name: str
-    data: Dict
+    data: Optional[Dict]
 
     def __init__(self, name: str, data: Optional[Dict] = None):
         self.name = name

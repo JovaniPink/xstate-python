@@ -13,7 +13,6 @@ class StateNode:
     on: Dict[str, List[Transition]]
     machine: Machine
     parent: Optional[StateNode]
-    initial: Optional[Transition]
     entry: List[Action]
     exit: List[Action]
     donedata: Optional[Dict]
@@ -31,11 +30,11 @@ class StateNode:
         config,
         machine: Machine,
         key: str,
-        parent: Union[StateNode, Machine] = None,
+        parent: Optional[StateNode] = None,
     ):
         self.order = machine._get_order()
         self.config = config
-        self.parent = parent
+        self.parent: Optional[StateNode] = parent
         self.machine = machine
         self.id = (
             config.get("id", parent.id + "." + key)
@@ -105,7 +104,7 @@ class StateNode:
                 event=done_event,
                 order=self.machine._get_order(),
             )
-            self.on[done_event] = done_transition
+            self.on[done_event] = [done_transition]
             self.transitions.append(done_transition)
 
         # Delayed transitions. `after` maps a delay (ms number or a delay-ref
@@ -167,8 +166,15 @@ class StateNode:
 
     def _get_relative(self, target: str) -> StateNode:
         if target.startswith("#"):
-            return self.machine._get_by_id(target[1:])
+            node = self.machine._get_by_id(target[1:])
+            if node is None:
+                raise ValueError(f"No state with id '{target[1:]}' in machine '{self.machine.id}'")
+            return node
 
+        if self.parent is None:
+            raise ValueError(
+                f"Cannot resolve relative target '{target}' from root state node '#{self.id}'"
+            )
         state_node = self.parent.states.get(target)
 
         if not state_node:
