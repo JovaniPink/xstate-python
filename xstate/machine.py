@@ -1,7 +1,9 @@
 import copy
+import warnings
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-from xstate.action import INTERPRETER_TYPES
+from xstate.action import ASSIGN_TYPE, INTERPRETER_TYPES
+from xstate.algorithm import _apply_assignment  # noqa: F401 (used below)
 from xstate.algorithm import (
     enter_states,
     get_configuration_from_state,
@@ -28,11 +30,16 @@ class Machine:
     def __init__(
         self,
         config: Dict[str, Any],
-        actions: Dict[str, Callable] = {},
-        guards: Dict[str, Callable] = {},
-        delays: Dict[str, Any] = {},
-        actors: Dict[str, Any] = {},
+        actions: Optional[Dict[str, Any]] = None,
+        guards: Optional[Dict[str, Callable]] = None,
+        delays: Optional[Dict[str, Any]] = None,
+        actors: Optional[Dict[str, Any]] = None,
     ):
+        if "id" not in config:
+            raise ValueError(
+                "Machine config must include an 'id' key. "
+                "Example: Machine({'id': 'myMachine', 'initial': ..., 'states': {...}})"
+            )
         self.id = config["id"]
         self._id_map = {}
         self._order = 0
@@ -41,12 +48,12 @@ class Machine:
         )
         self.states = self.root.states
         self.config = config
-        self.actions = actions
-        self.guards = guards
-        self.delays = delays
+        self.actions = actions if actions is not None else {}
+        self.guards = guards if guards is not None else {}
+        self.delays = delays if delays is not None else {}
         # Named actor logic referenced by `invoke: {"src": "<name>"}`; resolved
         # by the actor layer when an invoking state is entered.
-        self.actors = actors
+        self.actors = actors if actors is not None else {}
         self.context = config.get("context", {}) or {}
 
     def _get_order(self) -> int:
@@ -74,9 +81,14 @@ class Machine:
             configuration, event, context, history_value
         )
 
-        actions, warnings = self._get_actions(_actions)
-        for w in warnings:
-            print(w)
+        actions, unknown = self._get_actions(_actions, context=context, event=event)
+        for name in unknown:
+            warnings.warn(
+                f"No implementation found for action '{name}'. "
+                f"Pass it via Machine(config, actions={{'{name}': ...}}).",
+                UserWarning,
+                stacklevel=2,
+            )
 
         return State(
             configuration=configuration,
@@ -86,21 +98,35 @@ class Machine:
         )
 
     def _get_actions(
-        self, actions: List
+        self,
+        actions: List,
+        context: Optional[Dict[str, Any]] = None,
+        event: Optional[Any] = None,
     ) -> Tuple[List[Union[Callable, Any]], List[str]]:
         result: List[Union[Callable, Any]] = []
-        errors: List[str] = []
+        unknown: List[str] = []
         for action in actions:
             if action.type in INTERPRETER_TYPES:
                 # Passed through as raw Action; the interpreter handles them.
                 result.append(action)
             elif action.type in self.actions:
-                result.append(self.actions[action.type])
+                impl = self.actions[action.type]
+                if isinstance(impl, dict) and impl.get("type") == ASSIGN_TYPE:
+                    # Named assign: apply like the algorithm would.
+                    # Lets callers write:
+                    #   Machine(config, actions={"save": assign({...})})
+                    # with the name referenced in the JSON/dict config.
+                    if context is not None:
+                        from xstate.action import Action as _A
+
+                        _apply_assignment(_A(ASSIGN_TYPE, data=impl), context, event)
+                else:
+                    result.append(impl)
             elif callable(action.type):
                 result.append(action.type)
             else:
-                errors.append("No '{}' action".format(action.type))
-        return result, errors
+                unknown.append(str(action.type))
+        return result, unknown
 
     def state_from(self, state_value) -> State:
         configuration = set(self._get_configuration(state_value=state_value))
@@ -139,7 +165,7 @@ class Machine:
 
     @property
     def initial_state(self) -> State:
-        context = dict(self.context)
+        context = copy.deepcopy(self.context)
         history_value: Dict[str, Any] = {}
         init_event = Event("xstate.init")
         configuration, _actions, internal_queue = enter_states(
@@ -162,9 +188,16 @@ class Machine:
             history_value=history_value,
         )
 
-        actions, warnings = self._get_actions(_actions)
-        for w in warnings:
-            print(w)
+        actions, unknown = self._get_actions(
+            _actions, context=context, event=init_event
+        )
+        for name in unknown:
+            warnings.warn(
+                f"No implementation found for action '{name}'. "
+                f"Pass it via Machine(config, actions={{'{name}': ...}}).",
+                UserWarning,
+                stacklevel=2,
+            )
 
         return State(
             configuration=configuration,

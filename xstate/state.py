@@ -26,14 +26,14 @@ class State:
         self,
         configuration: Set[StateNode],
         context: Dict[str, Any],
-        actions: List[Union[Callable, "Action"]] = [],
+        actions: Optional[List[Union[Callable, "Action"]]] = None,
         history_value: Optional[Dict[str, Set[StateNode]]] = None,
     ):
         root = next(iter(configuration)).machine.root
         self.configuration = configuration
         self.value = get_state_value(root, configuration)
         self.context = context
-        self.actions = actions
+        self.actions = actions if actions is not None else []
         self.history_value = history_value if history_value is not None else {}
         self.error = None
         self.event = None

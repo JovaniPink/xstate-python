@@ -22,11 +22,11 @@ class Action:
         self,
         type: str,
         exec: Optional[Callable[[], None]] = None,
-        data: Dict[str, Any] = {},
+        data: Optional[Dict[str, Any]] = None,
     ):
         self.type = type
         self.exec = exec
-        self.data = data
+        self.data = data if data is not None else {}
 
     def __repr__(self):
         return repr({"type": self.type})
