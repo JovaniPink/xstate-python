@@ -94,9 +94,13 @@ def add_descendent_states_to_enter(
                     history_value=history_value,
                 )
             for s in history_value.get(state.id):
+                # Per SCXML the ancestor bound is the history node's parent, not
+                # each restored state's parent. For deep history `s` can be a
+                # nested atomic descendant, so using `s.parent` would drop the
+                # intermediate ancestors between `s` and `state.parent`.
                 add_ancestor_states_to_enter(
                     s,
-                    ancestor=s.parent,
+                    ancestor=state.parent,
                     states_to_enter=states_to_enter,
                     states_for_default_entry=states_for_default_entry,
                     default_history_content=default_history_content,
@@ -116,9 +120,12 @@ def add_descendent_states_to_enter(
                     history_value=history_value,
                 )
             for s in default_transition.target:
+                # Ancestor bound is the history node's parent (see note above):
+                # a deeply-nested default target must still enter every ancestor
+                # up to `state.parent`.
                 add_ancestor_states_to_enter(
                     s,
-                    ancestor=s.parent,
+                    ancestor=state.parent,
                     states_to_enter=states_to_enter,
                     states_for_default_entry=states_for_default_entry,
                     default_history_content=default_history_content,
@@ -148,11 +155,6 @@ def add_descendent_states_to_enter(
         else:
             if is_parallel_state(state):
                 for child in get_child_states(state):
-                    # History pseudo-states are not real states to enter;
-                    # they are only targeted explicitly and must never be
-                    # auto-entered when a parallel state is activated.
-                    if is_history_state(child):
-                        continue
                     if not any([is_descendent(s, child) for s in states_to_enter]):
                         add_descendent_states_to_enter(
                             child,
@@ -259,8 +261,6 @@ def add_ancestor_states_to_enter(
         states_to_enter.add(anc)
         if is_parallel_state(anc):
             for child in get_child_states(anc):
-                if is_history_state(child):
-                    continue
                 if not any([is_descendent(s, state2=child) for s in states_to_enter]):
                     add_descendent_states_to_enter(
                         child,
@@ -274,13 +274,14 @@ def add_ancestor_states_to_enter(
 def get_proper_ancestors(
     state1: StateNode, state2: Optional[StateNode]
 ) -> List[StateNode]:
+    # Per W3C SCXML getProperAncestors: return the ancestors of state1 in
+    # ancestry order, up to *but not including* state2 (state2 is the exclusive
+    # upper bound / transition domain). When state2 is None, return all
+    # ancestors up to the root.
     ancestors: List[StateNode] = []
     marker = state1.parent
-    while marker:
+    while marker and marker != state2:
         ancestors.append(marker)
-        if marker == state2:
-            break
-
         marker = marker.parent
 
     return ancestors
@@ -296,7 +297,11 @@ def is_parallel_state(state_node: Optional[StateNode]) -> bool:
 
 
 def get_child_states(state_node: StateNode) -> List[StateNode]:
-    return [state_node.states.get(key) for key in state_node.states.keys()]
+    # Per W3C SCXML, getChildStates returns the real <state>/<parallel>/<final>
+    # children and explicitly excludes <history> (and <initial>) pseudo-states.
+    # Excluding history here keeps every region-enumeration caller correct: the
+    # parallel entry fan-out, is_in_final_state, and the parallel onDone check.
+    return [s for s in state_node.states.values() if not is_history_state(s)]
 
 
 def is_in_final_state(state: StateNode, configuration: Set[StateNode]) -> bool:
@@ -460,6 +465,7 @@ def _matches_in_state(in_spec, configuration: Set[StateNode]) -> bool:
         parts = in_spec.split(".")
         if len(parts) == 1:
             return any(s.key == parts[0] for s in configuration)
+
         # Walk parts as an ancestor chain: parts[-1] must be active and its
         # ancestors must match the remaining parts in order.
         def _path_active(parts: List[str]) -> bool:
@@ -477,6 +483,7 @@ def _matches_in_state(in_spec, configuration: Set[StateNode]) -> bool:
                 if matched:
                     return True
             return False
+
         return _path_active(parts)
     if isinstance(in_spec, dict):
         return all(
@@ -556,17 +563,23 @@ def select_eventless_transitions(
     if history_value is None:
         history_value = {}
     enabled_transitions: Set[Transition] = set()
-    atomic_states = filter(is_atomic_state, configuration)
+    atomic_states = [s for s in configuration if is_atomic_state(s)]
 
-    loop = True
+    # For each atomic state, select the first (innermost, document-order)
+    # matching eventless transition, then move on to the next atomic state.
+    # `break_loop` stops scanning ancestors of the *current* atomic state once a
+    # match is found; it must not stop us from visiting the remaining atomic
+    # states (parallel regions each contribute their own eventless transition).
     for state in atomic_states:
-        if not loop:
-            break
+        break_loop = False
         for s in [state] + get_proper_ancestors(state, None):
+            if break_loop:
+                break
             for t in sorted(s.transitions, key=lambda t: t.order):
                 if not t.event and condition_match(t, context, event, configuration):
                     enabled_transitions.add(t)
-                    loop = False
+                    break_loop = True
+                    break
 
     enabled_transitions = remove_conflicting_transitions(
         enabled_transitions=enabled_transitions,

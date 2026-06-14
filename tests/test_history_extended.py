@@ -9,7 +9,6 @@ Covers behaviors beyond the basic shallow/deep tests already in test_history.py:
 import pytest
 from xstate import Machine
 
-
 # ---------------------------------------------------------------------------
 # Machine: compound state with both shallow and deep history pseudo-states
 # ---------------------------------------------------------------------------
@@ -142,7 +141,9 @@ def make_parallel_history():
                         "SWITCH": "on",
                         "POWER": "#ph_on_shallow",
                         "DEEP_POWER": "#ph_on_deep",
-                        "PARALLEL_HIST": [{"target": ["#ph_A_shallow", "#ph_K_shallow"]}],
+                        "PARALLEL_HIST": [
+                            {"target": ["#ph_A_shallow", "#ph_K_shallow"]}
+                        ],
                         "PARALLEL_DEEP": [{"target": ["#ph_A_deep", "#ph_K_deep"]}],
                     }
                 },
@@ -245,8 +246,8 @@ def test_parallel_shallow_history_of_root_ignores_region_substates():
     s = machine.transition(s, "SWITCH")  # A=B, K=L
     s = machine.transition(s, "INNER_A")  # A=C.D
     assert s.value == {"on": {"A": {"C": "D"}, "K": "L"}}
-    s = machine.transition(s, "POWER")   # off; shallow hist of on records {A, K}
-    s = machine.transition(s, "POWER")   # restore via shallow: enters A→B, K→L
+    s = machine.transition(s, "POWER")  # off; shallow hist of on records {A, K}
+    s = machine.transition(s, "POWER")  # restore via shallow: enters A→B, K→L
     assert s.value == {"on": {"A": "B", "K": "L"}}
 
 
@@ -257,7 +258,7 @@ def test_parallel_deep_history_of_root_restores_full_path():
     s = machine.transition(s, "SWITCH")  # A=B, K=L
     s = machine.transition(s, "INNER_A")  # A=C.D, K=L
     assert s.value == {"on": {"A": {"C": "D"}, "K": "L"}}
-    s = machine.transition(s, "POWER")     # off; deep hist records {C.D, L}
+    s = machine.transition(s, "POWER")  # off; deep hist records {C.D, L}
     s = machine.transition(s, "DEEP_POWER")  # restore: A→C.D, K→L
     assert s.value == {"on": {"A": {"C": "D"}, "K": "L"}}
 
@@ -267,7 +268,7 @@ def test_parallel_deep_history_restores_both_regions():
     machine = make_parallel_history()
     s = _reach_ACEKMO(machine)
     assert s.value == {"on": {"A": {"C": "E"}, "K": {"M": "O"}}}
-    s = machine.transition(s, "POWER")      # off
+    s = machine.transition(s, "POWER")  # off
     s = machine.transition(s, "DEEP_POWER")  # restore A=C.E, K=M.O
     assert s.value == {"on": {"A": {"C": "E"}, "K": {"M": "O"}}}
 

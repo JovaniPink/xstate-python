@@ -55,10 +55,16 @@ class Transition:
         if isinstance(self.config, str):
             return [self.source._get_relative(self.config)]
         elif isinstance(self.config, dict):
-            if isinstance(self.config["target"], str):
-                return [self.source._get_relative(self.config["target"])]
+            # A dict transition may omit "target" entirely — e.g. a guarded
+            # internal self-loop like {"cond": fn} or {"actions": [...]}. Treat
+            # the absence of a target as "no state change" rather than crashing.
+            target = self.config.get("target")
+            if target is None:
+                return []
+            if isinstance(target, str):
+                return [self.source._get_relative(target)]
 
-            return [self.source._get_relative(v) for v in self.config["target"]]
+            return [self.source._get_relative(v) for v in target]
         else:
             return [self.config] if self.config else []
 

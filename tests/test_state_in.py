@@ -13,7 +13,6 @@ Based on the XState v4 statein.test.ts describe block.
 import pytest
 from xstate import Machine
 
-
 # ---------------------------------------------------------------------------
 # Machine: parallel root with two regions that have cross-region `in` guards
 # ---------------------------------------------------------------------------
@@ -69,7 +68,7 @@ def test_in_dict_fires_when_condition_met():
     machine = make_cross_region()
     state = machine.initial_state
     assert state.value == {"a": "a1", "b": "b1"}
-    state = machine.transition(state, "GO_B2")   # b → b2
+    state = machine.transition(state, "GO_B2")  # b → b2
     assert state.value == {"a": "a1", "b": "b2"}
     state = machine.transition(state, "EVENT_DICT")  # a1→a2 because b==b2
     assert state.value == {"a": "a2", "b": "b2"}
@@ -163,10 +162,10 @@ def test_traffic_light_blocked_at_walk():
     """TIMER from red.walk is blocked — 'in {red: stop}' is not satisfied."""
     machine = make_traffic_light()
     state = machine.initial_state
-    state = machine.transition(state, "TIMER")   # green → yellow
-    state = machine.transition(state, "TIMER")   # yellow → red (walk)
+    state = machine.transition(state, "TIMER")  # green → yellow
+    state = machine.transition(state, "TIMER")  # yellow → red (walk)
     assert state.value == {"red": "walk"}
-    state = machine.transition(state, "TIMER")   # no-op (in: red.stop not met)
+    state = machine.transition(state, "TIMER")  # no-op (in: red.stop not met)
     assert state.value == {"red": "walk"}
 
 
@@ -174,11 +173,11 @@ def test_traffic_light_blocked_at_wait():
     """TIMER from red.wait is also blocked."""
     machine = make_traffic_light()
     state = machine.initial_state
-    state = machine.transition(state, "TIMER")   # → yellow
-    state = machine.transition(state, "TIMER")   # → red.walk
-    state = machine.transition(state, "STEP")    # → red.wait
+    state = machine.transition(state, "TIMER")  # → yellow
+    state = machine.transition(state, "TIMER")  # → red.walk
+    state = machine.transition(state, "STEP")  # → red.wait
     assert state.value == {"red": "wait"}
-    state = machine.transition(state, "TIMER")   # no-op
+    state = machine.transition(state, "TIMER")  # no-op
     assert state.value == {"red": "wait"}
 
 
@@ -186,12 +185,12 @@ def test_traffic_light_fires_from_stop():
     """TIMER from red.stop fires because 'in {red: stop}' IS satisfied."""
     machine = make_traffic_light()
     state = machine.initial_state
-    state = machine.transition(state, "TIMER")   # → yellow
-    state = machine.transition(state, "TIMER")   # → red.walk
-    state = machine.transition(state, "STEP")    # → red.wait
-    state = machine.transition(state, "STEP")    # → red.stop
+    state = machine.transition(state, "TIMER")  # → yellow
+    state = machine.transition(state, "TIMER")  # → red.walk
+    state = machine.transition(state, "STEP")  # → red.wait
+    state = machine.transition(state, "STEP")  # → red.stop
     assert state.value == {"red": "stop"}
-    state = machine.transition(state, "TIMER")   # guard satisfied → green
+    state = machine.transition(state, "TIMER")  # guard satisfied → green
     assert state.value == "green"
 
 
@@ -266,9 +265,9 @@ def test_combined_both_must_pass():
             "context": {"ok": True},
         }
     )
-    state = machine.initial_state       # a=a1, b=b1; ctx.ok=True
-    state = machine.transition(state, "GO")      # in fails (b≠b2)
+    state = machine.initial_state  # a=a1, b=b1; ctx.ok=True
+    state = machine.transition(state, "GO")  # in fails (b≠b2)
     assert state.value == {"a": "a1", "b": "b1"}
-    state = machine.transition(state, "GO_B2")   # b→b2
-    state = machine.transition(state, "GO")      # in ✓, cond ✓ → a2
+    state = machine.transition(state, "GO_B2")  # b→b2
+    state = machine.transition(state, "GO")  # in ✓, cond ✓ → a2
     assert state.value == {"a": "a2", "b": "b2"}
