@@ -129,6 +129,10 @@ class StateNode:
                 return Transition(
                     next(iter(self.states.values())), source=self, event=None, order=-1
                 )
+            if self.type == "parallel":
+                # Entering a parallel state enters all of its regions; target the
+                # node itself so add_descendent_states_to_enter fans out to them.
+                return Transition(self, source=self, event=None, order=-1)
         else:
             return Transition(
                 self.states.get(initial_key), source=self, event=None, order=-1

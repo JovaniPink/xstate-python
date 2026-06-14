@@ -283,12 +283,9 @@ def is_final_state(state_node: StateNode) -> bool:
     return state_node.type == "final"
 
 
-def is_parallel_state(state_node: StateNode) -> bool:
-    # should return whether state_node.type is parallel
-    if state_node.type == "parallel":
-        return True
-    else:
-        return False
+def is_parallel_state(state_node: Optional[StateNode]) -> bool:
+    # A null node (e.g. the root's absent parent) is never parallel.
+    return state_node is not None and state_node.type == "parallel"
 
 
 def get_child_states(state_node: StateNode) -> List[StateNode]:
