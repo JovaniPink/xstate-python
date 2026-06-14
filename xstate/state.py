@@ -15,7 +15,7 @@ class State:
     context: Dict[str, Any]
     actions: List[Union[Callable, "Action"]]
     history_value: Dict[str, Set[StateNode]]
-    status: str   # "active" | "done" | "error"
+    status: str  # "active" | "done" | "error"
     output: Optional[Any]
     error: Optional[Any]
 

@@ -3,13 +3,11 @@
 - ``guard``  — v5 canonical name for ``cond``; both spellings accepted
 - ``output`` — v5 canonical name for final-state ``data``; both spellings accepted
 - ``always`` — v5 keyword for eventless (null-event) transitions
-- ``MachineSnapshot`` — v5 public alias for ``State``; adds ``status``/``output``/``error``
+- ``MachineSnapshot`` — v5 public alias for ``State``; adds status/output/error
 - ``State.matches()`` — helper for checking nested state values
 """
 
-import pytest
-from xstate import Machine, assign, MachineSnapshot
-
+from xstate import Machine, MachineSnapshot, assign
 
 # ---------------------------------------------------------------------------
 # guard: v5 spelling of cond
@@ -168,12 +166,12 @@ def test_output_on_final_state_reaches_on_done():
             "states": {
                 "work": {
                     "initial": "task",
-                    "states": {
-                        "task": {"type": "final", "output": {"value": 99}}
-                    },
+                    "states": {"task": {"type": "final", "output": {"value": 99}}},
                     "onDone": {
                         "target": "done",
-                        "actions": [assign({"result": lambda ctx, ev: ev.data["value"]})],
+                        "actions": [
+                            assign({"result": lambda ctx, ev: ev.data["value"]})
+                        ],
                     },
                 },
                 "done": {},
@@ -194,12 +192,12 @@ def test_data_still_works_for_backwards_compat():
             "states": {
                 "work": {
                     "initial": "task",
-                    "states": {
-                        "task": {"type": "final", "data": {"value": 42}}
-                    },
+                    "states": {"task": {"type": "final", "data": {"value": 42}}},
                     "onDone": {
                         "target": "done",
-                        "actions": [assign({"result": lambda ctx, ev: ev.data["value"]})],
+                        "actions": [
+                            assign({"result": lambda ctx, ev: ev.data["value"]})
+                        ],
                     },
                 },
                 "done": {},
@@ -273,7 +271,10 @@ def test_guard_with_keyword_only_context():
                 "idle": {
                     "on": {
                         "GO": [
-                            {"target": "big", "guard": lambda *, context: context["x"] > 5},
+                            {
+                                "target": "big",
+                                "guard": lambda *, context: context["x"] > 5,
+                            },
                             {"target": "small"},
                         ]
                     }
@@ -320,7 +321,7 @@ def test_guard_with_keyword_only_context_and_event():
 
 
 def test_assign_with_keyword_only_handler():
-    """``assign`` callable with ``(*, context, event)`` signature is invoked correctly."""
+    """``assign`` callable with ``(*, context)`` keyword-only signature works."""
     machine = Machine(
         {
             "id": "kw",
@@ -331,7 +332,9 @@ def test_assign_with_keyword_only_handler():
                     "on": {
                         "INC": {
                             "actions": [
-                                assign(lambda *, context: {"count": context["count"] + 1})
+                                assign(
+                                    lambda *, context: {"count": context["count"] + 1}
+                                )
                             ]
                         }
                     }
