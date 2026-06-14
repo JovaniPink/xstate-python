@@ -96,8 +96,15 @@ def _call_with_supported_kwargs(fn: Callable[..., Any], **kwargs: Any) -> Any:
     params = sig.parameters
     if any(p.kind == p.VAR_KEYWORD for p in params.values()):
         return fn(**kwargs)
-    accepted = {k: v for k, v in kwargs.items() if k in params}
-    return fn(**accepted)
+    args = []
+    kwargs_to_pass = {}
+    for name, param in params.items():
+        if name in kwargs:
+            if param.kind == inspect.Parameter.POSITIONAL_ONLY:
+                args.append(kwargs[name])
+            else:
+                kwargs_to_pass[name] = kwargs[name]
+    return fn(*args, **kwargs_to_pass)
 
 
 # ---------------------------------------------------------------------------
@@ -437,6 +444,8 @@ class Actor:
             self._invocation_sub.unsubscribe()
             self._invocation_sub = None
         self._backend.stop()
+        if self._parent is not None:
+            self._parent._children.pop(self.id, None)
         self._system._unregister(self)
         return self
 
