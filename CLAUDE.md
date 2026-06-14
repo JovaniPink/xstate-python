@@ -34,24 +34,31 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
 
 ---
 
-## Current state (v0.1.0)
+## Current state (0.2.0 in progress)
 
 **Working:**
 - Hierarchical (compound) states
-- Parallel states (`type: "parallel"`)
+- Parallel states (`type: "parallel"`) — independent regions, broadcast events,
+  nested parallel, `onDone` when all regions reach a final state
 - Entry / exit actions
-- Guards / conditions (basic)
+- Guards / conditions (pure Python): `cond` as a callable `(context, event)` or a
+  string resolved from `Machine(config, guards={...})`
+- Context + `assign` actions (`from xstate import assign`); event payloads reach
+  guards/assigners via `event.data` (pass `transition(state, {"type": ..., ...})`)
 - Final states + `onDone` transitions
-- Shallow history states
+- History states — shallow and deep (`{"type": "history", "history": "deep"}`),
+  persisted across transitions via `State.history_value`
 - SCXML XML import (requires `pip install xstate[scxml]` for JS-cond evaluation)
 
 **Stubbed / incomplete:**
 - `interpreter.py` — no running event loop / event queue yet (0.3.0 target)
-- Deep history states (0.2.0 target)
 - Delayed transitions / `after` (0.3.0 target)
-- Context / `assign` actions (0.2.0 target)
 - Async support (0.5.0 target)
 - `setup()` API + XState v5 handler signatures (0.4.0+ target)
+
+Handler-signature note: guards/assigners are invoked arity-aware (`()`,
+`(context)`, or `(context, event)`) by `algorithm._invoke`. The XState v5
+single-object signature `({context, event})` is a 0.4.0 target.
 
 ---
 
