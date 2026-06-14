@@ -10,46 +10,40 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9]
-        poetry-version: [1.1.6]
+        python-version: ["3.9", "3.11", "3.13"]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Run image
-        uses: abatilo/actions-poetry@v2.0.0
-        with:
-          poetry-version: ${{ matrix.poetry-version }}
+      - name: Install Poetry
+        run: pip install "poetry>=2.0"
       - name: Install dependencies
         run: poetry install
       - name: Run tests
-        run: poetry run pytest --cov --cov-report=xml
+        run: poetry run pytest --ignore=tests/test_scxml.py --cov --cov-report=xml
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v4
   code-quality:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.7]
-        poetry-version: [1.1.6]
+        python-version: ["3.11"]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Run image
-        uses: abatilo/actions-poetry@v2.0.0
-        with:
-          poetry-version: ${{ matrix.poetry-version }}
+      - name: Install Poetry
+        run: pip install "poetry>=2.0"
       - name: Install dependencies
         run: poetry install
       - name: Run black

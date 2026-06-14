@@ -31,6 +31,7 @@ from xstate.machine import Machine
 from xstate.state import State
 from xstate.scheduler import Clock, ThreadClock
 from xstate.action import Action, SEND_TYPE, CANCEL_TYPE
+from xstate.event import Event as _Event
 
 # Interpreter lifecycle states.
 NOT_STARTED = "not_started"
@@ -85,6 +86,7 @@ class Interpreter:
             return self
         if initial_state is not None:
             self.state = initial_state
+        self.state.event = _Event("xstate.init")
         self._status = RUNNING
         self._sync_delays()
         self._execute(self.state)
@@ -127,6 +129,7 @@ class Interpreter:
 
     def _process(self, event) -> None:
         next_state = self.machine.transition(self.state, event)
+        next_state.event = self.machine._to_event(event)
         self.state = next_state
         self._sync_delays()
         self._execute(next_state)
@@ -163,8 +166,9 @@ class Interpreter:
         delay = action.data.get("delay")
         send_id = action.data.get("id")
         if delay is not None:
+            delay_ms = self._resolve_delay(delay)
             tid = self.clock.set_timeout(
-                (lambda e: lambda: self.send(e))(event), float(delay)
+                (lambda e: lambda: self.send(e))(event), delay_ms
             )
             if send_id:
                 self._send_timers[send_id] = tid
@@ -191,14 +195,13 @@ class Interpreter:
         delay = self.machine.delays.get(delay_spec)
         if delay is None:
             raise ValueError(
-                f"Delay '{delay_spec}' is referenced by an `after` transition "
-                f"but is not configured. Pass it via "
-                f"Machine(config, delays={{'{delay_spec}': ...}})."
+                f"Delay '{delay_spec}' is not configured. "
+                f"Pass it via Machine(config, delays={{'{delay_spec}': ...}})."
             )
         if callable(delay):
             from xstate.algorithm import _invoke
 
-            return float(_invoke(delay, self.state.context, self.state.event if hasattr(self.state, "event") else None))
+            return float(_invoke(delay, self.state.context, getattr(self.state, "event", None)))
         return float(delay)
 
     def _sync_delays(self) -> None:

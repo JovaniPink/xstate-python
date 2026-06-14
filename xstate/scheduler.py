@@ -78,13 +78,23 @@ class ThreadClock(Clock):
         with self._lock:
             timeout_id = self._next_id
             self._next_id += 1
-        timer = threading.Timer(delay_ms / 1000.0, fn)
+
+        def _run() -> None:
+            try:
+                fn()
+            finally:
+                with self._lock:
+                    self._timers.pop(timeout_id, None)
+
+        timer = threading.Timer(delay_ms / 1000.0, _run)
         timer.daemon = True
-        self._timers[timeout_id] = timer
+        with self._lock:
+            self._timers[timeout_id] = timer
         timer.start()
         return timeout_id
 
     def clear_timeout(self, timeout_id: int) -> None:
-        timer = self._timers.pop(timeout_id, None)
+        with self._lock:
+            timer = self._timers.pop(timeout_id, None)
         if timer is not None:
             timer.cancel()
