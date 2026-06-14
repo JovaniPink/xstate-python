@@ -47,12 +47,14 @@ class Transition:
         self.order = order
 
         self.actions = (
-            (
-                [
-                    Action(type=action.get("type"), data=action)
-                    for action in config.get("actions", [])
-                ]
-            )
+            [
+                (
+                    Action(action)
+                    if callable(action) or isinstance(action, str)
+                    else Action(type=action.get("type"), data=action)
+                )
+                for action in config.get("actions", [])
+            ]
             if isinstance(config, dict)
             else []
         )

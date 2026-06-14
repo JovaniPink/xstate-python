@@ -1,3 +1,4 @@
+import copy
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from xstate.action import INTERPRETER_TYPES
@@ -62,7 +63,7 @@ class Machine:
         configuration = get_configuration_from_state(
             from_node=self.root, state_value=state.value, partial_configuration=set()
         )
-        context = dict(state.context) if state.context else {}
+        context = copy.deepcopy(state.context) if state.context else {}
         history_value = dict(state.history_value) if state.history_value else {}
         configuration, _actions = main_event_loop(
             configuration, event, context, history_value

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import inspect
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
@@ -9,6 +10,15 @@ from xstate.state_node import StateNode
 from xstate.transition import Transition
 
 HistoryValue = Dict[str, Set[StateNode]]
+
+
+@functools.lru_cache(maxsize=512)
+def _get_params(fn):
+    """Return the parameters of *fn*, cached to avoid repeated signature lookups."""
+    try:
+        return tuple(inspect.signature(fn).parameters.values())
+    except (TypeError, ValueError):
+        return None
 
 
 def _invoke(fn, context: Optional[Dict], event: Optional[Event]) -> Any:
@@ -22,9 +32,8 @@ def _invoke(fn, context: Optional[Dict], event: Optional[Event]) -> Any:
     The v5 JS single-object ``({context, event}) =>`` maps to Python keyword-only
     parameters: ``def guard(*, context, event): ...``
     """
-    try:
-        params = list(inspect.signature(fn).parameters.values())
-    except (TypeError, ValueError):
+    params = _get_params(fn)
+    if params is None:
         return fn(context, event)
 
     # v5 single-object style: def guard(*, context, event): ...
@@ -525,9 +534,7 @@ def condition_match(
     configuration: Optional[Set[StateNode]] = None,
 ) -> bool:
     cond = transition.cond
-    if cond is None:
-        pass
-    elif isinstance(cond, str):
+    if isinstance(cond, str):
         guards = getattr(transition.source.machine, "guards", {}) or {}
         if cond not in guards:
             raise ValueError(
@@ -625,12 +632,12 @@ def remove_conflicting_transitions(
     for t1 in ordered:
         t1_preempted = False
         transitions_to_remove: Set[Transition] = set()
+        t1_exit_set = compute_exit_set(
+            enabled_transitions=[t1],
+            configuration=configuration,
+            history_value=history_value,
+        )
         for t2 in filtered_transitions:
-            t1_exit_set = compute_exit_set(
-                enabled_transitions=[t1],
-                configuration=configuration,
-                history_value=history_value,
-            )
             t2_exit_set = compute_exit_set(
                 enabled_transitions=[t2],
                 configuration=configuration,
@@ -721,7 +728,9 @@ def main_event_loop2(
                     history_value=history_value,
                 )
         if enabled_transitions:
-            configuration, actions, internal_queue = microstep(
+            # Accumulate — microstep produces a fresh actions list each call, so
+            # extend rather than rebind to avoid dropping actions from prior steps.
+            configuration, new_actions, internal_queue = microstep(
                 enabled_transitions=enabled_transitions,
                 configuration=configuration,
                 states_to_invoke=set(),  # TODO
@@ -729,6 +738,7 @@ def main_event_loop2(
                 context=context,
                 event=event,
             )
+            actions.extend(new_actions)
 
     return (configuration, actions)
 

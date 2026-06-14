@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Union
 
-from xstate.algorithm import get_state_value
+from xstate.algorithm import get_state_value, is_in_final_state
 
 if TYPE_CHECKING:
     from xstate.action import Action
@@ -18,6 +18,9 @@ class State:
     status: str  # "active" | "done" | "error"
     output: Optional[Any]
     error: Optional[Any]
+    event: Optional[
+        Any
+    ]  # stamped by Interpreter; None when produced by machine.transition
 
     def __init__(
         self,
@@ -33,23 +36,21 @@ class State:
         self.actions = actions
         self.history_value = history_value if history_value is not None else {}
         self.error = None
+        self.event = None
 
-        # A machine is "done" when the active atomic state is a final child of
-        # the root compound node (root.parent is None; its children have
-        # parent.parent is None).
-        final = next(
-            (
-                s
-                for s in configuration
-                if s.type == "final"
-                and s.parent is not None
-                and s.parent.parent is None
-            ),
-            None,
-        )
-        if final is not None:
+        # A machine is "done" when the root state has reached a final
+        # configuration. is_in_final_state handles both compound roots (a
+        # direct final child is active) and parallel roots (all regions are in
+        # a final state).
+        if is_in_final_state(root, configuration):
             self.status = "done"
-            self.output = final.donedata
+            # For compound roots the final child carries donedata; parallel
+            # roots have no single output value.
+            final_child = next(
+                (s for s in configuration if s.type == "final" and s.parent is root),
+                None,
+            )
+            self.output = final_child.donedata if final_child else None
         else:
             self.status = "active"
             self.output = None
@@ -64,7 +65,16 @@ class State:
         from xstate.algorithm import select_transitions
         from xstate.event import Event as _Event
 
-        ev = event if not isinstance(event, str) else _Event(event)
+        # Normalise event exactly as Machine._to_event does.
+        if isinstance(event, _Event):
+            ev = event
+        elif isinstance(event, str):
+            ev = _Event(event)
+        elif isinstance(event, dict):
+            ev = _Event(event.get("type", ""), event)
+        else:
+            ev = _Event(str(event))
+
         transitions = select_transitions(
             event=ev,
             configuration=self.configuration,

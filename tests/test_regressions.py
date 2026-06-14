@@ -181,3 +181,161 @@ def test_deep_history_restores_three_level_nested_path():
     state = machine.transition(state, "POWER")  # off (deep history: x)
     state = machine.transition(state, "POWER")  # restore -> on.a.a2.x
     assert state.value == {"on": {"a": {"a2": "x"}}}
+
+
+# --- Fix (code-review round 2): main_event_loop2 dropped actions from first microstep
+
+
+def test_actions_not_dropped_when_always_fires_after_transition():
+    """Entry actions from the first microstep must survive when an always-transition
+    immediately fires a second microstep in main_event_loop2."""
+    seen = []
+    machine = Machine(
+        {
+            "id": "m",
+            "initial": "a",
+            "states": {
+                "a": {
+                    "on": {
+                        "GO": {
+                            "target": "b",
+                            "actions": [lambda: seen.append("transition:a->b")],
+                        }
+                    }
+                },
+                "b": {
+                    "entry": [lambda: seen.append("entry:b")],
+                    "always": {"target": "c"},
+                },
+                "c": {"entry": [lambda: seen.append("entry:c")]},
+            },
+        }
+    )
+    from xstate import interpret
+
+    svc = interpret(machine).start()
+    svc.send("GO")
+    # All three actions must be present — b's actions were from the first
+    # microstep; c's from the follow-up always microstep.
+    assert "transition:a->b" in seen
+    assert "entry:b" in seen
+    assert "entry:c" in seen
+    assert svc.state.value == "c"
+
+
+# --- Fix (code-review round 2): State.can() crashed on dict events
+
+
+def test_state_can_with_dict_event():
+    machine = Machine(
+        {
+            "id": "m",
+            "initial": "idle",
+            "states": {
+                "idle": {"on": {"LOGIN": "active"}},
+                "active": {},
+            },
+        }
+    )
+    state = machine.initial_state
+    assert state.can({"type": "LOGIN"}) is True
+    assert state.can({"type": "LOGOUT"}) is False
+
+
+# --- Fix (code-review round 2): parallel root never set status='done'
+
+
+def test_parallel_root_status_done_when_all_regions_final():
+    machine = Machine(
+        {
+            "id": "par",
+            "type": "parallel",
+            "states": {
+                "a": {
+                    "initial": "running",
+                    "states": {
+                        "running": {"on": {"DONE_A": "done"}},
+                        "done": {"type": "final"},
+                    },
+                },
+                "b": {
+                    "initial": "running",
+                    "states": {
+                        "running": {"on": {"DONE_B": "done"}},
+                        "done": {"type": "final"},
+                    },
+                },
+            },
+        }
+    )
+    state = machine.initial_state
+    assert state.status == "active"
+    state = machine.transition(state, "DONE_A")
+    assert state.status == "active"
+    state = machine.transition(state, "DONE_B")
+    assert state.status == "done"
+
+
+# --- Fix (code-review round 2): string actions in entry/exit/transition crashed
+
+
+def test_string_action_in_entry_resolved_without_crash():
+    """Named string actions (looked up in Machine(actions={...})) must not crash
+    during machine construction or state transition."""
+    called = []
+    machine = Machine(
+        {
+            "id": "m",
+            "initial": "a",
+            "states": {
+                "a": {
+                    "entry": ["log"],
+                    "on": {"GO": {"target": "b", "actions": ["log"]}},
+                },
+                "b": {},
+            },
+        },
+        actions={"log": lambda: called.append("log")},
+    )
+    from xstate import interpret
+
+    svc = interpret(machine).start()
+    svc.send("GO")
+    assert called == ["log", "log"]  # entry:a on start, transition action on GO
+
+
+# --- Fix (code-review round 2): deep context copy prevents snapshot corruption
+
+
+def test_nested_context_not_shared_between_snapshots():
+    """Nested mutable objects in context must not be shared between state snapshots."""
+    from xstate import assign
+
+    machine2 = Machine(
+        {
+            "id": "m2",
+            "initial": "a",
+            "context": {"items": []},
+            "states": {
+                "a": {
+                    "on": {
+                        "ADD": {
+                            "actions": [
+                                assign(
+                                    lambda ctx, ev: {
+                                        "items": ctx["items"] + [ev.data["v"]]
+                                    }
+                                )
+                            ]
+                        }
+                    }
+                }
+            },
+        }
+    )
+    s0 = machine2.initial_state
+    s1 = machine2.transition(s0, {"type": "ADD", "v": 1})
+    s2 = machine2.transition(s1, {"type": "ADD", "v": 2})
+    assert s0.context["items"] == []
+    assert s1.context["items"] == [1]
+    assert s2.context["items"] == [1, 2]

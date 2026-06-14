@@ -67,8 +67,8 @@ class Interpreter:
         self._processing = False
         # `after`-event name → clock timeout id
         self._scheduled: Dict[str, int] = {}
-        # named `send(..., id=...)` → clock timeout id
-        self._send_timers: Dict[str, int] = {}
+        # named `send(..., id=...)` or tid → clock timeout id (all delayed sends)
+        self._send_timers: Dict = {}
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -170,8 +170,9 @@ class Interpreter:
             tid = self.clock.set_timeout(
                 (lambda e: lambda: self.send(e))(event), delay_ms
             )
-            if send_id:
-                self._send_timers[send_id] = tid
+            # Use the explicit id if given; fall back to tid so stop() can
+            # cancel anonymous delayed sends too.
+            self._send_timers[send_id if send_id else tid] = tid
         else:
             self.send(event)
 

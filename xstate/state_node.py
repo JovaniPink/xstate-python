@@ -162,6 +162,8 @@ class StateNode:
     def get_actions(self, action):
         if callable(action):
             return Action(action)
+        elif isinstance(action, str):
+            return Action(action)
         else:
             return Action(action.get("type"), exec=None, data=action)
 
