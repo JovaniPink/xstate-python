@@ -53,13 +53,21 @@ class Machine:
             from_node=self.root, state_value=state.value, partial_configuration=set()
         )
         context = dict(state.context) if state.context else {}
-        configuration, _actions = main_event_loop(configuration, event, context)
+        history_value = dict(state.history_value) if state.history_value else {}
+        configuration, _actions = main_event_loop(
+            configuration, event, context, history_value
+        )
 
         actions, warnings = self._get_actions(_actions)
         for w in warnings:
             print(w)
 
-        return State(configuration=configuration, context=context, actions=actions)
+        return State(
+            configuration=configuration,
+            context=context,
+            actions=actions,
+            history_value=history_value,
+        )
 
     def _get_actions(self, actions) -> List[lambda: None]:
         result = []
@@ -112,12 +120,13 @@ class Machine:
     @property
     def initial_state(self) -> State:
         context = dict(self.context)
+        history_value = {}
         init_event = Event("xstate.init")
         configuration, _actions, internal_queue = enter_states(
             [self.root.initial],
             configuration=set(),
             states_to_invoke=set(),
-            history_value={},
+            history_value=history_value,
             actions=[],
             internal_queue=[],
             context=context,
@@ -130,10 +139,16 @@ class Machine:
             internal_queue=internal_queue,
             context=context,
             event=init_event,
+            history_value=history_value,
         )
 
         actions, warnings = self._get_actions(_actions)
         for w in warnings:
             print(w)
 
-        return State(configuration=configuration, context=context, actions=actions)
+        return State(
+            configuration=configuration,
+            context=context,
+            actions=actions,
+            history_value=history_value,
+        )

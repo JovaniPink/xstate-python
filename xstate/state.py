@@ -12,18 +12,21 @@ class State:
     value: str
     context: Dict[str, Any]
     actions: List[Action]
+    history_value: Dict[str, Set[StateNode]]
 
     def __init__(
         self,
         configuration: Set[StateNode],
         context: Dict[str, Any],
         actions: List[Action] = [],
+        history_value: Dict[str, Set[StateNode]] = None,
     ):
         root = next(iter(configuration)).machine.root
         self.configuration = configuration
         self.value = get_state_value(root, configuration)
         self.context = context
         self.actions = actions
+        self.history_value = history_value if history_value is not None else {}
 
     def __repr__(self):
         return repr(

@@ -79,6 +79,20 @@ class StateNode:
         if self.type is None:
             self.type = "atomic" if not self.states else "compound"
 
+        # History state support. A history state restores the most recent
+        # configuration of its parent; "shallow" (default) restores only the
+        # parent's immediate child, "deep" restores the full descendant path.
+        # `transition` holds the default target used on the first entry, before
+        # any history has been recorded.
+        self.history = (
+            config.get("history", "shallow") if self.type == "history" else None
+        )
+        self.transition = None
+        if self.type == "history" and config.get("target") is not None:
+            self.transition = Transition(
+                config.get("target"), source=self, event=None, order=-1
+            )
+
         if self.type == "final":
             self.donedata = config.get("data")
 
@@ -100,6 +114,11 @@ class StateNode:
             return Action(action)
         else:
             return Action(action.get("type"), exec=None, data=action)
+
+    @property
+    def history_states(self) -> List[StateNode]:
+        """Child states of this node that are history pseudo-states."""
+        return [s for s in self.states.values() if s.type == "history"]
 
     @property
     def initial(self):

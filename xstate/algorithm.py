@@ -103,24 +103,27 @@ def add_descendent_states_to_enter(
                     history_value=history_value,
                 )
         else:
-            default_history_content[state.parent.id] = state.transition.content
-            # for s in state.transition.target:
-            #     add_descendent_states_to_enter(
-            #         s,
-            #         states_to_enter=states_to_enter,
-            #         states_for_default_entry=states_for_default_entry,
-            #         default_history_content=default_history_content,
-            #         history_value=history_value,
-            #     )
-            # for s in state.transition.target:
-            #     add_ancestor_states_to_enter(
-            #         s,
-            #         ancestor=s.parent,
-            #         states_to_enter=states_to_enter,
-            #         states_for_default_entry=states_for_default_entry,
-            #         default_history_content=default_history_content,
-            #         history_value=history_value,
-            #     )
+            # No history recorded yet: enter the history state's default target
+            # (or, if none is configured, fall back to the parent's initial).
+            default_transition = state.transition or state.parent.initial
+            default_history_content[state.parent.id] = default_transition
+            for s in default_transition.target:
+                add_descendent_states_to_enter(
+                    s,
+                    states_to_enter=states_to_enter,
+                    states_for_default_entry=states_for_default_entry,
+                    default_history_content=default_history_content,
+                    history_value=history_value,
+                )
+            for s in default_transition.target:
+                add_ancestor_states_to_enter(
+                    s,
+                    ancestor=s.parent,
+                    states_to_enter=states_to_enter,
+                    states_for_default_entry=states_for_default_entry,
+                    default_history_content=default_history_content,
+                    history_value=history_value,
+                )
     else:
         states_to_enter.add(state)
         if is_compound_state(state):
@@ -218,9 +221,12 @@ def get_effective_target_states(
             if history_value.get(s.id):
                 targets.update(history_value.get(s.id))
             else:
+                # No recorded history: resolve the default target, falling back
+                # to the parent's initial transition when none is configured.
+                default_transition = s.transition or s.parent.initial
                 targets.update(
                     get_effective_target_states(
-                        s.transition, history_value=history_value
+                        default_transition, history_value=history_value
                     )
                 )
         else:
@@ -380,9 +386,22 @@ def exit_states(
     )
     for s in states_to_exit:
         states_to_invoke.discard(s)
-    #     statesToExit = statesToExit.toList().sort(exitOrder)
-    # for s in states_to_exit:
-    #     for h in s.history
+
+    # Record history before exiting: for each history child of a state being
+    # exited, snapshot the part of the current configuration it should restore.
+    # "deep" remembers the full atomic descendant path; "shallow" remembers only
+    # the state's immediate active children.
+    for s in states_to_exit:
+        for h in s.history_states:
+            if h.history == "deep":
+                history_value[h.id] = {
+                    s0
+                    for s0 in configuration
+                    if is_atomic_state(s0) and is_descendent(s0, state2=s)
+                }
+            else:
+                history_value[h.id] = {s0 for s0 in configuration if s0.parent == s}
+
     for s in states_to_exit:
         for action in s.exit:
             execute_content(
@@ -443,8 +462,13 @@ def condition_match(
 
 
 def select_transitions(
-    event: Event, configuration: Set[StateNode], context: Optional[Dict] = None
+    event: Event,
+    configuration: Set[StateNode],
+    context: Optional[Dict] = None,
+    history_value: Optional[HistoryValue] = None,
 ):
+    if history_value is None:
+        history_value = {}
     enabled_transitions: Set[Transition] = set()
     atomic_states = [s for s in configuration if is_atomic_state(s)]
     for state_node in atomic_states:
@@ -461,7 +485,9 @@ def select_transitions(
                     enabled_transitions.add(t)
                     break_loop = True
     enabled_transitions = remove_conflicting_transitions(
-        enabled_transitions, configuration=configuration, history_value={}  # TODO
+        enabled_transitions,
+        configuration=configuration,
+        history_value=history_value,
     )
 
     return sorted(enabled_transitions, key=lambda t: t.order)
@@ -471,7 +497,10 @@ def select_eventless_transitions(
     configuration: Set[StateNode],
     context: Optional[Dict] = None,
     event: Optional[Event] = None,
+    history_value: Optional[HistoryValue] = None,
 ):
+    if history_value is None:
+        history_value = {}
     enabled_transitions: Set[Transition] = set()
     atomic_states = filter(is_atomic_state, configuration)
 
@@ -488,7 +517,7 @@ def select_eventless_transitions(
     enabled_transitions = remove_conflicting_transitions(
         enabled_transitions=enabled_transitions,
         configuration=configuration,
-        history_value={},  # TODO
+        history_value=history_value,
     )
     return enabled_transitions
 
@@ -532,12 +561,19 @@ def remove_conflicting_transitions(
 
 
 def main_event_loop(
-    configuration: Set[StateNode], event: Event, context: Optional[Dict] = None
+    configuration: Set[StateNode],
+    event: Event,
+    context: Optional[Dict] = None,
+    history_value: Optional[HistoryValue] = None,
 ) -> Tuple[Set[StateNode], List[Action]]:
     states_to_invoke: Set[StateNode] = set()
-    history_value = {}
+    if history_value is None:
+        history_value = {}
     enabled_transitions = select_transitions(
-        event=event, configuration=configuration, context=context
+        event=event,
+        configuration=configuration,
+        context=context,
+        history_value=history_value,
     )
     configuration, actions, internal_queue = microstep(
         enabled_transitions,
@@ -553,6 +589,7 @@ def main_event_loop(
         internal_queue=internal_queue,
         context=context,
         event=event,
+        history_value=history_value,
     )
 
     return (configuration, actions)
@@ -564,13 +601,19 @@ def main_event_loop2(
     internal_queue: List[Event],
     context: Optional[Dict] = None,
     event: Optional[Event] = None,
+    history_value: Optional[HistoryValue] = None,
 ) -> Tuple[Set[StateNode], List[Action]]:
     enabled_transitions = set()
     macrostep_done = False
+    if history_value is None:
+        history_value = {}
 
     while not macrostep_done:
         enabled_transitions = select_eventless_transitions(
-            configuration=configuration, context=context, event=event
+            configuration=configuration,
+            context=context,
+            event=event,
+            history_value=history_value,
         )
 
         if not enabled_transitions:
@@ -583,13 +626,14 @@ def main_event_loop2(
                     event=internal_event,
                     configuration=configuration,
                     context=context,
+                    history_value=history_value,
                 )
         if enabled_transitions:
             configuration, actions, internal_queue = microstep(
                 enabled_transitions=enabled_transitions,
                 configuration=configuration,
                 states_to_invoke=set(),  # TODO
-                history_value={},  # TODO
+                history_value=history_value,
                 context=context,
                 event=event,
             )
