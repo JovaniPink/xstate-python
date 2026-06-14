@@ -36,6 +36,7 @@ class Transition:
         self.source = source
         self.type = "external"
         self.cond = config.get("cond", None) if isinstance(config, dict) else None
+        self.in_state = config.get("in", None) if isinstance(config, dict) else None
         self.order = order
 
         self.actions = (

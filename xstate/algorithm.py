@@ -148,6 +148,11 @@ def add_descendent_states_to_enter(
         else:
             if is_parallel_state(state):
                 for child in get_child_states(state):
+                    # History pseudo-states are not real states to enter;
+                    # they are only targeted explicitly and must never be
+                    # auto-entered when a parallel state is activated.
+                    if is_history_state(child):
+                        continue
                     if not any([is_descendent(s, child) for s in states_to_enter]):
                         add_descendent_states_to_enter(
                             child,
@@ -254,6 +259,8 @@ def add_ancestor_states_to_enter(
         states_to_enter.add(anc)
         if is_parallel_state(anc):
             for child in get_child_states(anc):
+                if is_history_state(child):
+                    continue
                 if not any([is_descendent(s, state2=child) for s in states_to_enter]):
                     add_descendent_states_to_enter(
                         child,
@@ -438,15 +445,57 @@ def name_match(event: str, specific_event: str) -> bool:
     return event == specific_event
 
 
+def _matches_in_state(in_spec, configuration: Set[StateNode]) -> bool:
+    """Return True if ``in_spec`` matches the current configuration.
+
+    ``in_spec`` is the value of an XState ``in`` transition guard:
+    - str ``"#id"``   — true if a state with that id is active
+    - str ``"a.b"``   — true if the state keyed "b" whose parent is keyed "a" is active
+    - dict ``{k: v}`` — true if all k/v pairs are satisfied (each a one-level path)
+    """
+    if isinstance(in_spec, str):
+        if in_spec.startswith("#"):
+            target_id = in_spec[1:]
+            return any(s.id == target_id for s in configuration)
+        parts = in_spec.split(".")
+        if len(parts) == 1:
+            return any(s.key == parts[0] for s in configuration)
+        # Walk parts as an ancestor chain: parts[-1] must be active and its
+        # ancestors must match the remaining parts in order.
+        def _path_active(parts: List[str]) -> bool:
+            leaf_key = parts[-1]
+            for s in configuration:
+                if s.key != leaf_key:
+                    continue
+                node = s
+                matched = True
+                for ancestor_key in reversed(parts[:-1]):
+                    node = node.parent
+                    if node is None or node.key != ancestor_key:
+                        matched = False
+                        break
+                if matched:
+                    return True
+            return False
+        return _path_active(parts)
+    if isinstance(in_spec, dict):
+        return all(
+            _matches_in_state(f"{parent_key}.{child_key}", configuration)
+            for parent_key, child_key in in_spec.items()
+        )
+    return True
+
+
 def condition_match(
     transition: Transition,
     context: Optional[Dict] = None,
     event: Optional[Event] = None,
+    configuration: Optional[Set[StateNode]] = None,
 ) -> bool:
     cond = transition.cond
     if cond is None:
-        return True
-    if isinstance(cond, str):
+        pass
+    elif isinstance(cond, str):
         guards = getattr(transition.source.machine, "guards", {}) or {}
         if cond not in guards:
             raise ValueError(
@@ -455,7 +504,15 @@ def condition_match(
                 f"Pass it via Machine(config, guards={{'{cond}': ...}})."
             )
         cond = guards[cond]
-    return bool(_invoke(cond, context, event))
+
+    if cond is not None and not bool(_invoke(cond, context, event)):
+        return False
+
+    in_spec = getattr(transition, "in_state", None)
+    if in_spec is not None and configuration is not None:
+        return _matches_in_state(in_spec, configuration)
+
+    return True
 
 
 def select_transitions(
@@ -477,7 +534,7 @@ def select_transitions(
                 if (
                     t.event
                     and name_match(t.event, event.name)
-                    and condition_match(t, context, event)
+                    and condition_match(t, context, event, configuration)
                 ):
                     enabled_transitions.add(t)
                     break_loop = True
@@ -507,7 +564,7 @@ def select_eventless_transitions(
             break
         for s in [state] + get_proper_ancestors(state, None):
             for t in sorted(s.transitions, key=lambda t: t.order):
-                if not t.event and condition_match(t, context, event):
+                if not t.event and condition_match(t, context, event, configuration):
                     enabled_transitions.add(t)
                     loop = False
 
