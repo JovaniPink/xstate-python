@@ -2,6 +2,8 @@
 
 Covers:
   - Named assign in the actions registry works end-to-end
+  - Named assigns respect declared action order vs inline assigns
+  - Named send / raise actions reach the engine (not silently dropped)
   - Mutable default argument guard: separate Machine instances don't share dicts
   - Shallow-copy fix: initial_state deep-copies nested context
   - Friendly ValueError when machine config has no 'id'
@@ -12,8 +14,7 @@ import warnings
 
 import pytest
 
-from xstate import Machine, assign
-
+from xstate import Machine, assign, interpret, raise_, send
 
 # ---------------------------------------------------------------------------
 # Named assign in actions registry
@@ -80,6 +81,80 @@ def test_named_assign_on_entry():
     )
     state = machine.transition(machine.initial_state, "GO")
     assert state.context["visited"] is True
+
+
+# ---------------------------------------------------------------------------
+# Named actions respect declared order (regression: post-macrostep mis-ordering)
+# ---------------------------------------------------------------------------
+
+
+def _ordering_machine(action_list):
+    return Machine(
+        {
+            "id": "ord",
+            "context": {"x": 1},
+            "initial": "a",
+            "states": {
+                "a": {"on": {"GO": {"target": "b", "actions": action_list}}},
+                "b": {},
+            },
+        },
+        actions={"double": assign({"x": lambda c, e: c["x"] * 2})},
+    )
+
+
+def test_named_assign_runs_after_preceding_inline_assign():
+    """[set 5, double] must end at 10 — the named assign sees the inline result."""
+    machine = _ordering_machine([assign({"x": 5}), "double"])
+    state = machine.transition(machine.initial_state, "GO")
+    assert state.context["x"] == 10
+
+
+def test_named_assign_runs_before_following_inline_assign():
+    """[double, set 5] must end at 5 — the inline assign overwrites the named one."""
+    machine = _ordering_machine(["double", assign({"x": 5})])
+    state = machine.transition(machine.initial_state, "GO")
+    assert state.context["x"] == 5
+
+
+# ---------------------------------------------------------------------------
+# Named interpreter / engine actions are not silently dropped
+# ---------------------------------------------------------------------------
+
+
+def test_named_send_reaches_interpreter():
+    """A named send() in the registry must fire, not be dropped as a plain dict."""
+    machine = Machine(
+        {
+            "id": "snd",
+            "initial": "a",
+            "states": {
+                "a": {"entry": ["ping"], "on": {"PING": "b"}},
+                "b": {},
+            },
+        },
+        actions={"ping": send("PING")},
+    )
+    service = interpret(machine).start()
+    assert service.state.value == "b"
+
+
+def test_named_raise_is_queued_in_same_macrostep():
+    """A named raise_() must be queued by the engine within the macrostep."""
+    machine = Machine(
+        {
+            "id": "rse",
+            "initial": "a",
+            "states": {
+                "a": {"on": {"GO": {"target": "b", "actions": ["ping"]}}},
+                "b": {"on": {"PING": "c"}},
+                "c": {},
+            },
+        },
+        actions={"ping": raise_("PING")},
+    )
+    state = machine.transition(machine.initial_state, "GO")
+    assert state.value == "c"
 
 
 # ---------------------------------------------------------------------------

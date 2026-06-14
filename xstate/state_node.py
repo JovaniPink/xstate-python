@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Dict, List, Optional
 
-from xstate.action import Action
+from xstate.action import Action, build_action
 from xstate.transition import Transition
 
 if TYPE_CHECKING:
@@ -213,12 +213,10 @@ class StateNode:
         machine._register(self)
 
     def get_actions(self, action):
-        if callable(action):
-            return Action(action)
-        elif isinstance(action, str):
-            return Action(action)
-        else:
-            return Action(action.get("type"), exec=None, data=action)
+        # Named actions are resolved against the machine's `actions` registry so
+        # a named assign/raise/send is expanded to its real type and applied by
+        # the engine in declared order (see action.build_action).
+        return build_action(action, self.machine.actions)
 
     @property
     def history_states(self) -> List[StateNode]:
