@@ -10,7 +10,6 @@ being in a specific (sub)state.  Three matching forms are supported:
 Based on the XState v4 statein.test.ts describe block.
 """
 
-import pytest
 from xstate import Machine
 
 # ---------------------------------------------------------------------------

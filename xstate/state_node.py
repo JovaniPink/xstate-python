@@ -1,9 +1,9 @@
 from __future__ import annotations
-from typing import Dict, TYPE_CHECKING, Optional, Union, List
-from enum import Enum
 
-from xstate.transition import Transition
+from typing import TYPE_CHECKING, Dict, List, Optional
+
 from xstate.action import Action
+from xstate.transition import Transition
 
 if TYPE_CHECKING:
     from xstate.machine import Machine
@@ -172,18 +172,22 @@ class StateNode:
         if target.startswith("#"):
             node = self.machine._get_by_id(target[1:])
             if node is None:
-                raise ValueError(f"No state with id '{target[1:]}' in machine '{self.machine.id}'")
+                raise ValueError(
+                    f"No state with id '{target[1:]}' in machine '{self.machine.id}'"
+                )
             return node
 
         if self.parent is None:
             raise ValueError(
-                f"Cannot resolve relative target '{target}' from root state node '#{self.id}'"
+                f"Cannot resolve relative target '{target}' from root state "
+                f"node '#{self.id}'"
             )
         state_node = self.parent.states.get(target)
 
         if not state_node:
             raise ValueError(
-                f"Relative state node '{target}' does not exist on state node '#{self.id}'"
+                f"Relative state node '{target}' does not exist on state "
+                f"node '#{self.id}'"
             )
 
         return state_node

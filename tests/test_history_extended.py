@@ -6,7 +6,6 @@ Covers behaviors beyond the basic shallow/deep tests already in test_history.py:
   - Multi-target transitions that restore multiple regions simultaneously
 """
 
-import pytest
 from xstate import Machine
 
 # ---------------------------------------------------------------------------

@@ -30,7 +30,6 @@ Machine topology
         SESSION_EXPIRED → idle
 """
 
-import pytest
 from xstate import Machine, assign
 
 MAX_ATTEMPTS = 3
@@ -93,7 +92,7 @@ def make_session_machine(saved_token: bool = False):
                                                 "attempts", 0
                                             )
                                             + 1,
-                                            "error": "Account locked after too many attempts",
+                                            "error": "Account locked",
                                         }
                                     )
                                 ],
@@ -142,7 +141,7 @@ def make_session_machine(saved_token: bool = False):
                         },
                         "screen_locked": {
                             "on": {
-                                # Correct PIN → back to active; wrong PIN → no-op (guard fails)
+                                # Correct PIN → active; wrong PIN → no-op (guard fails)
                                 "UNLOCK": [
                                     {
                                         "target": "active",
@@ -160,9 +159,7 @@ def make_session_machine(saved_token: bool = False):
                         "RETRY": "authenticating",
                         "RESET": {
                             "target": "idle",
-                            "actions": [
-                                assign({"attempts": 0, "error": None})
-                            ],
+                            "actions": [assign({"attempts": 0, "error": None})],
                         },
                     }
                 },
@@ -170,9 +167,7 @@ def make_session_machine(saved_token: bool = False):
                     "on": {
                         "ADMIN_UNLOCK": {
                             "target": "idle",
-                            "actions": [
-                                assign({"attempts": 0, "error": None})
-                            ],
+                            "actions": [assign({"attempts": 0, "error": None})],
                         }
                     }
                 },
@@ -308,7 +303,7 @@ def _exhaust_attempts(machine):
     state = machine.initial_state
     state = machine.transition(state, "LOGIN")
     for _ in range(MAX_ATTEMPTS - 1):
-        state = _fail_once(machine, state)   # → authError
+        state = _fail_once(machine, state)  # → authError
         state = machine.transition(state, "RETRY")  # → authenticating
     state = _fail_once(machine, state)  # final failure → lockedOut
     return state

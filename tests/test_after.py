@@ -6,7 +6,8 @@ deterministic: nothing fires until the test calls ``clock.increment(ms)``.
 """
 
 import pytest
-from xstate import Machine, assign, interpret, SimulatedClock
+
+from xstate import Machine, SimulatedClock, interpret
 
 # ---------------------------------------------------------------------------
 # Classic auto-advancing traffic light using `after`.

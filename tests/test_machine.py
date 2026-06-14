@@ -1,4 +1,3 @@
-import pytest
 from xstate.machine import Machine
 
 

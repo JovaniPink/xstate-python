@@ -6,9 +6,7 @@ cancel  — cancels a previously-scheduled named send
 done-data — a final state's ``data`` is available as ``event.data`` in onDone
 """
 
-import pytest
-from xstate import Machine, assign, cancel, interpret, raise_, send, SimulatedClock
-
+from xstate import Machine, SimulatedClock, assign, cancel, interpret, raise_, send
 
 # ---------------------------------------------------------------------------
 # raise_: fires an internal event within the same macrostep
@@ -22,11 +20,7 @@ def test_raise_in_transition_action_fires_immediately():
             "id": "r",
             "initial": "a",
             "states": {
-                "a": {
-                    "on": {
-                        "GO": {"target": "b", "actions": [raise_("PING")]}
-                    }
-                },
+                "a": {"on": {"GO": {"target": "b", "actions": [raise_("PING")]}}},
                 "b": {"on": {"PING": "c"}},
                 "c": {},
             },
@@ -139,11 +133,7 @@ def test_send_without_delay_fires_in_next_send_cycle():
             "id": "s",
             "initial": "a",
             "states": {
-                "a": {
-                    "on": {
-                        "GO": {"target": "b", "actions": [send("AUTO")]}
-                    }
-                },
+                "a": {"on": {"GO": {"target": "b", "actions": [send("AUTO")]}}},
                 "b": {"on": {"AUTO": "c"}},
                 "c": {},
             },
@@ -224,9 +214,9 @@ def test_cancel_prevents_delayed_send():
     service = interpret(machine, clock=clock).start()
     service.send("START")
     assert service.state.value == "active"
-    service.send("DONE")       # cancels the timer before it fires
+    service.send("DONE")  # cancels the timer before it fires
     assert service.state.value == "success"
-    clock.increment(2000)      # would have fired TIMEOUT — must be a no-op
+    clock.increment(2000)  # would have fired TIMEOUT — must be a no-op
     assert service.state.value == "success"
 
 
@@ -258,7 +248,7 @@ def test_cancel_no_effect_if_already_fired():
     clock = SimulatedClock()
     service = interpret(machine, clock=clock).start()
     service.send("GO")
-    clock.increment(100)      # PING fires → c
+    clock.increment(100)  # PING fires → c
     assert service.state.value == "c"
     # cancel after firing: no error, no state change
     service.send("CANCEL")
@@ -289,9 +279,7 @@ def test_done_data_static_dict_available_in_on_done_assign():
                     "onDone": {
                         "target": "done",
                         "actions": [
-                            assign(
-                                {"result": lambda ctx, ev: ev.data["value"]}
-                            )
+                            assign({"result": lambda ctx, ev: ev.data["value"]})
                         ],
                     },
                 },
@@ -346,9 +334,7 @@ def test_done_data_available_in_guard():
             "states": {
                 "run": {
                     "initial": "work",
-                    "states": {
-                        "work": {"type": "final", "data": {"ok": True}}
-                    },
+                    "states": {"work": {"type": "final", "data": {"ok": True}}},
                     "onDone": [
                         {
                             "target": "success",

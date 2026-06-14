@@ -1,15 +1,15 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-from xstate.state_node import StateNode
-from xstate.state import State
+
+from xstate.action import INTERPRETER_TYPES
 from xstate.algorithm import (
     enter_states,
     get_configuration_from_state,
-    get_state_value,
     main_event_loop,
     main_event_loop2,
 )
 from xstate.event import Event
-from xstate.action import INTERPRETER_TYPES
+from xstate.state import State
+from xstate.state_node import StateNode
 
 
 class Machine:

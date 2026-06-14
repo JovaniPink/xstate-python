@@ -6,7 +6,7 @@ a future regression points straight at the cause.
 """
 
 from xstate import Machine
-from xstate.algorithm import get_proper_ancestors, get_child_states, is_history_state
+from xstate.algorithm import get_child_states, get_proper_ancestors, is_history_state
 
 # --- Fix #1: get_proper_ancestors must EXCLUDE state2 (the upper bound) -------
 # Per W3C SCXML, getProperAncestors(s, ancestor) returns ancestors up to but not

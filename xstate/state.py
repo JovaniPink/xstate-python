@@ -1,10 +1,12 @@
 from __future__ import annotations
-from typing import Any, Callable, Dict, List, Optional, Set, Union, TYPE_CHECKING
+
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Union
+
 from xstate.algorithm import get_state_value
 
 if TYPE_CHECKING:
-    from xstate.state_node import StateNode
     from xstate.action import Action
+    from xstate.state_node import StateNode
 
 
 class State:

@@ -8,8 +8,7 @@ Covers the running-instance runtime that wraps the pure Machine API:
   - context threaded through the live instance
 """
 
-import pytest
-from xstate import Machine, assign, interpret, SimulatedClock
+from xstate import Machine, SimulatedClock, assign, interpret
 
 # ---------------------------------------------------------------------------
 # A small light machine with a counter context.

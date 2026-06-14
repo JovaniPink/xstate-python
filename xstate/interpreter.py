@@ -27,11 +27,11 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Optional
 
-from xstate.machine import Machine
-from xstate.state import State
-from xstate.scheduler import Clock, ThreadClock
-from xstate.action import Action, SEND_TYPE, CANCEL_TYPE
+from xstate.action import CANCEL_TYPE, SEND_TYPE, Action
 from xstate.event import Event as _Event
+from xstate.machine import Machine
+from xstate.scheduler import Clock, ThreadClock
+from xstate.state import State
 
 # Interpreter lifecycle states.
 NOT_STARTED = "not_started"
@@ -201,7 +201,9 @@ class Interpreter:
         if callable(delay):
             from xstate.algorithm import _invoke
 
-            return float(_invoke(delay, self.state.context, getattr(self.state, "event", None)))
+            return float(
+                _invoke(delay, self.state.context, getattr(self.state, "event", None))
+            )
         return float(delay)
 
     def _sync_delays(self) -> None:
