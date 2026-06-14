@@ -54,6 +54,25 @@ class State:
             self.status = "active"
             self.output = None
 
+    def can(self, event) -> bool:
+        """Return True if any enabled transition exists for *event* right now.
+
+        Respects guards and the current context, so the result reflects whether
+        the machine would actually move on this event — not just whether any
+        transition is configured for it.
+        """
+        from xstate.algorithm import select_transitions
+        from xstate.event import Event as _Event
+
+        ev = event if not isinstance(event, str) else _Event(event)
+        transitions = select_transitions(
+            event=ev,
+            configuration=self.configuration,
+            context=self.context,
+            history_value=self.history_value,
+        )
+        return len(transitions) > 0
+
     def matches(self, value) -> bool:
         """Return True if the current state value matches *value*.
 

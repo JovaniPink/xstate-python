@@ -257,6 +257,210 @@ def test_always_with_guard_fires_when_condition_met():
     assert state.value == "ready"
 
 
+# ---------------------------------------------------------------------------
+# Single-object handler signatures (v5 keyword-only style)
+# ---------------------------------------------------------------------------
+
+
+def test_guard_with_keyword_only_context():
+    """``def guard(*, context): ...`` receives the context dict."""
+    machine = Machine(
+        {
+            "id": "kw",
+            "initial": "idle",
+            "context": {"x": 10},
+            "states": {
+                "idle": {
+                    "on": {
+                        "GO": [
+                            {"target": "big", "guard": lambda *, context: context["x"] > 5},
+                            {"target": "small"},
+                        ]
+                    }
+                },
+                "big": {},
+                "small": {},
+            },
+        }
+    )
+    state = machine.initial_state
+    state = machine.transition(state, "GO")
+    assert state.value == "big"
+
+
+def test_guard_with_keyword_only_context_and_event():
+    """``def guard(*, context, event): ...`` receives both."""
+    machine = Machine(
+        {
+            "id": "kw",
+            "initial": "idle",
+            "context": {"threshold": 5},
+            "states": {
+                "idle": {
+                    "on": {
+                        "CHECK": [
+                            {
+                                "target": "pass",
+                                "guard": lambda *, context, event: (
+                                    event.data.get("value", 0) > context["threshold"]
+                                ),
+                            },
+                            {"target": "fail"},
+                        ]
+                    }
+                },
+                "pass": {},
+                "fail": {},
+            },
+        }
+    )
+    state = machine.initial_state
+    state = machine.transition(state, {"type": "CHECK", "value": 10})
+    assert state.value == "pass"
+
+
+def test_assign_with_keyword_only_handler():
+    """``assign`` callable with ``(*, context, event)`` signature is invoked correctly."""
+    machine = Machine(
+        {
+            "id": "kw",
+            "initial": "idle",
+            "context": {"count": 0},
+            "states": {
+                "idle": {
+                    "on": {
+                        "INC": {
+                            "actions": [
+                                assign(lambda *, context: {"count": context["count"] + 1})
+                            ]
+                        }
+                    }
+                }
+            },
+        }
+    )
+    state = machine.initial_state
+    state = machine.transition(state, "INC")
+    assert state.context["count"] == 1
+
+
+def test_v4_positional_style_still_works_alongside_v5():
+    """v4 ``(context, event)`` callables still work after the v5 dispatch update."""
+    machine = Machine(
+        {
+            "id": "mixed",
+            "initial": "idle",
+            "context": {"n": 3},
+            "states": {
+                "idle": {
+                    "on": {
+                        "GO": [
+                            {"target": "yes", "guard": lambda ctx, _: ctx["n"] > 0},
+                            {"target": "no"},
+                        ]
+                    }
+                },
+                "yes": {},
+                "no": {},
+            },
+        }
+    )
+    state = machine.initial_state
+    state = machine.transition(state, "GO")
+    assert state.value == "yes"
+
+
+# ---------------------------------------------------------------------------
+# state.can(event)
+# ---------------------------------------------------------------------------
+
+
+def test_can_returns_true_when_event_has_matching_transition():
+    machine = Machine(
+        {
+            "id": "c",
+            "initial": "idle",
+            "states": {
+                "idle": {"on": {"START": "running"}},
+                "running": {},
+            },
+        }
+    )
+    state = machine.initial_state
+    assert state.can("START") is True
+
+
+def test_can_returns_false_when_no_matching_transition():
+    machine = Machine(
+        {
+            "id": "c",
+            "initial": "idle",
+            "states": {
+                "idle": {"on": {"START": "running"}},
+                "running": {},
+            },
+        }
+    )
+    state = machine.initial_state
+    assert state.can("STOP") is False
+
+
+def test_can_respects_guard():
+    """can() returns False when a guard blocks the only matching transition."""
+    machine = Machine(
+        {
+            "id": "c",
+            "initial": "idle",
+            "context": {"allowed": False},
+            "states": {
+                "idle": {
+                    "on": {
+                        "GO": [
+                            {
+                                "target": "active",
+                                "guard": lambda ctx, _: ctx["allowed"],
+                            }
+                        ]
+                    }
+                },
+                "active": {},
+            },
+        }
+    )
+    state = machine.initial_state
+    assert state.can("GO") is False
+
+
+def test_can_true_when_one_of_multiple_guards_passes():
+    machine = Machine(
+        {
+            "id": "c",
+            "initial": "idle",
+            "context": {"level": 2},
+            "states": {
+                "idle": {
+                    "on": {
+                        "ACT": [
+                            {
+                                "target": "high",
+                                "guard": lambda ctx, _: ctx["level"] > 5,
+                            },
+                            {
+                                "target": "low",
+                                "guard": lambda ctx, _: ctx["level"] > 0,
+                            },
+                        ]
+                    }
+                },
+                "high": {},
+                "low": {},
+            },
+        }
+    )
+    state = machine.initial_state
+    assert state.can("ACT") is True
+
+
 def test_always_guard_false_falls_through():
     machine = Machine(
         {

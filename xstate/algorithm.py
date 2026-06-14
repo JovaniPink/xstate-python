@@ -12,16 +12,31 @@ HistoryValue = Dict[str, Set[StateNode]]
 
 
 def _invoke(fn, context: Optional[Dict], event: Optional[Event]) -> Any:
-    """Call ``fn`` with as many of ``(context, event)`` as its signature accepts.
+    """Call ``fn`` arity-aware, supporting three calling conventions:
 
-    This lets guards and ``assign`` expressions be written as ``() ->``,
-    ``(context) ->`` or ``(context, event) ->`` (and keeps SCXML's zero-arg
-    JavaScript conditions working) without callers needing to know the arity.
+    * ``()``                     — zero-arg (SCXML JS conditions)
+    * ``(context)``              — positional context only (v4 guard style)
+    * ``(context, event)``       — positional context + event (v4 full style)
+    * ``(*, context, event)``    — keyword-only (v5 single-object style in Python)
+
+    The v5 JS single-object ``({context, event}) =>`` maps to Python keyword-only
+    parameters: ``def guard(*, context, event): ...``
     """
     try:
         params = list(inspect.signature(fn).parameters.values())
     except (TypeError, ValueError):
         return fn(context, event)
+
+    # v5 single-object style: def guard(*, context, event): ...
+    kw_only = [p for p in params if p.kind == p.KEYWORD_ONLY]
+    if kw_only:
+        kw_names = {p.name for p in kw_only}
+        kwargs = {}
+        if "context" in kw_names:
+            kwargs["context"] = context
+        if "event" in kw_names:
+            kwargs["event"] = event
+        return fn(**kwargs)
 
     if any(p.kind == p.VAR_POSITIONAL for p in params):
         return fn(context, event)
