@@ -69,6 +69,9 @@ class Interpreter:
         self._scheduled: Dict[str, int] = {}
         # named `send(..., id=...)` or tid → clock timeout id (all delayed sends)
         self._send_timers: Dict = {}
+        # Optional back-reference to the owning Actor, set by the actor layer so
+        # interpreter-owned actions (send_parent / send_to) can reach the system.
+        self._actor = None
 
     # -- lifecycle ----------------------------------------------------------
 
