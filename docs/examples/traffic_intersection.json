@@ -1,0 +1,74 @@
+{
+  "id": "intersection",
+  "initial": "operational",
+  "context": {
+    "peakHours": true
+  },
+  "states": {
+    "operational": {
+      "type": "parallel",
+      "states": {
+        "northSouth": {
+          "id": "northSouth",
+          "initial": "green",
+          "states": {
+            "green": {
+              "after": { "nsGreen": "yellow" }
+            },
+            "yellow": {
+              "after": { "trafficYellow": "red" }
+            },
+            "red": {
+              "after": { "nsRed": "green" }
+            }
+          }
+        },
+        "eastWest": {
+          "id": "eastWest",
+          "initial": "red",
+          "states": {
+            "red": {
+              "after": { "ewRed": "green" }
+            },
+            "green": {
+              "after": { "ewGreen": "yellow" }
+            },
+            "yellow": {
+              "after": { "trafficYellow": "red" }
+            }
+          }
+        },
+        "pedestrian": {
+          "id": "pedestrian",
+          "initial": "dontWalk",
+          "states": {
+            "dontWalk": {
+              "on": {
+                "PED_REQUEST": {
+                  "target": "walk",
+                  "cond": "crossingIsClear"
+                }
+              }
+            },
+            "walk": {
+              "entry": ["startWalkSignal"],
+              "after": { "walkTime": "flashing" }
+            },
+            "flashing": {
+              "after": { "flashTime": "dontWalk" }
+            }
+          }
+        }
+      },
+      "on": {
+        "EMERGENCY": "emergency"
+      }
+    },
+    "emergency": {
+      "entry": ["allRed"],
+      "on": {
+        "CLEAR": "operational"
+      }
+    }
+  }
+}

@@ -22,8 +22,8 @@ actor branch), not the dormant upstream.
 | **SCXML compliance** | No | Yes (W3C test suite) | Partial (XML import; JS cond eval via optional extra) | Partial (XState JSON) | Yes (SCXML 1.0) | No |
 | **XState JSON format** | No | No | **Yes (native — the differentiator)** | Yes (Stately.ai export) | No | No |
 | **Eventless transitions** | No | Yes (v3.0+) | Yes (`always:`) | Yes | Yes | No |
-| **`invoke` / services** | No | Yes (v3.0+) | Planned (0.5.0 target) | Yes | No | No |
-| **Actor model** | No | No | Yes (`create_actor`, `ActorSystem` — 0.5.0) | Partial | No | No |
+| **`invoke` / services** | No | Yes (v3.0+) | Yes (`invoke:` + `from_promise`/`from_callback` — 0.5.0) | Yes | No | No |
+| **Actor model** | No | No | Yes (`create_actor`, `ActorSystem`, `spawn`, `send_parent`/`send_to` — 0.5.0) | Partial | No | No |
 | **Context + assign** | No | Yes | Yes (`assign` action, deep-copy isolation) | Yes | Yes | No |
 | **Type safety** | Partial (.pyi stubs) | Partial | Partial (`from __future__ import annotations` throughout) | Yes (generics) | Partial | Yes (Protocol) |
 | **Visualization** | Graphviz, Mermaid | Graphviz, Mermaid | Basic (`viz.py`) | Mermaid, PlantUML | PlantUML | Graphviz |
@@ -43,7 +43,10 @@ actor branch), not the dormant upstream.
 - History states — shallow and deep
 - Synchronous `Interpreter` with run-to-completion event queue, `subscribe()` listeners
 - Delayed transitions (`after`) driven by pluggable `Clock` — `SimulatedClock` (deterministic) or `ThreadClock` (real time)
-- Actor model foundation: `create_actor`, `Actor`, `ActorSystem` (v5 entry point)
+- Actor model (0.5.0): `create_actor`, `Actor`, `ActorSystem`, `spawn`, parent/child tree
+- `invoke:` wiring — a child actor runs for a state's lifetime, with `onDone`/`onError`
+- Actor logic kinds: `from_promise` / `from_callback`
+- Inter-actor messaging: `send_parent` / `send_to`
 - XState v5 config alignment: `guard`, `output`, `always`, `MachineSnapshot`, single-object handler signatures (0.4.0)
 - SCXML XML import (requires `pip install xstate[scxml]` — JS cond eval no longer a hard dep)
 
@@ -52,9 +55,7 @@ actor branch), not the dormant upstream.
 | Priority | Gap |
 |---|---|
 | High | PyPI publish (no release yet) |
-| High | Async interpreter (`asyncio`-based, 0.5.0) |
-| High | `from_promise` / `from_callback` actor logic (0.5.0) |
-| Medium | `invoke:` wiring — child actor lifecycle tied to state (0.5.0) |
+| High | Async interpreter (`asyncio`-based) + true deferred promise resolution (0.5.0/0.6.0) |
 | Medium | Pure-Python SCXML condition evaluator (replace JS eval entirely) |
 | Low | `setup()` API + composable guards (0.6.0) |
 | Low | Visualization (Mermaid export) |
