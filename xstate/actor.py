@@ -24,12 +24,15 @@ Still to come in 0.5.0 (tracked, not yet implemented here):
 
 from __future__ import annotations
 
-from typing import Callable, Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
-from xstate.interpreter import Interpreter, Subscription
+from xstate.interpreter import STOPPED, Interpreter, Subscription
 from xstate.machine import Machine
 from xstate.scheduler import Clock
 from xstate.state import State
+
+if TYPE_CHECKING:
+    from typing import Callable
 
 
 class ActorSystem:
@@ -46,20 +49,21 @@ class ActorSystem:
 
     def _next_id(self) -> str:
         """Generate an id for an actor created without an explicit one."""
-        ident = f"x:{self._anonymous_count}"
         self._anonymous_count += 1
-        return ident
+        return f"x:{self._anonymous_count - 1}"
 
     def _register(self, actor: "Actor") -> None:
-        if actor.id in self._actors and self._actors[actor.id] is not actor:
+        actor_id = actor.id
+        if actor_id in self._actors and self._actors[actor_id] is not actor:
             raise ValueError(
-                f"An actor with id '{actor.id}' is already registered in this system."
+                f"An actor with id '{actor_id}' is already registered in this system."
             )
-        self._actors[actor.id] = actor
+        self._actors[actor_id] = actor
 
     def _unregister(self, actor: "Actor") -> None:
-        if self._actors.get(actor.id) is actor:
-            del self._actors[actor.id]
+        actor_id = actor.id
+        if self._actors.get(actor_id) is actor:
+            del self._actors[actor_id]
 
     def get(self, actor_id: str) -> Optional["Actor"]:
         """Return the actor registered under *actor_id*, or ``None``."""
@@ -105,7 +109,7 @@ class Actor:
         return self._interpreter.status
 
     def start(self, initial_state: Optional[State] = None) -> "Actor":
-        if self.status == "stopped":
+        if self._interpreter.status == STOPPED:
             return self
         self._interpreter.start(initial_state)
         return self
@@ -137,7 +141,7 @@ class Actor:
         return self._interpreter.state
 
     def __repr__(self) -> str:
-        return "<Actor %s>" % repr({"id": self.id, "status": self.status})
+        return f"<Actor id={self._id!r} status={self._interpreter._status!r}>"
 
 
 def create_actor(
