@@ -23,7 +23,8 @@ xstate/
   transition.py     Transition — event, guard, target, actions
   action.py         Action — entry/exit/transition side effects
   event.py          Event — typed event wrapper
-  interpreter.py    STUB — not yet implemented (planned for 0.3.0)
+  interpreter.py    Interpreter — synchronous event loop + queue, subscriptions, `after` scheduling
+  scheduler.py      Clock abstractions (`SimulatedClock` for tests, `ThreadClock` for real time)
   scxml.py          SCXML XML → Machine config converter (requires `scxml` extra for js conds)
 ```
 
@@ -34,7 +35,7 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
 
 ---
 
-## Current state (0.2.0 in progress)
+## Current state (0.3.0 in progress)
 
 **Working:**
 - Hierarchical (compound) states
@@ -48,13 +49,19 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
 - Final states + `onDone` transitions
 - History states — shallow and deep (`{"type": "history", "history": "deep"}`),
   persisted across transitions via `State.history_value`
+- **Interpreter** (`from xstate import interpret`) — running instance with
+  `start()`/`stop()`/`send()`, run-to-completion event queue, `subscribe()`
+  listeners, and side-effect action execution
+- **Delayed transitions** (`after: {1000: "target"}`) — scheduled on entry,
+  cancelled on exit; numeric delays or named refs via `Machine(config, delays={...})`.
+  Driven by a pluggable `Clock`: `SimulatedClock` (deterministic, advance with
+  `clock.increment(ms)`) or `ThreadClock` (real wall-clock, the default)
 - SCXML XML import (requires `pip install xstate[scxml]` for JS-cond evaluation)
 
 **Stubbed / incomplete:**
-- `interpreter.py` — no running event loop / event queue yet (0.3.0 target)
-- Delayed transitions / `after` (0.3.0 target)
 - Async support (0.5.0 target)
 - `setup()` API + XState v5 handler signatures (0.4.0+ target)
+- Invoked services / actors (`invoke`) (0.5.0 target)
 
 Handler-signature note: guards/assigners are invoked arity-aware (`()`,
 `(context)`, or `(context, event)`) by `algorithm._invoke`. The XState v5

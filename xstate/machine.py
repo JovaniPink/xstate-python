@@ -18,9 +18,10 @@ class Machine:
     config: object
     states: Dict[str, StateNode]
     actions: List[lambda: None]
+    delays: Dict
     _order: int
 
-    def __init__(self, config: object, actions={}, guards={}):
+    def __init__(self, config: object, actions={}, guards={}, delays={}):
         self.id = config["id"]
         self._id_map = {}
         self._order = 0
@@ -31,6 +32,7 @@ class Machine:
         self.config = config
         self.actions = actions
         self.guards = guards
+        self.delays = delays
         self.context = config.get("context", {}) or {}
 
     def _get_order(self) -> int:

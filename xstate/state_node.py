@@ -23,6 +23,7 @@ class StateNode:
     key: str
     states: Dict[str, StateNode]
     order: int
+    after: List[tuple]
 
     def __init__(
         self,
@@ -106,6 +107,32 @@ class StateNode:
             )
             self.on[done_event] = done_transition
             self.transitions.append(done_transition)
+
+        # Delayed transitions. `after` maps a delay (ms number or a delay-ref
+        # string resolved from Machine(delays=...)) to a transition. Each becomes
+        # a normal transition keyed by a generated event
+        # `xstate.after(<delay>)#<id>` that the interpreter schedules on entry
+        # and cancels on exit. `self.after` lets the interpreter discover which
+        # delays a node owns.
+        self.after: List[tuple] = []
+        for delay, transition_config in config.get("after", {}).items():
+            after_event = f"xstate.after({delay})#{self.id}"
+            transition_configs = (
+                transition_config
+                if isinstance(transition_config, list)
+                else [transition_config]
+            )
+            self.on[after_event] = []
+            for tc in transition_configs:
+                transition = Transition(
+                    tc,
+                    source=self,
+                    event=after_event,
+                    order=self.machine._get_order(),
+                )
+                self.on[after_event].append(transition)
+                self.transitions.append(transition)
+            self.after.append((delay, after_event))
 
         machine._register(self)
 
