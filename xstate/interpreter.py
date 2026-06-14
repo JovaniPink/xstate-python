@@ -25,9 +25,9 @@ Example::
 
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
-from xstate.action import CANCEL_TYPE, SEND_TYPE, Action
+from xstate.action import CANCEL_TYPE, SEND_PARENT_TYPE, SEND_TO_TYPE, SEND_TYPE, Action
 from xstate.event import Event as _Event
 from xstate.machine import Machine
 from xstate.scheduler import Clock, ThreadClock
@@ -71,7 +71,7 @@ class Interpreter:
         self._send_timers: Dict = {}
         # Optional back-reference to the owning Actor, set by the actor layer so
         # interpreter-owned actions (send_parent / send_to) can reach the system.
-        self._actor = None
+        self._actor: Optional[Any] = None
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -161,6 +161,10 @@ class Interpreter:
                     self._execute_send(action)
                 elif action.type == CANCEL_TYPE:
                     self._execute_cancel(action)
+                elif action.type == SEND_PARENT_TYPE:
+                    self._execute_send_parent(action)
+                elif action.type == SEND_TO_TYPE:
+                    self._execute_send_to(action)
             elif callable(action):
                 action()
 
@@ -185,6 +189,35 @@ class Interpreter:
             tid = self._send_timers.pop(send_id, None)
             if tid is not None:
                 self.clock.clear_timeout(tid)
+
+    def _execute_send_parent(self, action: Action) -> None:
+        """Route a ``send_parent`` action to the owning actor's parent."""
+        if self._actor is None or self._actor.parent is None:
+            return
+        self._deliver_external(self._actor.parent, action)
+
+    def _execute_send_to(self, action: Action) -> None:
+        """Route a ``send_to`` action to a sibling actor by id."""
+        if self._actor is None:
+            return
+        target = self._actor.system.get(action.data.get("target"))
+        if target is None:
+            return
+        self._deliver_external(target, action)
+
+    def _deliver_external(self, target, action: Action) -> None:
+        """Deliver an event to another actor, immediately or after a delay."""
+        event = action.data.get("event")
+        delay = action.data.get("delay")
+        send_id = action.data.get("id")
+        if delay is not None:
+            delay_ms = self._resolve_delay(delay)
+            tid = self.clock.set_timeout(
+                (lambda t, e: lambda: t.send(e))(target, event), delay_ms
+            )
+            self._send_timers[send_id if send_id else tid] = tid
+        else:
+            target.send(event)
 
     # -- delayed transitions ------------------------------------------------
 

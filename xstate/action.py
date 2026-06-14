@@ -5,10 +5,12 @@ ASSIGN_TYPE = "xstate.assign"
 RAISE_TYPE = "xstate:raise"
 SEND_TYPE = "xstate.send"
 CANCEL_TYPE = "xstate.cancel"
+SEND_PARENT_TYPE = "xstate.send_parent"
+SEND_TO_TYPE = "xstate.send_to"
 
 # Action types handled by the interpreter, not the algorithm — passed through
 # _get_actions without resolution so the interpreter can act on them.
-INTERPRETER_TYPES = {SEND_TYPE, CANCEL_TYPE}
+INTERPRETER_TYPES = {SEND_TYPE, CANCEL_TYPE, SEND_PARENT_TYPE, SEND_TO_TYPE}
 
 
 class Action:
@@ -109,6 +111,56 @@ def send(
         })
     """
     return {"type": SEND_TYPE, "event": event, "delay": delay, "id": id}
+
+
+def send_parent(
+    event: Union[str, Dict[str, Any]],
+    delay: Optional[float] = None,
+    id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Send an event from a child actor to its parent (XState ``sendParent``).
+
+    Only meaningful for an actor that was spawned or invoked by another actor;
+    if the actor has no parent the action is a no-op.  Routed by the interpreter
+    through the actor system, so it requires running via ``create_actor`` (not a
+    bare ``interpret``).
+
+    Example::
+
+        from xstate import send_parent
+
+        # In an invoked child machine, notify the parent it is ready:
+        {"entry": [send_parent("CHILD_READY")]}
+    """
+    return {"type": SEND_PARENT_TYPE, "event": event, "delay": delay, "id": id}
+
+
+def send_to(
+    target: str,
+    event: Union[str, Dict[str, Any]],
+    delay: Optional[float] = None,
+    id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Send an event to another actor in the same system by id (``sendTo``).
+
+    ``target`` is the id of an actor registered in this actor's system; if no
+    such actor exists the action is a no-op.  Requires running via
+    ``create_actor`` so the actor system is available.
+
+    Example::
+
+        from xstate import send_to
+
+        # Forward a request to a sibling "logger" actor:
+        {"actions": [send_to("logger", {"type": "LOG", "msg": "hi"})]}
+    """
+    return {
+        "type": SEND_TO_TYPE,
+        "target": target,
+        "event": event,
+        "delay": delay,
+        "id": id,
+    }
 
 
 def cancel(send_id: str) -> Dict[str, str]:

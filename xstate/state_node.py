@@ -145,10 +145,20 @@ class StateNode:
             if not isinstance(invoke_configs, list):
                 invoke_configs = [invoke_configs]
             for index, invoke_config in enumerate(invoke_configs):
-                invoke_id = invoke_config.get("id") or f"{self.id}:invocation[{index}]"
+                raw_id = invoke_config.get("id")
+                invoke_id = (
+                    raw_id if raw_id is not None else f"{self.id}:invocation[{index}]"
+                )
+                src = invoke_config.get("src")
+                if src is None:
+                    raise ValueError(
+                        f"invoke on state '{self.id}' is missing a 'src'. "
+                        f"Provide actor logic or a name registered via "
+                        f"Machine(config, actors={{...}})."
+                    )
                 descriptor = {
                     "id": invoke_id,
-                    "src": invoke_config.get("src"),
+                    "src": src,
                     "input": invoke_config.get("input"),
                 }
                 self.invoke.append(descriptor)

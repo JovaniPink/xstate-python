@@ -1,4 +1,4 @@
-from xstate.action import assign, cancel, raise_, send  # noqa
+from xstate.action import assign, cancel, raise_, send, send_parent, send_to  # noqa
 from xstate.actor import (  # noqa
     Actor,
     ActorSystem,

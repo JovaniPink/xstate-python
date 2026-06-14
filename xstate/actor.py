@@ -148,6 +148,43 @@ class _ListenerSubscription:
 # ---------------------------------------------------------------------------
 
 
+class _ListenerBackend:
+    """Shared listener/status/snapshot plumbing for non-machine backends.
+
+    Holds the observer set, the lifecycle ``status``, and the current snapshot,
+    and implements ``subscribe`` / ``_notify`` once so :class:`_PromiseBackend`
+    and :class:`_CallbackBackend` only define their own ``start`` / ``stop`` /
+    ``send`` behaviour.
+    """
+
+    is_machine = False
+
+    def __init__(self, actor: "Actor", input: Any):
+        self._actor = actor
+        self._input = input
+        self._listeners: set = set()
+        self._snapshot = ActorSnapshot("active")
+        self._status = NOT_STARTED
+
+    @property
+    def status(self) -> str:
+        return self._status
+
+    @property
+    def snapshot(self) -> ActorSnapshot:
+        return self._snapshot
+
+    def subscribe(self, listener: Callable[[ActorSnapshot], None]):
+        self._listeners.add(listener)
+        if self._status == RUNNING:
+            listener(self._snapshot)
+        return _ListenerSubscription(self._listeners, listener)
+
+    def _notify(self) -> None:
+        for listener in list(self._listeners):
+            listener(self._snapshot)
+
+
 class _MachineBackend:
     """Backs an actor with a :class:`~xstate.machine.Machine` via Interpreter."""
 
@@ -155,9 +192,14 @@ class _MachineBackend:
 
     def __init__(self, actor: "Actor", machine: Machine, clock: Optional[Clock]):
         self.interpreter = Interpreter(machine, clock=clock)
-        # Back-reference so interpreter-owned actions (send_parent/send_to) can
-        # reach the actor system.
+        # Back-reference so interpreter-owned actions (send_parent / send_to)
+        # can reach the actor and its system.
         self.interpreter._actor = actor
+        # Whether any state declares `invoke:` — lets the actor skip installing
+        # the per-change invocation reconciler for invoke-free machines.
+        self.has_invoke = any(
+            getattr(node, "invoke", None) for node in machine._id_map.values()
+        )
 
     @property
     def status(self) -> str:
@@ -180,26 +222,12 @@ class _MachineBackend:
         return self.interpreter.subscribe(listener)
 
 
-class _PromiseBackend:
+class _PromiseBackend(_ListenerBackend):
     """Backs an actor with :func:`from_promise` logic."""
 
-    is_machine = False
-
     def __init__(self, actor: "Actor", logic: PromiseLogic, input: Any):
-        self._actor = actor
+        super().__init__(actor, input)
         self._fn = logic.fn
-        self._input = input
-        self._listeners: set = set()
-        self._snapshot = ActorSnapshot("active")
-        self._status = NOT_STARTED
-
-    @property
-    def status(self) -> str:
-        return self._status
-
-    @property
-    def snapshot(self) -> ActorSnapshot:
-        return self._snapshot
 
     def start(self, initial_state: Optional[State] = None) -> None:
         if self._status != NOT_STARTED:
@@ -220,39 +248,15 @@ class _PromiseBackend:
         # Promise actors ignore incoming events.
         return self._snapshot
 
-    def subscribe(self, listener: Callable[[ActorSnapshot], None]):
-        self._listeners.add(listener)
-        if self._status == RUNNING:
-            listener(self._snapshot)
-        return _ListenerSubscription(self._listeners, listener)
 
-    def _notify(self) -> None:
-        for listener in list(self._listeners):
-            listener(self._snapshot)
-
-
-class _CallbackBackend:
+class _CallbackBackend(_ListenerBackend):
     """Backs an actor with :func:`from_callback` logic."""
 
-    is_machine = False
-
     def __init__(self, actor: "Actor", logic: CallbackLogic, input: Any):
-        self._actor = actor
+        super().__init__(actor, input)
         self._fn = logic.fn
-        self._input = input
-        self._listeners: set = set()
         self._receivers: List[Callable[[Any], None]] = []
         self._cleanup: Optional[Callable[[], None]] = None
-        self._snapshot = ActorSnapshot("active")
-        self._status = NOT_STARTED
-
-    @property
-    def status(self) -> str:
-        return self._status
-
-    @property
-    def snapshot(self) -> ActorSnapshot:
-        return self._snapshot
 
     def start(self, initial_state: Optional[State] = None) -> None:
         if self._status != NOT_STARTED:
@@ -284,16 +288,6 @@ class _CallbackBackend:
         for handler in list(self._receivers):
             handler(event)
         return self._snapshot
-
-    def subscribe(self, listener: Callable[[ActorSnapshot], None]):
-        self._listeners.add(listener)
-        if self._status == RUNNING:
-            listener(self._snapshot)
-        return _ListenerSubscription(self._listeners, listener)
-
-    def _notify(self) -> None:
-        for listener in list(self._listeners):
-            listener(self._snapshot)
 
 
 def _build_backend(actor: "Actor", logic, clock: Optional[Clock], input: Any):
@@ -327,9 +321,17 @@ class ActorSystem:
         self._anonymous_count = 0
 
     def _next_id(self) -> str:
-        """Generate an id for an actor created without an explicit one."""
+        """Generate an id for an actor created without an explicit one.
+
+        Skips ids already taken so an anonymous actor never collides with an
+        explicit ``"x:N"`` id a caller chose.
+        """
+        candidate = f"x:{self._anonymous_count}"
+        while candidate in self._actors:
+            self._anonymous_count += 1
+            candidate = f"x:{self._anonymous_count}"
         self._anonymous_count += 1
-        return f"x:{self._anonymous_count - 1}"
+        return candidate
 
     def _register(self, actor: "Actor") -> None:
         actor_id = actor.id
@@ -410,9 +412,14 @@ class Actor:
             # Match XState: a stopped actor does not restart.
             return self
         self._backend.start(initial_state)
-        # For machine actors, reconcile `invoke:` child actors on every state
-        # change (the immediate subscribe call handles the initial state).
-        if self._backend.is_machine and self._invocation_sub is None:
+        # For machine actors that declare any `invoke:`, reconcile child actors
+        # on every state change (the immediate subscribe call handles the
+        # initial state). Invoke-free machines skip this entirely.
+        if (
+            self._backend.is_machine
+            and getattr(self._backend, "has_invoke", False)
+            and self._invocation_sub is None
+        ):
             self._invocation_sub = self._backend.subscribe(
                 lambda _snapshot: self._sync_invocations()
             )
@@ -518,12 +525,19 @@ class Actor:
                 child.stop()
                 changed = True
 
-        # Start newly entered invocations.
+        # Resolve every new invocation's logic + input *before* spawning any, so
+        # a bad `src` (e.g. unregistered name) fails atomically rather than
+        # leaving earlier invocations of the same pass half-started.
+        pending = []
         for inv_id, invocation in wanted.items():
             if inv_id in self._invoked:
                 continue
             logic = self._resolve_src(invocation["src"])
             input_value = self._resolve_input(invocation.get("input"))
+            pending.append((inv_id, logic, input_value))
+
+        # Start newly entered invocations.
+        for inv_id, logic, input_value in pending:
             child = self.spawn(logic, id=inv_id, input=input_value)
             self._invoked[inv_id] = child
             child.subscribe(self._make_invoke_listener(inv_id))
