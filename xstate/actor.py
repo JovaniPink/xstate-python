@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from typing import Callable, Dict, Optional
 
-from xstate.interpreter import Interpreter
+from xstate.interpreter import Interpreter, Subscription
 from xstate.machine import Machine
 from xstate.scheduler import Clock
 from xstate.state import State
@@ -83,10 +83,20 @@ class Actor:
         clock: Optional[Clock] = None,
         system: Optional[ActorSystem] = None,
     ):
-        self.system = system if system is not None else ActorSystem()
-        self.id = id if id is not None else self.system._next_id()
+        self._system = system if system is not None else ActorSystem()
+        self._id = id if id is not None else self._system._next_id()
         self._interpreter = Interpreter(machine, clock=clock)
-        self.system._register(self)
+        self._system._register(self)
+
+    # -- identity (read-only to keep registry consistent) -------------------
+
+    @property
+    def id(self) -> str:
+        return self._id
+
+    @property
+    def system(self) -> ActorSystem:
+        return self._system
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -95,12 +105,14 @@ class Actor:
         return self._interpreter.status
 
     def start(self, initial_state: Optional[State] = None) -> "Actor":
+        if self.status == "stopped":
+            return self
         self._interpreter.start(initial_state)
         return self
 
     def stop(self) -> "Actor":
         self._interpreter.stop()
-        self.system._unregister(self)
+        self._system._unregister(self)
         return self
 
     # -- messaging ----------------------------------------------------------
@@ -109,7 +121,7 @@ class Actor:
         """Deliver *event* to this actor's machine (run-to-completion)."""
         return self._interpreter.send(event)
 
-    def subscribe(self, listener: Callable[[State], None]):
+    def subscribe(self, listener: Callable[[State], None]) -> Subscription:
         """Observe snapshot changes. Returns a subscription with ``unsubscribe``."""
         return self._interpreter.subscribe(listener)
 

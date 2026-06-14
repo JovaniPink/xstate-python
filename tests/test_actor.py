@@ -66,6 +66,13 @@ def test_stop_changes_status_and_drops_events():
     assert actor.get_snapshot().value == "inactive"
 
 
+def test_start_after_stop_is_noop():
+    actor = create_actor(_toggle_machine()).start()
+    actor.stop()
+    actor.start()  # must not restart or re-register
+    assert actor.status == "stopped"
+
+
 # ---------------------------------------------------------------------------
 # subscriptions
 # ---------------------------------------------------------------------------
