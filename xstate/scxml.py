@@ -112,11 +112,7 @@ def convert_transition(element: ET.Element, parent: ET.Element):
     event_targets = element.attrib.get("target").split(" ")
     event_cond_str = element.attrib.get("cond")
 
-    event_cond = (
-        _eval_scxml_cond(event_cond_str)
-        if event_cond_str
-        else None
-    )
+    event_cond = _eval_scxml_cond(event_cond_str) if event_cond_str else None
 
     raise_els = element.findall("scxml:raise", namespaces=ns)
 

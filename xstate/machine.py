@@ -20,7 +20,7 @@ class Machine:
     actions: List[lambda: None]
     _order: int
 
-    def __init__(self, config: object, actions={}):
+    def __init__(self, config: object, actions={}, guards={}):
         self.id = config["id"]
         self._id_map = {}
         self._order = 0
@@ -30,25 +30,36 @@ class Machine:
         self.states = self.root.states
         self.config = config
         self.actions = actions
+        self.guards = guards
+        self.context = config.get("context", {}) or {}
 
     def _get_order(self) -> int:
         order = self._order
         self._order += 1
         return order
 
-    def transition(self, state: State, event: str):
+    def _to_event(self, event) -> Event:
+        if isinstance(event, Event):
+            return event
+        if isinstance(event, str):
+            return Event(event)
+        if isinstance(event, dict):
+            return Event(event.get("type"), event)
+        return Event(event)
+
+    def transition(self, state: State, event):
+        event = self._to_event(event)
         configuration = get_configuration_from_state(
             from_node=self.root, state_value=state.value, partial_configuration=set()
         )
-        (configuration, _actions) = main_event_loop(configuration, Event(event))
-
-        value = get_state_value(self.root, configuration=configuration)
+        context = dict(state.context) if state.context else {}
+        configuration, _actions = main_event_loop(configuration, event, context)
 
         actions, warnings = self._get_actions(_actions)
         for w in warnings:
             print(w)
 
-        return State(configuration=configuration, context={}, actions=actions)
+        return State(configuration=configuration, context=context, actions=actions)
 
     def _get_actions(self, actions) -> List[lambda: None]:
         result = []
@@ -100,21 +111,29 @@ class Machine:
 
     @property
     def initial_state(self) -> State:
-        (configuration, _actions, internal_queue) = enter_states(
+        context = dict(self.context)
+        init_event = Event("xstate.init")
+        configuration, _actions, internal_queue = enter_states(
             [self.root.initial],
             configuration=set(),
             states_to_invoke=set(),
             history_value={},
             actions=[],
             internal_queue=[],
+            context=context,
+            event=init_event,
         )
 
-        (configuration, _actions) = main_event_loop2(
-            configuration=configuration, actions=_actions, internal_queue=internal_queue
+        configuration, _actions = main_event_loop2(
+            configuration=configuration,
+            actions=_actions,
+            internal_queue=internal_queue,
+            context=context,
+            event=init_event,
         )
 
         actions, warnings = self._get_actions(_actions)
         for w in warnings:
             print(w)
 
-        return State(configuration=configuration, context={}, actions=actions)
+        return State(configuration=configuration, context=context, actions=actions)
