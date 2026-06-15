@@ -20,7 +20,7 @@ class Action:
 
     def __init__(
         self,
-        type: str,
+        type: Union[str, Callable[..., Any]],
         exec: Optional[Callable[[], None]] = None,
         data: Optional[Dict[str, Any]] = None,
     ):
