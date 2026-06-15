@@ -47,6 +47,9 @@ repository = "https://github.com/JovaniPink/xstate-python"
 packages = [
     { include = "xstate" },
 ]
+include = [
+    { path = "xstate/py.typed", format = ["sdist", "wheel"] },
+]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0"
@@ -58,6 +61,17 @@ mypy = "^1.0"
 
 [tool.isort]
 profile = "black"
+
+[tool.mypy]
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+
+# Js2Py is an optional extra with no type stubs; it is lazy-imported inside
+# scxml.py and never required by the core library.
+[[tool.mypy.overrides]]
+module = "js2py"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"

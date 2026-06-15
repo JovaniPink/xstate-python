@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as ET
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from xstate.machine import Machine
 
@@ -91,7 +91,7 @@ def convert_state(element: ET.Element, parent: ET.Element):
     }
 
     if len(transitions) > 0:
-        transitions_dict = {}
+        transitions_dict: Dict[Optional[str], list] = {}
 
         for t in transitions:
             transitions_dict[t.get("event")] = transitions_dict.get(t.get("event"), [])
@@ -104,7 +104,8 @@ def convert_state(element: ET.Element, parent: ET.Element):
 
 def convert_transition(element: ET.Element, parent: ET.Element):
     event_type = element.attrib.get("event")
-    event_targets = element.attrib.get("target").split(" ")
+    target_attr = element.attrib.get("target")
+    event_targets = target_attr.split(" ") if target_attr else []
     event_cond_str = element.attrib.get("cond")
 
     event_cond = _eval_scxml_cond(event_cond_str) if event_cond_str else None
@@ -141,7 +142,7 @@ def convert_onentry(element: ET.Element, parent: ET.Element):
 
 def convert(element: ET.Element, parent: Optional[ET.Element] = None):
     _, _, element_tag = element.tag.rpartition("}")  # strip namespace
-    result = elements.get(element_tag, lambda _: f"Invalid tag: {element_tag}")
+    result = elements.get(element_tag, lambda *_: f"Invalid tag: {element_tag}")
 
     return result(element, parent)
 

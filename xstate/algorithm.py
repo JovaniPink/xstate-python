@@ -40,7 +40,7 @@ def _invoke(fn, context: Optional[Dict], event: Optional[Event]) -> Any:
     kw_only = [p for p in params if p.kind == p.KEYWORD_ONLY]
     if kw_only:
         kw_names = {p.name for p in kw_only}
-        kwargs = {}
+        kwargs: Dict[str, Any] = {}
         if "context" in kw_names:
             kwargs["context"] = context
         if "event" in kw_names:
@@ -110,8 +110,12 @@ def add_descendent_states_to_enter(  # noqa: C901
     history_value: HistoryValue,
 ):
     if is_history_state(state):
-        if history_value.get(state.id):
-            for s in history_value.get(state.id):
+        # A history pseudo-state is always a child of a compound state.
+        parent = state.parent
+        assert parent is not None
+        restored = history_value.get(state.id)
+        if restored:
+            for s in restored:
                 add_descendent_states_to_enter(
                     s,
                     states_to_enter=states_to_enter,
@@ -119,14 +123,14 @@ def add_descendent_states_to_enter(  # noqa: C901
                     default_history_content=default_history_content,
                     history_value=history_value,
                 )
-            for s in history_value.get(state.id):
+            for s in restored:
                 # Per SCXML the ancestor bound is the history node's parent, not
                 # each restored state's parent. For deep history `s` can be a
                 # nested atomic descendant, so using `s.parent` would drop the
                 # intermediate ancestors between `s` and `state.parent`.
                 add_ancestor_states_to_enter(
                     s,
-                    ancestor=state.parent,
+                    ancestor=parent,
                     states_to_enter=states_to_enter,
                     states_for_default_entry=states_for_default_entry,
                     default_history_content=default_history_content,
@@ -135,8 +139,8 @@ def add_descendent_states_to_enter(  # noqa: C901
         else:
             # No history recorded yet: enter the history state's default target
             # (or, if none is configured, fall back to the parent's initial).
-            default_transition = state.transition or state.parent.initial
-            default_history_content[state.parent.id] = default_transition
+            default_transition = state.transition or parent.initial
+            default_history_content[parent.id] = default_transition
             for s in default_transition.target:
                 add_descendent_states_to_enter(
                     s,
@@ -151,7 +155,7 @@ def add_descendent_states_to_enter(  # noqa: C901
                 # up to `state.parent`.
                 add_ancestor_states_to_enter(
                     s,
-                    ancestor=state.parent,
+                    ancestor=parent,
                     states_to_enter=states_to_enter,
                     states_for_default_entry=states_for_default_entry,
                     default_history_content=default_history_content,
@@ -205,7 +209,7 @@ def is_atomic_state(state: StateNode) -> bool:
     )
 
 
-def is_descendent(state: StateNode, state2: StateNode) -> bool:
+def is_descendent(state: StateNode, state2: Optional[StateNode]) -> bool:
     marker = state
 
     while marker.parent and marker.parent != state2:
@@ -252,12 +256,15 @@ def get_effective_target_states(
 
     for s in transition.target:
         if is_history_state(s):
-            if history_value.get(s.id):
-                targets.update(history_value.get(s.id))
+            recorded = history_value.get(s.id)
+            if recorded:
+                targets.update(recorded)
             else:
                 # No recorded history: resolve the default target, falling back
                 # to the parent's initial transition when none is configured.
-                default_transition = s.transition or s.parent.initial
+                parent = s.parent
+                assert parent is not None
+                default_transition = s.transition or parent.initial
                 targets.update(
                     get_effective_target_states(
                         default_transition, history_value=history_value
@@ -280,7 +287,7 @@ def get_effective_target_states(
 #                         statesForDefaultEntry, defaultHistoryContent)
 def add_ancestor_states_to_enter(
     state: StateNode,
-    ancestor: StateNode,
+    ancestor: Optional[StateNode],
     states_to_enter: Set[StateNode],
     states_for_default_entry: Set[StateNode],
     default_history_content: Dict,
@@ -336,8 +343,7 @@ def get_child_states(state_node: StateNode) -> List[StateNode]:
 def is_in_final_state(state: StateNode, configuration: Set[StateNode]) -> bool:
     if is_compound_state(state):
         return any(
-            is_final_state(s) and (s in configuration)
-            for s in get_child_states(state)
+            is_final_state(s) and (s in configuration) for s in get_child_states(state)
         )
     elif is_parallel_state(state):
         return all(is_in_final_state(s, configuration) for s in get_child_states(state))
@@ -358,7 +364,7 @@ def enter_states(
     states_to_enter: Set[StateNode] = set()
     states_for_default_entry: Set[StateNode] = set()
 
-    default_history_content = {}
+    default_history_content: Dict = {}
 
     compute_entry_set(
         enabled_transitions,
@@ -394,6 +400,7 @@ def enter_states(
             continue
         if is_final_state(s):
             parent = s.parent
+            assert parent is not None  # a final state always has a parent
             grandparent = parent.parent
             donedata = (
                 _invoke(s.donedata, context, event)
@@ -402,7 +409,7 @@ def enter_states(
             )
             internal_queue.append(Event(f"done.state.{parent.id}", donedata))
 
-            if is_parallel_state(grandparent):
+            if grandparent is not None and is_parallel_state(grandparent):
                 if all(
                     is_in_final_state(parent_state, configuration)
                     for parent_state in get_child_states(grandparent)
@@ -505,9 +512,10 @@ def _matches_in_state(in_spec, configuration: Set[StateNode]) -> bool:  # noqa: 
             for s in configuration:
                 if s.key != leaf_key:
                     continue
-                node = s
+                node: Optional[StateNode] = s
                 matched = True
                 for ancestor_key in reversed(parts[:-1]):
+                    assert node is not None  # guaranteed by the break below
                     node = node.parent
                     if node is None or node.key != ancestor_key:
                         matched = False
@@ -761,7 +769,7 @@ def execute_content(
     event: Optional[Event] = None,
 ):
     if action.type == RAISE_TYPE:
-        internal_queue.append(Event(action.data.get("event")))
+        internal_queue.append(Event(action.data.get("event", "")))
     elif action.type == ASSIGN_TYPE:
         _apply_assignment(action, context, event)
     else:
@@ -819,14 +827,15 @@ def get_configuration_from_state(
     partial_configuration: Set[StateNode],
 ) -> Set[StateNode]:
     if isinstance(state_value, str):
-        partial_configuration.add(from_node.states.get(state_value))
+        node = from_node.states.get(state_value)
+        assert node is not None, f"State '{state_value}' not found in '#{from_node.id}'"
+        partial_configuration.add(node)
     else:
         for key in state_value.keys():
             node = from_node.states.get(key)
+            assert node is not None, f"State '{key}' not found in '#{from_node.id}'"
             partial_configuration.add(node)
-            get_configuration_from_state(
-                node, state_value.get(key), partial_configuration
-            )
+            get_configuration_from_state(node, state_value[key], partial_configuration)
 
     return partial_configuration
 
@@ -842,7 +851,7 @@ def get_adj_list(configuration: Set[StateNode]) -> Dict[str, Set[StateNode]]:
             if not adj_list.get(s.parent.id):
                 adj_list[s.parent.id] = set()
 
-            adj_list.get(s.parent.id).add(s)
+            adj_list[s.parent.id].add(s)
 
     return adj_list
 
@@ -852,7 +861,7 @@ def get_state_value(state_node: StateNode, configuration: Set[StateNode]):
 
 
 def get_value_from_adj(state_node: StateNode, adj_list: Dict[str, Set[StateNode]]):
-    child_state_nodes = adj_list.get(state_node.id)
+    child_state_nodes = adj_list.get(state_node.id, set())
 
     if is_compound_state(state_node):
         child_state_node = list(child_state_nodes)[0]

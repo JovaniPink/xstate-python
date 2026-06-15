@@ -60,7 +60,7 @@ def build_action(raw: Any, registry: Optional[Dict[str, Any]] = None) -> Action:
         return Action(raw)
     # An inline action-creator dict, e.g. assign({...}) / send("EVT").
     if isinstance(raw, dict):
-        return Action(raw.get("type"), data=raw)
+        return Action(raw.get("type", ""), data=raw)
     return Action(str(raw))
 
 

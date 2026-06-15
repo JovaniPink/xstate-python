@@ -164,7 +164,12 @@ class Interpreter:
         """Run resolved action callables and handle interpreter-owned actions."""
         for action in state.actions:
             if isinstance(action, Action):
-                method_name = self._ACTION_DISPATCH.get(action.type)
+                action_type = action.type
+                method_name = (
+                    self._ACTION_DISPATCH.get(action_type)
+                    if isinstance(action_type, str)
+                    else None
+                )
                 if method_name:
                     getattr(self, method_name)(action)
             elif callable(action):

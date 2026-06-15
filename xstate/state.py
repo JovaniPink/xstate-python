@@ -1,6 +1,16 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, Set, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Union,
+)
 
 from xstate.algorithm import get_state_value, is_in_final_state
 from xstate.event import to_event
@@ -19,7 +29,9 @@ class State:
     status: Literal["active", "done", "error"]
     output: Optional[Any]
     error: Optional[Any]
-    event: Optional[Any]  # stamped by Interpreter; None when produced by machine.transition
+    event: Optional[
+        Any
+    ]  # stamped by Interpreter; None when produced by machine.transition
 
     def __init__(
         self,

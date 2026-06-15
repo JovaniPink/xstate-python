@@ -224,7 +224,7 @@ class StateNode:
         return [s for s in self.states.values() if s.type == "history"]
 
     @property
-    def initial(self):
+    def initial(self) -> Transition:
         initial_key = self.config.get("initial")
 
         if not initial_key:
@@ -236,10 +236,16 @@ class StateNode:
                 # Entering a parallel state enters all of its regions; target the
                 # node itself so add_descendent_states_to_enter fans out to them.
                 return Transition(self, source=self, event=None, order=-1)
-        else:
-            return Transition(
-                self.states.get(initial_key), source=self, event=None, order=-1
+            raise ValueError(
+                f"State '#{self.id}' of type '{self.type}' has no initial state."
             )
+
+        target = self.states.get(initial_key)
+        if target is None:
+            raise ValueError(
+                f"Initial state '{initial_key}' is not a child of '#{self.id}'."
+            )
+        return Transition(target, source=self, event=None, order=-1)
 
     def _get_relative(self, target: str) -> StateNode:
         if target.startswith("#"):
