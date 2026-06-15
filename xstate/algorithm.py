@@ -181,7 +181,7 @@ def add_descendent_states_to_enter(  # noqa: C901
         else:
             if is_parallel_state(state):
                 for child in get_child_states(state):
-                    if not any([is_descendent(s, child) for s in states_to_enter]):
+                    if not any(is_descendent(s, child) for s in states_to_enter):
                         add_descendent_states_to_enter(
                             child,
                             states_to_enter=states_to_enter,
@@ -232,7 +232,7 @@ def get_transition_domain(
     elif (
         transition.type == "internal"
         and is_compound_state(transition.source)
-        and all([is_descendent(s, state2=transition.source) for s in tstates])
+        and all(is_descendent(s, state2=transition.source) for s in tstates)
     ):
         return transition.source
     else:
@@ -241,7 +241,7 @@ def get_transition_domain(
 
 def find_lcca(state_list: List[StateNode]):
     for anc in get_proper_ancestors(state_list[0], state2=None):
-        if all([is_descendent(s, state2=anc) for s in state_list[1:]]):
+        if all(is_descendent(s, state2=anc) for s in state_list[1:]):
             return anc
 
 
@@ -290,7 +290,7 @@ def add_ancestor_states_to_enter(
         states_to_enter.add(anc)
         if is_parallel_state(anc):
             for child in get_child_states(anc):
-                if not any([is_descendent(s, state2=child) for s in states_to_enter]):
+                if not any(is_descendent(s, state2=child) for s in states_to_enter):
                     add_descendent_states_to_enter(
                         child,
                         states_to_enter=states_to_enter,
@@ -336,10 +336,8 @@ def get_child_states(state_node: StateNode) -> List[StateNode]:
 def is_in_final_state(state: StateNode, configuration: Set[StateNode]) -> bool:
     if is_compound_state(state):
         return any(
-            [
-                is_final_state(s) and (s in configuration)
-                for s in get_child_states(state)
-            ]
+            is_final_state(s) and (s in configuration)
+            for s in get_child_states(state)
         )
     elif is_parallel_state(state):
         return all(is_in_final_state(s, configuration) for s in get_child_states(state))

@@ -134,7 +134,10 @@ class ActorSnapshot:
         self.value = status
 
     def __repr__(self) -> str:
-        return repr({"status": self.status, "output": self.output, "error": self.error})
+        return (
+            f"ActorSnapshot(status={self.status!r},"
+            f" output={self.output!r}, error={self.error!r})"
+        )
 
 
 class _ListenerSubscription:

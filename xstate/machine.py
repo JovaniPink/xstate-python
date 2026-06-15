@@ -9,7 +9,7 @@ from xstate.algorithm import (
     main_event_loop,
     main_event_loop2,
 )
-from xstate.event import Event
+from xstate.event import Event, to_event
 from xstate.state import State
 from xstate.state_node import StateNode
 
@@ -65,13 +65,7 @@ class Machine:
         return order
 
     def _to_event(self, event) -> Event:
-        if isinstance(event, Event):
-            return event
-        if isinstance(event, str):
-            return Event(event)
-        if isinstance(event, dict):
-            return Event(event.get("type", ""), event)
-        return Event(str(event))
+        return to_event(event)
 
     def transition(self, state: State, event):
         event = self._to_event(event)

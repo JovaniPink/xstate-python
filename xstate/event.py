@@ -1,13 +1,21 @@
-from typing import Dict, Optional
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Optional
 
 
+@dataclass
 class Event:
     name: str
-    data: Optional[Dict]
+    data: Optional[dict[str, Any]] = None
 
-    def __init__(self, name: str, data: Optional[Dict] = None):
-        self.name = name
-        self.data = data
 
-    def __repr__(self) -> str:
-        return repr({"name": self.name, "data": self.data})
+def to_event(event: Any) -> Event:
+    """Normalize any event representation to an :class:`Event`."""
+    if isinstance(event, Event):
+        return event
+    if isinstance(event, str):
+        return Event(event)
+    if isinstance(event, dict):
+        return Event(event.get("type", ""), event)
+    return Event(str(event))

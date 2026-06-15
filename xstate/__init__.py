@@ -6,6 +6,12 @@ from xstate.actor import (  # noqa
     from_callback,
     from_promise,
 )
+from xstate.event import Event, to_event  # noqa
+from xstate.exceptions import (  # noqa
+    InvalidConfigError,
+    UnregisteredImplementationError,
+    XStateError,
+)
 from xstate.interpreter import Interpreter, interpret  # noqa
 from xstate.machine import Machine  # noqa
 from xstate.scheduler import Clock, SimulatedClock, ThreadClock  # noqa
@@ -31,6 +37,13 @@ __all__ = [
     "send_to",
     "cancel",
     "raise_",
+    # Event
+    "Event",
+    "to_event",
+    # Exceptions
+    "XStateError",
+    "InvalidConfigError",
+    "UnregisteredImplementationError",
     # Clocks
     "Clock",
     "SimulatedClock",

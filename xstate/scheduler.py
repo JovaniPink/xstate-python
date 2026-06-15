@@ -12,18 +12,21 @@ implementations are provided:
 
 from __future__ import annotations
 
+import abc
 import threading
 from typing import Any, Callable, Dict
 
 
-class Clock:
+class Clock(abc.ABC):
     """Interface the interpreter uses to schedule and cancel delayed events."""
 
+    @abc.abstractmethod
     def set_timeout(self, fn: Callable[[], Any], delay_ms: float) -> int:
-        raise NotImplementedError
+        """Schedule ``fn`` to run after ``delay_ms`` milliseconds; return a timer id."""
 
+    @abc.abstractmethod
     def clear_timeout(self, timeout_id: int) -> None:
-        raise NotImplementedError
+        """Cancel the timer with the given id."""
 
 
 class SimulatedClock(Clock):

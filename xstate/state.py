@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, Set, Union
 
 from xstate.algorithm import get_state_value, is_in_final_state
+from xstate.event import to_event
 
 if TYPE_CHECKING:
     from xstate.action import Action
@@ -15,12 +16,10 @@ class State:
     context: Dict[str, Any]
     actions: List[Union[Callable, "Action"]]
     history_value: Dict[str, Set[StateNode]]
-    status: str  # "active" | "done" | "error"
+    status: Literal["active", "done", "error"]
     output: Optional[Any]
     error: Optional[Any]
-    event: Optional[
-        Any
-    ]  # stamped by Interpreter; None when produced by machine.transition
+    event: Optional[Any]  # stamped by Interpreter; None when produced by machine.transition
 
     def __init__(
         self,
@@ -63,20 +62,9 @@ class State:
         transition is configured for it.
         """
         from xstate.algorithm import select_transitions
-        from xstate.event import Event as _Event
-
-        # Normalise event exactly as Machine._to_event does.
-        if isinstance(event, _Event):
-            ev = event
-        elif isinstance(event, str):
-            ev = _Event(event)
-        elif isinstance(event, dict):
-            ev = _Event(event.get("type", ""), event)
-        else:
-            ev = _Event(str(event))
 
         transitions = select_transitions(
-            event=ev,
+            event=to_event(event),
             configuration=self.configuration,
             context=self.context,
             history_value=self.history_value,
@@ -95,14 +83,10 @@ class State:
             return _matches_dict(self.value, value)
         return False
 
-    def __repr__(self):
-        return repr(
-            {
-                "value": self.value,
-                "context": self.context,
-                "status": self.status,
-                "output": self.output,
-            }
+    def __repr__(self) -> str:
+        return (
+            f"State(value={self.value!r}, status={self.status!r},"
+            f" context={self.context!r})"
         )
 
 

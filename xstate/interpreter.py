@@ -153,18 +153,20 @@ class Interpreter:
 
     # -- side effects -------------------------------------------------------
 
+    _ACTION_DISPATCH: Dict[str, str] = {
+        SEND_TYPE: "_execute_send",
+        CANCEL_TYPE: "_execute_cancel",
+        SEND_PARENT_TYPE: "_execute_send_parent",
+        SEND_TO_TYPE: "_execute_send_to",
+    }
+
     def _execute(self, state: State) -> None:
         """Run resolved action callables and handle interpreter-owned actions."""
         for action in state.actions:
             if isinstance(action, Action):
-                if action.type == SEND_TYPE:
-                    self._execute_send(action)
-                elif action.type == CANCEL_TYPE:
-                    self._execute_cancel(action)
-                elif action.type == SEND_PARENT_TYPE:
-                    self._execute_send_parent(action)
-                elif action.type == SEND_TO_TYPE:
-                    self._execute_send_to(action)
+                method_name = self._ACTION_DISPATCH.get(action.type)
+                if method_name:
+                    getattr(self, method_name)(action)
             elif callable(action):
                 action()
 

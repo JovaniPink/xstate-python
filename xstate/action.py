@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any, Callable, Dict, Optional, Union
 
 # Action type markers used internally by the engine.
@@ -14,7 +16,7 @@ INTERPRETER_TYPES = {SEND_TYPE, CANCEL_TYPE, SEND_PARENT_TYPE, SEND_TO_TYPE}
 
 
 class Action:
-    type: str
+    type: Union[str, Callable[..., Any]]
     exec: Optional[Callable[[], None]]
     data: Dict[str, Any]
 
@@ -28,8 +30,8 @@ class Action:
         self.exec = exec
         self.data = data if data is not None else {}
 
-    def __repr__(self):
-        return repr({"type": self.type})
+    def __repr__(self) -> str:
+        return f"Action(type={self.type!r})"
 
 
 def build_action(raw: Any, registry: Optional[Dict[str, Any]] = None) -> Action:
@@ -56,7 +58,10 @@ def build_action(raw: Any, registry: Optional[Dict[str, Any]] = None) -> Action:
         return Action(raw)
     if callable(raw):
         return Action(raw)
-    # An inline action-creator dict, e.g. assign({...}) / send(\"EVT\").\n    if isinstance(raw, dict):\n        return Action(raw.get(\"type\"), data=raw)\n    return Action(str(raw))
+    # An inline action-creator dict, e.g. assign({...}) / send("EVT").
+    if isinstance(raw, dict):
+        return Action(raw.get("type"), data=raw)
+    return Action(str(raw))
 
 
 def assign(assignment):
