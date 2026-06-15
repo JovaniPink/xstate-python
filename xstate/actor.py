@@ -34,7 +34,7 @@ true deferred/asyncio resolution is the remaining 0.5.0 async milestone.
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Literal, Optional
 
 from xstate.event import Event
 from xstate.interpreter import NOT_STARTED, RUNNING, STOPPED, Interpreter
@@ -122,12 +122,12 @@ class ActorSnapshot:
 
     def __init__(
         self,
-        status: str,
+        status: Literal["active", "done", "error"],
         output: Optional[Any] = None,
         error: Optional[Any] = None,
         context: Optional[Any] = None,
     ):
-        self.status = status  # "active" | "done" | "error"
+        self.status: Literal["active", "done", "error"] = status
         self.output = output
         self.error = error
         self.context = context

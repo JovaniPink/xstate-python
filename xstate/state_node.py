@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple
 
 from xstate.action import Action, build_action
 from xstate.transition import Transition
@@ -16,13 +16,13 @@ class StateNode:
     entry: List[Action]
     exit: List[Action]
     donedata: Optional[Dict]
-    type: str  # 'atomic' or 'compound' or 'parallel' or 'final'
+    type: Literal["atomic", "compound", "parallel", "final", "history"]
     transitions: List[Transition]
     id: str
     key: str
     states: Dict[str, StateNode]
     order: int
-    after: List[tuple]
+    after: List[Tuple]
     invoke: List[dict]
 
     def __init__(  # noqa: C901

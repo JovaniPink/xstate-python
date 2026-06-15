@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, List, NamedTuple, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, List, Literal, Optional, Union
 
 from xstate.action import Action, build_action
 from xstate.event import Event
@@ -11,19 +11,14 @@ if TYPE_CHECKING:
 CondFunction = Callable[[Any, Event], bool]
 
 
-class TransitionConfig(NamedTuple):
-    target: List[str]
-
-
 class Transition:
     event: Optional[str]
     source: StateNode
-    config: Union[str, StateNode]
+    config: Union[str, "StateNode"]
     actions: List[Action]
     cond: Optional[CondFunction]
     order: int
-    # "internal" or "external"
-    type: str
+    type: Literal["internal", "external"]
 
     def __init__(
         self,
@@ -77,14 +72,7 @@ class Transition:
             return [self.config] if self.config else []
 
     def __repr__(self) -> str:
-        return repr(
-            {
-                "event": self.event,
-                "source": self.source.id,
-                "target": [f"#{t.id}" for t in self.target],
-                "cond": self.cond,
-                "actions": self.actions,
-                "type": self.type,
-                "order": self.order,
-            }
+        return (
+            f"Transition(event={self.event!r}, source={self.source.id!r},"
+            f" target={[f'#{t.id}' for t in self.target]!r})"
         )
