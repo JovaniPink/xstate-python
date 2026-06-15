@@ -56,8 +56,7 @@ def build_action(raw: Any, registry: Optional[Dict[str, Any]] = None) -> Action:
         return Action(raw)
     if callable(raw):
         return Action(raw)
-    # An inline action-creator dict, e.g. assign({...}) / send("EVT").
-    return Action(raw.get("type"), data=raw)
+    # An inline action-creator dict, e.g. assign({...}) / send(\"EVT\").\n    if isinstance(raw, dict):\n        return Action(raw.get(\"type\"), data=raw)\n    return Action(str(raw))
 
 
 def assign(assignment):
