@@ -20,16 +20,43 @@ class Action:
 
     def __init__(
         self,
-        type: str,
+        type: Union[str, Callable[..., Any]],
         exec: Optional[Callable[[], None]] = None,
-        data: Dict[str, Any] = {},
+        data: Optional[Dict[str, Any]] = None,
     ):
         self.type = type
         self.exec = exec
-        self.data = data
+        self.data = data if data is not None else {}
 
     def __repr__(self):
         return repr({"type": self.type})
+
+
+def build_action(raw: Any, registry: Optional[Dict[str, Any]] = None) -> Action:
+    """Normalise one raw action spec from a config into an :class:`Action`.
+
+    A spec is one of:
+
+    - a **callable** — an inline side-effect; stored as the action's ``type``
+      and invoked later by the interpreter / ``state.actions``;
+    - a **dict** produced by an action creator (``assign``/``raise_``/``send``/
+      ``send_parent``/``send_to``/``cancel``) — used directly via its ``type``;
+    - a **string name** — looked up in ``registry`` (the machine's ``actions``).
+      If the name resolves to an action-creator dict it is expanded to that
+      dict's real type *now*, so the SCXML engine applies it in declared order
+      (an ``assign`` runs as an assign, a ``raise_`` is queued, a ``send`` is
+      handed to the interpreter) rather than being deferred and mis-ordered.
+      Names that resolve to a callable, or that are unregistered, keep the name
+      and are resolved later by ``Machine._get_actions``.
+    """
+    if isinstance(raw, str):
+        impl = (registry or {}).get(raw)
+        if isinstance(impl, dict) and "type" in impl:
+            return Action(impl["type"], data=impl)
+        return Action(raw)
+    if callable(raw):
+        return Action(raw)
+    # An inline action-creator dict, e.g. assign({...}) / send(\"EVT\").\n    if isinstance(raw, dict):\n        return Action(raw.get(\"type\"), data=raw)\n    return Action(str(raw))
 
 
 def assign(assignment):

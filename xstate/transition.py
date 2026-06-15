@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable, List, NamedTuple, Optional, Union
 
-from xstate.action import Action
+from xstate.action import Action, build_action
 from xstate.event import Event
 
 if TYPE_CHECKING:
@@ -46,13 +46,12 @@ class Transition:
         self.in_state = config.get("in", None) if isinstance(config, dict) else None
         self.order = order
 
+        # Named actions resolve against the machine's `actions` registry, so a
+        # named assign/raise/send is expanded to its real type and applied by
+        # the engine in declared order (see action.build_action).
         self.actions = (
             [
-                (
-                    Action(action)
-                    if callable(action) or isinstance(action, str)
-                    else Action(type=action.get("type"), data=action)
-                )
+                build_action(action, source.machine.actions)
                 for action in config.get("actions", [])
             ]
             if isinstance(config, dict)

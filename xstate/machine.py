@@ -1,4 +1,5 @@
 import copy
+import warnings
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from xstate.action import INTERPRETER_TYPES
@@ -28,25 +29,34 @@ class Machine:
     def __init__(
         self,
         config: Dict[str, Any],
-        actions: Dict[str, Callable] = {},
-        guards: Dict[str, Callable] = {},
-        delays: Dict[str, Any] = {},
-        actors: Dict[str, Any] = {},
+        actions: Optional[Dict[str, Any]] = None,
+        guards: Optional[Dict[str, Callable]] = None,
+        delays: Optional[Dict[str, Any]] = None,
+        actors: Optional[Dict[str, Any]] = None,
     ):
+        if "id" not in config:
+            raise ValueError(
+                "Machine config must include an 'id' key. "
+                "Example: Machine({'id': 'myMachine', 'initial': ..., 'states': {...}})"
+            )
         self.id = config["id"]
         self._id_map = {}
         self._order = 0
+        # Registries must be populated *before* the state tree is built: node and
+        # transition construction resolves named actions against `self.actions`
+        # (see action.build_action), so a named assign/raise/send is expanded to
+        # its real type and applied by the engine in declared order.
+        self.actions = actions if actions is not None else {}
+        self.guards = guards if guards is not None else {}
+        self.delays = delays if delays is not None else {}
+        # Named actor logic referenced by `invoke: {"src": "<name>"}`; resolved
+        # by the actor layer when an invoking state is entered.
+        self.actors = actors if actors is not None else {}
         self.root = StateNode(
             config, machine=self, key=config.get("id", "(machine)"), parent=None
         )
         self.states = self.root.states
         self.config = config
-        self.actions = actions
-        self.guards = guards
-        self.delays = delays
-        # Named actor logic referenced by `invoke: {"src": "<name>"}`; resolved
-        # by the actor layer when an invoking state is entered.
-        self.actors = actors
         self.context = config.get("context", {}) or {}
 
     def _get_order(self) -> int:
@@ -74,9 +84,8 @@ class Machine:
             configuration, event, context, history_value
         )
 
-        actions, warnings = self._get_actions(_actions)
-        for w in warnings:
-            print(w)
+        actions, unknown = self._get_actions(_actions)
+        self._warn_unknown_actions(unknown)
 
         return State(
             configuration=configuration,
@@ -88,8 +97,17 @@ class Machine:
     def _get_actions(
         self, actions: List
     ) -> Tuple[List[Union[Callable, Any]], List[str]]:
+        """Resolve resolved-engine actions for the caller.
+
+        Assigns and raises were already applied/queued by the SCXML engine and
+        do not reach here. What remains is: interpreter-owned actions (send /
+        cancel / send_parent / send_to — passed through as raw ``Action`` for
+        the interpreter), named side-effect callables (resolved to the callable
+        registered in ``self.actions``), and inline callables. Names with no
+        implementation are collected in ``unknown`` so the caller can warn.
+        """
         result: List[Union[Callable, Any]] = []
-        errors: List[str] = []
+        unknown: List[str] = []
         for action in actions:
             if action.type in INTERPRETER_TYPES:
                 # Passed through as raw Action; the interpreter handles them.
@@ -99,8 +117,18 @@ class Machine:
             elif callable(action.type):
                 result.append(action.type)
             else:
-                errors.append("No '{}' action".format(action.type))
-        return result, errors
+                unknown.append(str(action.type))
+        return result, unknown
+
+    def _warn_unknown_actions(self, unknown: List[str]) -> None:
+        """Warn once per action name that has no registered implementation."""
+        for name in unknown:
+            warnings.warn(
+                f"No implementation found for action '{name}'. "
+                f"Pass it via Machine(config, actions={{'{name}': ...}}).",
+                UserWarning,
+                stacklevel=3,
+            )
 
     def state_from(self, state_value) -> State:
         configuration = set(self._get_configuration(state_value=state_value))
@@ -139,7 +167,7 @@ class Machine:
 
     @property
     def initial_state(self) -> State:
-        context = dict(self.context)
+        context = copy.deepcopy(self.context)
         history_value: Dict[str, Any] = {}
         init_event = Event("xstate.init")
         configuration, _actions, internal_queue = enter_states(
@@ -162,9 +190,8 @@ class Machine:
             history_value=history_value,
         )
 
-        actions, warnings = self._get_actions(_actions)
-        for w in warnings:
-            print(w)
+        actions, unknown = self._get_actions(_actions)
+        self._warn_unknown_actions(unknown)
 
         return State(
             configuration=configuration,
