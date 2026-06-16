@@ -26,7 +26,7 @@ class StateNode:
     after: list[tuple]
     invoke: list[dict]
 
-    def __init__(  # noqa: C901
+    def __init__(
         self,
         # { "type": "compound", "states": { ... } }
         config,

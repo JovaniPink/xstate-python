@@ -103,7 +103,7 @@ def compute_entry_set(
             )
 
 
-def add_descendent_states_to_enter(  # noqa: C901
+def add_descendent_states_to_enter(
     state: StateNode,
     states_to_enter: set[StateNode],
     states_for_default_entry: set[StateNode],
@@ -489,7 +489,7 @@ def name_match(event: str, specific_event: str) -> bool:
     return event == specific_event
 
 
-def _matches_in_state(in_spec, configuration: set[StateNode]) -> bool:  # noqa: C901
+def _matches_in_state(in_spec, configuration: set[StateNode]) -> bool:
     """Return True if ``in_spec`` matches the current configuration.
 
     ``in_spec`` is the value of an XState ``in`` transition guard:

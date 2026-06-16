@@ -17,7 +17,8 @@ def _eval_scxml_cond(event_cond_str: str):
     except ImportError as exc:  # pragma: no cover - depends on optional extra
         raise ImportError(
             "Evaluating SCXML 'cond' expressions requires the optional 'js2py' "
-            "dependency. Install it with `pip install xstate[scxml]`."
+            "dependency (Python < 3.11 only). "
+            "Install it with: pip install xstate[scxml]"
         ) from exc
 
     return js2py.eval_js("function cond() { return %s }" % event_cond_str)

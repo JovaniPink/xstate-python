@@ -100,12 +100,11 @@ pip install xstate[scxml]
 python3 -m pytest tests/test_scxml.py
 
 # Type check
-mypy xstate/
+mypy src/xstate/
 
 # Format + lint
-black xstate/ tests/
-isort xstate/ tests/
-flake8 xstate/ tests/
+ruff format src/ tests/
+ruff check src/ tests/
 ```
 
 ---

@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
 @dataclass(slots=True, frozen=True)
 class Event:
     name: str
-    data: dict[str, Any] | None = None
+    # Excluded from __hash__ so events with dict payloads remain hashable.
+    # __eq__ still compares data, preserving the Python hash/eq contract.
+    data: dict[str, Any] | None = field(default=None, hash=False)
 
 
 def to_event(event: Any) -> Event:

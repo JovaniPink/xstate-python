@@ -10,9 +10,11 @@ class InvalidConfigError(XStateError, ValueError):
     """
 
 
-class UnregisteredImplementationError(XStateError, UserWarning):
+class UnregisteredImplementationError(XStateError, UserWarning, ValueError):
     """Raised or warned when a named implementation is missing.
 
-    Subclasses both :class:`XStateError` and :class:`UserWarning` so it can be
+    Subclasses :class:`XStateError` and :class:`UserWarning` so it can be
     used as either a ``raise`` target or a ``warnings.warn`` category.
+    Subclasses :class:`ValueError` for backwards compatibility with callers
+    that catch ``ValueError`` around guard or delay resolution.
     """

@@ -157,9 +157,9 @@ class Machine:
 
         for key in state_value:
             state_node = parent.states.get(key)
-            if state_node is not None:
-                configuration.append(state_node)
-
+            if state_node is None:
+                raise InvalidConfigError(f"State node '{key}' is missing")
+            configuration.append(state_node)
             configuration += self._get_configuration(
                 state_value.get(key), parent=state_node
             )
