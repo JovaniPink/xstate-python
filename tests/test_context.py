@@ -2,7 +2,7 @@
 
 import pytest
 
-from xstate import Machine, assign
+from xstate import Machine, UnregisteredImplementationError, assign
 
 
 def make_counter(guards=None):
@@ -192,5 +192,5 @@ def test_missing_named_guard_raises():
         }
     )
     state = machine.initial_state
-    with pytest.raises(ValueError, match="Guard 'nope'"):
+    with pytest.raises(UnregisteredImplementationError, match="Guard 'nope'"):
         machine.transition(state, "OPEN")

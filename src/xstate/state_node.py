@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, Literal
 
 from xstate.action import Action, build_action
+from xstate.exceptions import InvalidConfigError
 from xstate.transition import Transition
 
 if TYPE_CHECKING:
@@ -10,20 +11,20 @@ if TYPE_CHECKING:
 
 
 class StateNode:
-    on: Dict[str, List[Transition]]
+    on: dict[str, list[Transition]]
     machine: Machine
-    parent: Optional[StateNode]
-    entry: List[Action]
-    exit: List[Action]
-    donedata: Optional[Dict]
+    parent: StateNode | None
+    entry: list[Action]
+    exit: list[Action]
+    donedata: dict | None
     type: Literal["atomic", "compound", "parallel", "final", "history"]
-    transitions: List[Transition]
+    transitions: list[Transition]
     id: str
     key: str
-    states: Dict[str, StateNode]
+    states: dict[str, StateNode]
     order: int
-    after: List[Tuple]
-    invoke: List[dict]
+    after: list[tuple]
+    invoke: list[dict]
 
     def __init__(  # noqa: C901
         self,
@@ -31,11 +32,11 @@ class StateNode:
         config,
         machine: Machine,
         key: str,
-        parent: Optional[StateNode] = None,
+        parent: StateNode | None = None,
     ):
         self.order = machine._get_order()
         self.config = config
-        self.parent: Optional[StateNode] = parent
+        self.parent: StateNode | None = parent
         self.machine = machine
         self.id = (
             config.get("id", parent.id + "." + key)
@@ -139,7 +140,7 @@ class StateNode:
         # events that the actor layer feeds back when the child completes.
         # `self.invoke` lets the actor layer discover which invocations a node
         # owns (mirroring `self.after` for delayed transitions).
-        self.invoke: List[dict] = []
+        self.invoke: list[dict] = []
         invoke_configs = config.get("invoke")
         if invoke_configs is not None:
             if not isinstance(invoke_configs, list):
@@ -151,7 +152,7 @@ class StateNode:
                 )
                 src = invoke_config.get("src")
                 if src is None:
-                    raise ValueError(
+                    raise InvalidConfigError(
                         f"invoke on state '{self.id}' is missing a 'src'. "
                         f"Provide actor logic or a name registered via "
                         f"Machine(config, actors={{...}})."
@@ -190,7 +191,7 @@ class StateNode:
         # `xstate.after(<delay>)#<id>` that the interpreter schedules on entry
         # and cancels on exit. `self.after` lets the interpreter discover which
         # delays a node owns.
-        self.after: List[tuple] = []
+        self.after: list[tuple] = []
         for delay, transition_config in config.get("after", {}).items():
             after_event = f"xstate.after({delay})#{self.id}"
             transition_configs = (
@@ -219,7 +220,7 @@ class StateNode:
         return build_action(action, self.machine.actions)
 
     @property
-    def history_states(self) -> List[StateNode]:
+    def history_states(self) -> list[StateNode]:
         """Child states of this node that are history pseudo-states."""
         return [s for s in self.states.values() if s.type == "history"]
 
@@ -236,13 +237,13 @@ class StateNode:
                 # Entering a parallel state enters all of its regions; target the
                 # node itself so add_descendent_states_to_enter fans out to them.
                 return Transition(self, source=self, event=None, order=-1)
-            raise ValueError(
+            raise InvalidConfigError(
                 f"State '#{self.id}' of type '{self.type}' has no initial state."
             )
 
         target = self.states.get(initial_key)
         if target is None:
-            raise ValueError(
+            raise InvalidConfigError(
                 f"Initial state '{initial_key}' is not a child of '#{self.id}'."
             )
         return Transition(target, source=self, event=None, order=-1)
@@ -251,20 +252,20 @@ class StateNode:
         if target.startswith("#"):
             node = self.machine._get_by_id(target[1:])
             if node is None:
-                raise ValueError(
+                raise InvalidConfigError(
                     f"No state with id '{target[1:]}' in machine '{self.machine.id}'"
                 )
             return node
 
         if self.parent is None:
-            raise ValueError(
+            raise InvalidConfigError(
                 f"Cannot resolve relative target '{target}' from root state "
                 f"node '#{self.id}'"
             )
         state_node = self.parent.states.get(target)
 
         if not state_node:
-            raise ValueError(
+            raise InvalidConfigError(
                 f"Relative state node '{target}' does not exist on state "
                 f"node '#{self.id}'"
             )
@@ -272,4 +273,4 @@ class StateNode:
         return state_node
 
     def __repr__(self) -> str:
-        return "<StateNode %s>" % repr({"id": self.id})
+        return f"<StateNode {{'id': {self.id!r}}}>"

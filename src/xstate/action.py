@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional, Union
+from collections.abc import Callable
+from typing import Any
 
 # Action type markers used internally by the engine.
 ASSIGN_TYPE = "xstate.assign"
@@ -16,15 +17,15 @@ INTERPRETER_TYPES = {SEND_TYPE, CANCEL_TYPE, SEND_PARENT_TYPE, SEND_TO_TYPE}
 
 
 class Action:
-    type: Union[str, Callable[..., Any]]
-    exec: Optional[Callable[[], None]]
-    data: Dict[str, Any]
+    type: str | Callable[..., Any]
+    exec: Callable[[], None] | None
+    data: dict[str, Any]
 
     def __init__(
         self,
-        type: Union[str, Callable[..., Any]],
-        exec: Optional[Callable[[], None]] = None,
-        data: Optional[Dict[str, Any]] = None,
+        type: str | Callable[..., Any],
+        exec: Callable[[], None] | None = None,
+        data: dict[str, Any] | None = None,
     ):
         self.type = type
         self.exec = exec
@@ -34,7 +35,7 @@ class Action:
         return f"Action(type={self.type!r})"
 
 
-def build_action(raw: Any, registry: Optional[Dict[str, Any]] = None) -> Action:
+def build_action(raw: Any, registry: dict[str, Any] | None = None) -> Action:
     """Normalise one raw action spec from a config into an :class:`Action`.
 
     A spec is one of:
@@ -64,7 +65,7 @@ def build_action(raw: Any, registry: Optional[Dict[str, Any]] = None) -> Action:
     return Action(str(raw))
 
 
-def assign(assignment):
+def assign(assignment: Any) -> dict[str, Any]:
     """Create an ``assign`` action that updates a machine's ``context``.
 
     ``assignment`` is either:
@@ -84,7 +85,7 @@ def assign(assignment):
     return {"type": ASSIGN_TYPE, "assignment": assignment}
 
 
-def raise_(event: str) -> Dict[str, str]:
+def raise_(event: str) -> dict[str, str]:
     """Queue an internal event to be processed after the current microstep.
 
     The event fires within the same macrostep (run-to-completion step), so
@@ -111,10 +112,10 @@ def raise_(event: str) -> Dict[str, str]:
 
 
 def send(
-    event: Union[str, Dict[str, Any]],
-    delay: Optional[float] = None,
-    id: Optional[str] = None,
-) -> Dict[str, Any]:
+    event: str | dict[str, Any],
+    delay: float | None = None,
+    id: str | None = None,
+) -> dict[str, Any]:
     """Send an event from within an action, optionally after a delay.
 
     Without a delay the event is queued immediately (run-to-completion) via
@@ -146,10 +147,10 @@ def send(
 
 
 def send_parent(
-    event: Union[str, Dict[str, Any]],
-    delay: Optional[float] = None,
-    id: Optional[str] = None,
-) -> Dict[str, Any]:
+    event: str | dict[str, Any],
+    delay: float | None = None,
+    id: str | None = None,
+) -> dict[str, Any]:
     """Send an event from a child actor to its parent (XState ``sendParent``).
 
     Only meaningful for an actor that was spawned or invoked by another actor;
@@ -169,10 +170,10 @@ def send_parent(
 
 def send_to(
     target: str,
-    event: Union[str, Dict[str, Any]],
-    delay: Optional[float] = None,
-    id: Optional[str] = None,
-) -> Dict[str, Any]:
+    event: str | dict[str, Any],
+    delay: float | None = None,
+    id: str | None = None,
+) -> dict[str, Any]:
     """Send an event to another actor in the same system by id (``sendTo``).
 
     ``target`` is the id of an actor registered in this actor's system; if no
@@ -195,7 +196,7 @@ def send_to(
     }
 
 
-def cancel(send_id: str) -> Dict[str, str]:
+def cancel(send_id: str) -> dict[str, str]:
     """Cancel a previously-scheduled :func:`send` by its ``id``.
 
     Has no effect if the send already fired or was never scheduled.

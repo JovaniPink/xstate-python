@@ -25,10 +25,12 @@ Example::
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from xstate.action import CANCEL_TYPE, SEND_PARENT_TYPE, SEND_TO_TYPE, SEND_TYPE, Action
 from xstate.event import Event as _Event
+from xstate.exceptions import UnregisteredImplementationError
 from xstate.machine import Machine
 from xstate.scheduler import Clock, ThreadClock
 from xstate.state import State
@@ -42,9 +44,9 @@ STOPPED = "stopped"
 class Subscription:
     """Handle returned by :meth:`Interpreter.subscribe`; call ``unsubscribe``."""
 
-    def __init__(self, interpreter: "Interpreter", listener: Callable[[State], None]):
+    def __init__(self, interpreter: Interpreter, listener: Callable[[State], None]):
         self._interpreter = interpreter
-        self._listener: Optional[Callable[[State], None]] = listener
+        self._listener: Callable[[State], None] | None = listener
 
     def unsubscribe(self) -> None:
         if self._listener is not None:
@@ -57,21 +59,21 @@ class Interpreter:
     state: State
     clock: Clock
 
-    def __init__(self, machine: Machine, clock: Optional[Clock] = None):
+    def __init__(self, machine: Machine, clock: Clock | None = None):
         self.machine = machine
         self.clock = clock if clock is not None else ThreadClock()
         self.state = machine.initial_state
         self._status = NOT_STARTED
         self._listeners: set = set()
-        self._event_queue: List = []
+        self._event_queue: list = []
         self._processing = False
         # `after`-event name → clock timeout id
-        self._scheduled: Dict[str, int] = {}
+        self._scheduled: dict[str, int] = {}
         # named `send(..., id=...)` or tid → clock timeout id (all delayed sends)
-        self._send_timers: Dict = {}
+        self._send_timers: dict = {}
         # Optional back-reference to the owning Actor, set by the actor layer so
         # interpreter-owned actions (send_parent / send_to) can reach the system.
-        self._actor: Optional[Any] = None
+        self._actor: Any | None = None
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -83,7 +85,7 @@ class Interpreter:
     def initialized(self) -> bool:
         return self._status == RUNNING
 
-    def start(self, initial_state: Optional[State] = None) -> "Interpreter":
+    def start(self, initial_state: State | None = None) -> Interpreter:
         """Start the service.  Idempotent while already running."""
         if self._status == RUNNING:
             return self
@@ -96,7 +98,7 @@ class Interpreter:
         self._notify(self.state)
         return self
 
-    def stop(self) -> "Interpreter":
+    def stop(self) -> Interpreter:
         """Stop the service: cancel pending timers and drop all listeners."""
         for timeout_id in self._scheduled.values():
             self.clock.clear_timeout(timeout_id)
@@ -111,7 +113,7 @@ class Interpreter:
 
     # -- events -------------------------------------------------------------
 
-    def send(self, event) -> State:
+    def send(self, event: Any) -> State:
         """Send an event.  Events sent during processing are queued (RTC)."""
         if self._status != RUNNING:
             # Match XState: events before start / after stop are dropped.
@@ -130,7 +132,7 @@ class Interpreter:
             self._processing = False
         return self.state
 
-    def _process(self, event) -> None:
+    def _process(self, event: Any) -> None:
         next_state = self.machine.transition(self.state, event)
         next_state.event = self.machine._to_event(event)
         self.state = next_state
@@ -153,7 +155,7 @@ class Interpreter:
 
     # -- side effects -------------------------------------------------------
 
-    _ACTION_DISPATCH: Dict[str, str] = {
+    _ACTION_DISPATCH: dict[str, str] = {
         SEND_TYPE: "_execute_send",
         CANCEL_TYPE: "_execute_cancel",
         SEND_PARENT_TYPE: "_execute_send_parent",
@@ -212,7 +214,7 @@ class Interpreter:
             return
         self._deliver_external(target, action)
 
-    def _deliver_external(self, target, action: Action) -> None:
+    def _deliver_external(self, target: Any, action: Action) -> None:
         """Deliver an event to another actor, immediately or after a delay."""
         event = action.data.get("event")
         delay = action.data.get("delay")
@@ -228,7 +230,7 @@ class Interpreter:
 
     # -- delayed transitions ------------------------------------------------
 
-    def _resolve_delay(self, delay_spec) -> float:
+    def _resolve_delay(self, delay_spec: Any) -> float:
         """Resolve a delay key to milliseconds.
 
         Numbers are taken as-is; strings are looked up in ``machine.delays`` and
@@ -238,7 +240,7 @@ class Interpreter:
             return float(delay_spec)
         delay = self.machine.delays.get(delay_spec)
         if delay is None:
-            raise ValueError(
+            raise UnregisteredImplementationError(
                 f"Delay '{delay_spec}' is not configured. "
                 f"Pass it via Machine(config, delays={{'{delay_spec}': ...}})."
             )
@@ -256,7 +258,7 @@ class Interpreter:
         Timers for states still active are left running; timers for exited
         states are cancelled; newly entered states with `after` are scheduled.
         """
-        wanted: Dict[str, object] = {}
+        wanted: dict[str, object] = {}
         for node in self.state.configuration:
             for delay_spec, event_name in getattr(node, "after", []):
                 wanted[event_name] = delay_spec
@@ -277,6 +279,6 @@ class Interpreter:
             )
 
 
-def interpret(machine: Machine, clock: Optional[Clock] = None) -> Interpreter:
+def interpret(machine: Machine, clock: Clock | None = None) -> Interpreter:
     """Create an :class:`Interpreter` for ``machine`` (XState ``interpret``)."""
     return Interpreter(machine, clock=clock)

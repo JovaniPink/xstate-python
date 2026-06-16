@@ -34,7 +34,8 @@ true deferred/asyncio resolution is the remaining 0.5.0 async milestone.
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, Dict, List, Literal, Optional
+from collections.abc import Callable
+from typing import Any, Literal
 
 from xstate.event import Event
 from xstate.interpreter import NOT_STARTED, RUNNING, STOPPED, Interpreter
@@ -123,9 +124,9 @@ class ActorSnapshot:
     def __init__(
         self,
         status: Literal["active", "done", "error"],
-        output: Optional[Any] = None,
-        error: Optional[Any] = None,
-        context: Optional[Any] = None,
+        output: Any | None = None,
+        error: Any | None = None,
+        context: Any | None = None,
     ):
         self.status: Literal["active", "done", "error"] = status
         self.output = output
@@ -145,7 +146,7 @@ class _ListenerSubscription:
 
     def __init__(self, listeners: set, listener: Callable[[Any], None]):
         self._listeners = listeners
-        self._listener: Optional[Callable[[Any], None]] = listener
+        self._listener: Callable[[Any], None] | None = listener
 
     def unsubscribe(self) -> None:
         if self._listener is not None:
@@ -169,7 +170,7 @@ class _ListenerBackend:
 
     is_machine = False
 
-    def __init__(self, actor: "Actor", input: Any):
+    def __init__(self, actor: Actor, input: Any):
         self._actor = actor
         self._input = input
         self._listeners: set = set()
@@ -200,7 +201,7 @@ class _MachineBackend:
 
     is_machine = True
 
-    def __init__(self, actor: "Actor", machine: Machine, clock: Optional[Clock]):
+    def __init__(self, actor: Actor, machine: Machine, clock: Clock | None):
         self.interpreter = Interpreter(machine, clock=clock)
         # Back-reference so interpreter-owned actions (send_parent / send_to)
         # can reach the actor and its system.
@@ -219,7 +220,7 @@ class _MachineBackend:
     def snapshot(self) -> State:
         return self.interpreter.state
 
-    def start(self, initial_state: Optional[State] = None) -> None:
+    def start(self, initial_state: State | None = None) -> None:
         self.interpreter.start(initial_state)
 
     def stop(self) -> None:
@@ -235,11 +236,11 @@ class _MachineBackend:
 class _PromiseBackend(_ListenerBackend):
     """Backs an actor with :func:`from_promise` logic."""
 
-    def __init__(self, actor: "Actor", logic: PromiseLogic, input: Any):
+    def __init__(self, actor: Actor, logic: PromiseLogic, input: Any):
         super().__init__(actor, input)
         self._fn = logic.fn
 
-    def start(self, initial_state: Optional[State] = None) -> None:
+    def start(self, initial_state: State | None = None) -> None:
         if self._status != NOT_STARTED:
             return
         self._status = RUNNING
@@ -262,13 +263,13 @@ class _PromiseBackend(_ListenerBackend):
 class _CallbackBackend(_ListenerBackend):
     """Backs an actor with :func:`from_callback` logic."""
 
-    def __init__(self, actor: "Actor", logic: CallbackLogic, input: Any):
+    def __init__(self, actor: Actor, logic: CallbackLogic, input: Any):
         super().__init__(actor, input)
         self._fn = logic.fn
-        self._receivers: List[Callable[[Any], None]] = []
-        self._cleanup: Optional[Callable[[], None]] = None
+        self._receivers: list[Callable[[Any], None]] = []
+        self._cleanup: Callable[[], None] | None = None
 
-    def start(self, initial_state: Optional[State] = None) -> None:
+    def start(self, initial_state: State | None = None) -> None:
         if self._status != NOT_STARTED:
             return
         self._status = RUNNING
@@ -300,7 +301,7 @@ class _CallbackBackend(_ListenerBackend):
         return self._snapshot
 
 
-def _build_backend(actor: "Actor", logic, clock: Optional[Clock], input: Any):
+def _build_backend(actor: Actor, logic, clock: Clock | None, input: Any):
     if isinstance(logic, Machine):
         return _MachineBackend(actor, logic, clock)
     if isinstance(logic, PromiseLogic):
@@ -327,7 +328,7 @@ class ActorSystem:
     """
 
     def __init__(self) -> None:
-        self._actors: Dict[str, "Actor"] = {}
+        self._actors: dict[str, Actor] = {}
         self._anonymous_count = 0
 
     def _next_id(self) -> str:
@@ -343,7 +344,7 @@ class ActorSystem:
         self._anonymous_count += 1
         return candidate
 
-    def _register(self, actor: "Actor") -> None:
+    def _register(self, actor: Actor) -> None:
         actor_id = actor.id
         if actor_id in self._actors and self._actors[actor_id] is not actor:
             raise ValueError(
@@ -351,12 +352,12 @@ class ActorSystem:
             )
         self._actors[actor_id] = actor
 
-    def _unregister(self, actor: "Actor") -> None:
+    def _unregister(self, actor: Actor) -> None:
         actor_id = actor.id
         if self._actors.get(actor_id) is actor:
             del self._actors[actor_id]
 
-    def get(self, actor_id: str) -> Optional["Actor"]:
+    def get(self, actor_id: str) -> Actor | None:
         """Return the actor registered under *actor_id*, or ``None``."""
         return self._actors.get(actor_id)
 
@@ -374,10 +375,10 @@ class Actor:
         self,
         logic,
         *,
-        id: Optional[str] = None,
-        clock: Optional[Clock] = None,
-        system: Optional[ActorSystem] = None,
-        parent: Optional["Actor"] = None,
+        id: str | None = None,
+        clock: Clock | None = None,
+        system: ActorSystem | None = None,
+        parent: Actor | None = None,
         input: Any = None,
     ):
         self._system = system if system is not None else ActorSystem()
@@ -385,9 +386,9 @@ class Actor:
         self._parent = parent
         self._clock = clock
         self._input = input
-        self._children: Dict[str, "Actor"] = {}
+        self._children: dict[str, Actor] = {}
         # invocation id -> child actor spawned by an `invoke:` on a state
-        self._invoked: Dict[str, "Actor"] = {}
+        self._invoked: dict[str, Actor] = {}
         self._invocation_sub = None
         self._syncing = False
         self._backend = _build_backend(self, logic, clock, input)
@@ -404,11 +405,11 @@ class Actor:
         return self._system
 
     @property
-    def parent(self) -> Optional["Actor"]:
+    def parent(self) -> Actor | None:
         return self._parent
 
     @property
-    def children(self) -> Dict[str, "Actor"]:
+    def children(self) -> dict[str, Actor]:
         return dict(self._children)
 
     # -- lifecycle ----------------------------------------------------------
@@ -417,7 +418,7 @@ class Actor:
     def status(self) -> str:
         return self._backend.status
 
-    def start(self, initial_state: Optional[State] = None) -> "Actor":
+    def start(self, initial_state: State | None = None) -> Actor:
         if self._backend.status == STOPPED:
             # Match XState: a stopped actor does not restart.
             return self
@@ -435,7 +436,7 @@ class Actor:
             )
         return self
 
-    def stop(self) -> "Actor":
+    def stop(self) -> Actor:
         if self._backend.status == STOPPED:
             return self
         # Stop children (including invoked ones) before tearing down self.
@@ -480,10 +481,10 @@ class Actor:
         self,
         logic,
         *,
-        id: Optional[str] = None,
+        id: str | None = None,
         input: Any = None,
-        clock: Optional[Clock] = None,
-    ) -> "Actor":
+        clock: Clock | None = None,
+    ) -> Actor:
         """Create a child actor from *logic* in this actor's system.
 
         The child is registered as a child of this actor and shares the system,
@@ -522,7 +523,7 @@ class Actor:
 
     def _reconcile_invocations_once(self) -> bool:
         configuration = self._backend.snapshot.configuration
-        wanted: Dict[str, dict] = {}
+        wanted: dict[str, dict] = {}
         for node in configuration:
             for invocation in getattr(node, "invoke", []):
                 wanted[invocation["id"]] = invocation
@@ -613,9 +614,9 @@ class Actor:
 def create_actor(
     logic,
     *,
-    id: Optional[str] = None,
-    clock: Optional[Clock] = None,
-    system: Optional[ActorSystem] = None,
+    id: str | None = None,
+    clock: Clock | None = None,
+    system: ActorSystem | None = None,
     input: Any = None,
 ) -> Actor:
     """Create an :class:`Actor` from actor *logic* (XState v5 ``createActor``).

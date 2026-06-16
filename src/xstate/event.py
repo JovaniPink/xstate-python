@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 
-@dataclass
+@dataclass(slots=True, frozen=True)
 class Event:
     name: str
-    data: Optional[dict[str, Any]] = None
+    data: dict[str, Any] | None = None
 
 
 def to_event(event: Any) -> Event:

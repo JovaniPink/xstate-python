@@ -88,10 +88,9 @@ def make_session_machine(saved_token: bool = False):
                                 "actions": [
                                     assign(
                                         {
-                                            "attempts": lambda ctx, _: ctx.get(
-                                                "attempts", 0
-                                            )
-                                            + 1,
+                                            "attempts": lambda ctx, _: (
+                                                ctx.get("attempts", 0) + 1
+                                            ),
                                             "error": "Account locked",
                                         }
                                     )
@@ -102,10 +101,9 @@ def make_session_machine(saved_token: bool = False):
                                 "actions": [
                                     assign(
                                         {
-                                            "attempts": lambda ctx, _: ctx.get(
-                                                "attempts", 0
-                                            )
-                                            + 1,
+                                            "attempts": lambda ctx, _: (
+                                                ctx.get("attempts", 0) + 1
+                                            ),
                                             "error": "Invalid credentials",
                                         }
                                     )
@@ -145,8 +143,9 @@ def make_session_machine(saved_token: bool = False):
                                 "UNLOCK": [
                                     {
                                         "target": "active",
-                                        "cond": lambda ctx, ev: ev.data.get("pin")
-                                        == "1234",
+                                        "cond": lambda ctx, ev: (
+                                            ev.data.get("pin") == "1234"
+                                        ),
                                     }
                                 ]
                             }

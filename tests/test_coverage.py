@@ -392,7 +392,7 @@ def test_matches_dict_nested_pattern_on_atomic_value_returns_false():
 def test_machine_state_from_invalid_name_raises():
     # machine.py:148
     machine = Machine({"id": "m", "initial": "a", "states": {"a": {}}})
-    with pytest.raises(ValueError, match="State node bad is missing"):
+    with pytest.raises(ValueError, match="State node 'bad' is missing"):
         machine.state_from("bad")
 
 

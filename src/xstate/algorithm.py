@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import functools
 import inspect
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any
 
 from xstate.action import ASSIGN_TYPE, RAISE_TYPE, Action
 from xstate.event import Event
+from xstate.exceptions import UnregisteredImplementationError
 from xstate.state_node import StateNode
 from xstate.transition import Transition
 
-HistoryValue = Dict[str, Set[StateNode]]
+HistoryValue = dict[str, set[StateNode]]
 
 
 @functools.lru_cache(maxsize=512)
@@ -21,7 +22,7 @@ def _get_params(fn):
         return None
 
 
-def _invoke(fn, context: Optional[Dict], event: Optional[Event]) -> Any:
+def _invoke(fn, context: dict | None, event: Event | None) -> Any:
     """Call ``fn`` arity-aware, supporting three calling conventions:
 
     * ``()``                     — zero-arg (SCXML JS conditions)
@@ -40,7 +41,7 @@ def _invoke(fn, context: Optional[Dict], event: Optional[Event]) -> Any:
     kw_only = [p for p in params if p.kind == p.KEYWORD_ONLY]
     if kw_only:
         kw_names = {p.name for p in kw_only}
-        kwargs: Dict[str, Any] = {}
+        kwargs: dict[str, Any] = {}
         if "context" in kw_names:
             kwargs["context"] = context
         if "event" in kw_names:
@@ -60,7 +61,7 @@ def _invoke(fn, context: Optional[Dict], event: Optional[Event]) -> Any:
     return fn(context, event)
 
 
-def _apply_assignment(action: Action, context: Optional[Dict], event: Optional[Event]):
+def _apply_assignment(action: Action, context: dict | None, event: Event | None):
     """Mutate ``context`` in place with the updates produced by an assign action."""
     if context is None:
         return
@@ -75,10 +76,10 @@ def _apply_assignment(action: Action, context: Optional[Dict], event: Optional[E
 
 
 def compute_entry_set(
-    transitions: List[Transition],
-    states_to_enter: Set[StateNode],
-    states_for_default_entry: Set[StateNode],
-    default_history_content: Dict,
+    transitions: list[Transition],
+    states_to_enter: set[StateNode],
+    states_for_default_entry: set[StateNode],
+    default_history_content: dict,
     history_value: HistoryValue,
 ):
     for t in transitions:
@@ -104,9 +105,9 @@ def compute_entry_set(
 
 def add_descendent_states_to_enter(  # noqa: C901
     state: StateNode,
-    states_to_enter: Set[StateNode],
-    states_for_default_entry: Set[StateNode],
-    default_history_content: Dict,
+    states_to_enter: set[StateNode],
+    states_for_default_entry: set[StateNode],
+    default_history_content: dict,
     history_value: HistoryValue,
 ):
     if is_history_state(state):
@@ -209,7 +210,7 @@ def is_atomic_state(state: StateNode) -> bool:
     )
 
 
-def is_descendent(state: StateNode, state2: Optional[StateNode]) -> bool:
+def is_descendent(state: StateNode, state2: StateNode | None) -> bool:
     marker = state
 
     while marker.parent and marker.parent != state2:
@@ -229,7 +230,7 @@ def is_descendent(state: StateNode, state2: Optional[StateNode]) -> bool:
 #         return findLCCA([t.source].append(tstates))
 def get_transition_domain(
     transition: Transition, history_value: HistoryValue
-) -> Optional[StateNode]:
+) -> StateNode | None:
     tstates = get_effective_target_states(transition, history_value=history_value)
     if not tstates:
         return None
@@ -243,7 +244,7 @@ def get_transition_domain(
         return find_lcca([transition.source] + list(tstates))
 
 
-def find_lcca(state_list: List[StateNode]):
+def find_lcca(state_list: list[StateNode]):
     for anc in get_proper_ancestors(state_list[0], state2=None):
         if all(is_descendent(s, state2=anc) for s in state_list[1:]):
             return anc
@@ -251,8 +252,8 @@ def find_lcca(state_list: List[StateNode]):
 
 def get_effective_target_states(
     transition: Transition, history_value: HistoryValue
-) -> Set[StateNode]:
-    targets: Set[StateNode] = set()
+) -> set[StateNode]:
+    targets: set[StateNode] = set()
 
     for s in transition.target:
         if is_history_state(s):
@@ -287,10 +288,10 @@ def get_effective_target_states(
 #                         statesForDefaultEntry, defaultHistoryContent)
 def add_ancestor_states_to_enter(
     state: StateNode,
-    ancestor: Optional[StateNode],
-    states_to_enter: Set[StateNode],
-    states_for_default_entry: Set[StateNode],
-    default_history_content: Dict,
+    ancestor: StateNode | None,
+    states_to_enter: set[StateNode],
+    states_for_default_entry: set[StateNode],
+    default_history_content: dict,
     history_value: HistoryValue,
 ):
     for anc in get_proper_ancestors(state, state2=ancestor):
@@ -308,13 +309,13 @@ def add_ancestor_states_to_enter(
 
 
 def get_proper_ancestors(
-    state1: StateNode, state2: Optional[StateNode]
-) -> List[StateNode]:
+    state1: StateNode, state2: StateNode | None
+) -> list[StateNode]:
     # Per W3C SCXML getProperAncestors: return the ancestors of state1 in
     # ancestry order, up to *but not including* state2 (state2 is the exclusive
     # upper bound / transition domain). When state2 is None, return all
     # ancestors up to the root.
-    ancestors: List[StateNode] = []
+    ancestors: list[StateNode] = []
     marker = state1.parent
     while marker and marker != state2:
         ancestors.append(marker)
@@ -327,12 +328,12 @@ def is_final_state(state_node: StateNode) -> bool:
     return state_node.type == "final"
 
 
-def is_parallel_state(state_node: Optional[StateNode]) -> bool:
+def is_parallel_state(state_node: StateNode | None) -> bool:
     # A null node (e.g. the root's absent parent) is never parallel.
     return state_node is not None and state_node.type == "parallel"
 
 
-def get_child_states(state_node: StateNode) -> List[StateNode]:
+def get_child_states(state_node: StateNode) -> list[StateNode]:
     # Per W3C SCXML, getChildStates returns the real <state>/<parallel>/<final>
     # children and explicitly excludes <history> (and <initial>) pseudo-states.
     # Excluding history here keeps every region-enumeration caller correct: the
@@ -340,7 +341,7 @@ def get_child_states(state_node: StateNode) -> List[StateNode]:
     return [s for s in state_node.states.values() if not is_history_state(s)]
 
 
-def is_in_final_state(state: StateNode, configuration: Set[StateNode]) -> bool:
+def is_in_final_state(state: StateNode, configuration: set[StateNode]) -> bool:
     if is_compound_state(state):
         return any(
             is_final_state(s) and (s in configuration) for s in get_child_states(state)
@@ -352,19 +353,19 @@ def is_in_final_state(state: StateNode, configuration: Set[StateNode]) -> bool:
 
 
 def enter_states(
-    enabled_transitions: List[Transition],
-    configuration: Set[StateNode],
-    states_to_invoke: Set[StateNode],
+    enabled_transitions: list[Transition],
+    configuration: set[StateNode],
+    states_to_invoke: set[StateNode],
     history_value: HistoryValue,
-    actions: List[Action],
-    internal_queue: List[Event],
-    context: Optional[Dict] = None,
-    event: Optional[Event] = None,
-) -> Tuple[Set[StateNode], List[Action], List[Event]]:
-    states_to_enter: Set[StateNode] = set()
-    states_for_default_entry: Set[StateNode] = set()
+    actions: list[Action],
+    internal_queue: list[Event],
+    context: dict | None = None,
+    event: Event | None = None,
+) -> tuple[set[StateNode], list[Action], list[Event]]:
+    states_to_enter: set[StateNode] = set()
+    states_for_default_entry: set[StateNode] = set()
 
-    default_history_content: Dict = {}
+    default_history_content: dict = {}
 
     compute_entry_set(
         enabled_transitions,
@@ -395,7 +396,7 @@ def enter_states(
         if s in states_for_default_entry:
             # executeContent(s.initial.transition)
             continue
-        if default_history_content.get(s.id, None) is not None:
+        if default_history_content.get(s.id) is not None:
             # executeContent(defaultHistoryContent[s.id])
             continue
         if is_final_state(s):
@@ -409,25 +410,24 @@ def enter_states(
             )
             internal_queue.append(Event(f"done.state.{parent.id}", donedata))
 
-            if grandparent is not None and is_parallel_state(grandparent):
-                if all(
-                    is_in_final_state(parent_state, configuration)
-                    for parent_state in get_child_states(grandparent)
-                ):
-                    internal_queue.append(Event(f"done.state.{grandparent.id}"))
+            if grandparent is not None and is_parallel_state(grandparent) and all(
+                is_in_final_state(parent_state, configuration)
+                for parent_state in get_child_states(grandparent)
+            ):
+                internal_queue.append(Event(f"done.state.{grandparent.id}"))
 
     return (configuration, actions, internal_queue)
 
 
 def exit_states(
-    enabled_transitions: List[Transition],
-    configuration: Set[StateNode],
-    states_to_invoke: Set[StateNode],
+    enabled_transitions: list[Transition],
+    configuration: set[StateNode],
+    states_to_invoke: set[StateNode],
     history_value: HistoryValue,
-    actions: List[Action],
-    internal_queue: List[Event],
-    context: Optional[Dict] = None,
-    event: Optional[Event] = None,
+    actions: list[Action],
+    internal_queue: list[Event],
+    context: dict | None = None,
+    event: Event | None = None,
 ):
     states_to_exit = compute_exit_set(
         enabled_transitions, configuration=configuration, history_value=history_value
@@ -470,11 +470,11 @@ def exit_states(
 
 
 def compute_exit_set(
-    enabled_transitions: List[Transition],
-    configuration: Set[StateNode],
+    enabled_transitions: list[Transition],
+    configuration: set[StateNode],
     history_value: HistoryValue,
-) -> Set[StateNode]:
-    states_to_exit: Set[StateNode] = set()
+) -> set[StateNode]:
+    states_to_exit: set[StateNode] = set()
     for t in enabled_transitions:
         if t.target:
             domain = get_transition_domain(t, history_value=history_value)
@@ -489,7 +489,7 @@ def name_match(event: str, specific_event: str) -> bool:
     return event == specific_event
 
 
-def _matches_in_state(in_spec, configuration: Set[StateNode]) -> bool:  # noqa: C901
+def _matches_in_state(in_spec, configuration: set[StateNode]) -> bool:  # noqa: C901
     """Return True if ``in_spec`` matches the current configuration.
 
     ``in_spec`` is the value of an XState ``in`` transition guard:
@@ -507,12 +507,12 @@ def _matches_in_state(in_spec, configuration: Set[StateNode]) -> bool:  # noqa: 
 
         # Walk parts as an ancestor chain: parts[-1] must be active and its
         # ancestors must match the remaining parts in order.
-        def _path_active(parts: List[str]) -> bool:
+        def _path_active(parts: list[str]) -> bool:
             leaf_key = parts[-1]
             for s in configuration:
                 if s.key != leaf_key:
                     continue
-                node: Optional[StateNode] = s
+                node: StateNode | None = s
                 matched = True
                 for ancestor_key in reversed(parts[:-1]):
                     assert node is not None  # guaranteed by the break below
@@ -535,15 +535,15 @@ def _matches_in_state(in_spec, configuration: Set[StateNode]) -> bool:  # noqa: 
 
 def condition_match(
     transition: Transition,
-    context: Optional[Dict] = None,
-    event: Optional[Event] = None,
-    configuration: Optional[Set[StateNode]] = None,
+    context: dict | None = None,
+    event: Event | None = None,
+    configuration: set[StateNode] | None = None,
 ) -> bool:
     cond = transition.cond
     if isinstance(cond, str):
         guards = getattr(transition.source.machine, "guards", {}) or {}
         if cond not in guards:
-            raise ValueError(
+            raise UnregisteredImplementationError(
                 f"Guard '{cond}' is referenced by a transition on "
                 f"'#{transition.source.id}' but is not implemented. "
                 f"Pass it via Machine(config, guards={{'{cond}': ...}})."
@@ -562,13 +562,13 @@ def condition_match(
 
 def select_transitions(
     event: Event,
-    configuration: Set[StateNode],
-    context: Optional[Dict] = None,
-    history_value: Optional[HistoryValue] = None,
+    configuration: set[StateNode],
+    context: dict | None = None,
+    history_value: HistoryValue | None = None,
 ):
     if history_value is None:
         history_value = {}
-    enabled_transitions: Set[Transition] = set()
+    enabled_transitions: set[Transition] = set()
     atomic_states = [s for s in configuration if is_atomic_state(s)]
     for state_node in atomic_states:
         break_loop = False
@@ -593,14 +593,14 @@ def select_transitions(
 
 
 def select_eventless_transitions(
-    configuration: Set[StateNode],
-    context: Optional[Dict] = None,
-    event: Optional[Event] = None,
-    history_value: Optional[HistoryValue] = None,
+    configuration: set[StateNode],
+    context: dict | None = None,
+    event: Event | None = None,
+    history_value: HistoryValue | None = None,
 ):
     if history_value is None:
         history_value = {}
-    enabled_transitions: Set[Transition] = set()
+    enabled_transitions: set[Transition] = set()
     atomic_states = [s for s in configuration if is_atomic_state(s)]
 
     # For each atomic state, select the first (innermost, document-order)
@@ -628,16 +628,16 @@ def select_eventless_transitions(
 
 
 def remove_conflicting_transitions(
-    enabled_transitions: Set[Transition],
-    configuration: Set[StateNode],
+    enabled_transitions: set[Transition],
+    configuration: set[StateNode],
     history_value: HistoryValue,
-) -> Set[Transition]:
+) -> set[Transition]:
     ordered = sorted(enabled_transitions, key=lambda t: t.order)
 
-    filtered_transitions: Set[Transition] = set()
+    filtered_transitions: set[Transition] = set()
     for t1 in ordered:
         t1_preempted = False
-        transitions_to_remove: Set[Transition] = set()
+        transitions_to_remove: set[Transition] = set()
         t1_exit_set = compute_exit_set(
             enabled_transitions=[t1],
             configuration=configuration,
@@ -666,12 +666,12 @@ def remove_conflicting_transitions(
 
 
 def main_event_loop(
-    configuration: Set[StateNode],
+    configuration: set[StateNode],
     event: Event,
-    context: Optional[Dict] = None,
-    history_value: Optional[HistoryValue] = None,
-) -> Tuple[Set[StateNode], List[Action]]:
-    states_to_invoke: Set[StateNode] = set()
+    context: dict | None = None,
+    history_value: HistoryValue | None = None,
+) -> tuple[set[StateNode], list[Action]]:
+    states_to_invoke: set[StateNode] = set()
     if history_value is None:
         history_value = {}
     enabled_transitions = select_transitions(
@@ -701,13 +701,13 @@ def main_event_loop(
 
 
 def main_event_loop2(
-    configuration: Set[StateNode],
-    actions: List[Action],
-    internal_queue: List[Event],
-    context: Optional[Dict] = None,
-    event: Optional[Event] = None,
-    history_value: Optional[HistoryValue] = None,
-) -> Tuple[Set[StateNode], List[Action]]:
+    configuration: set[StateNode],
+    actions: list[Action],
+    internal_queue: list[Event],
+    context: dict | None = None,
+    event: Event | None = None,
+    history_value: HistoryValue | None = None,
+) -> tuple[set[StateNode], list[Action]]:
     enabled_transitions = set()
     macrostep_done = False
     if history_value is None:
@@ -750,11 +750,11 @@ def main_event_loop2(
 
 
 def execute_transition_content(
-    enabled_transitions: List[Transition],
-    actions: List[Action],
-    internal_queue: List[Event],
-    context: Optional[Dict] = None,
-    event: Optional[Event] = None,
+    enabled_transitions: list[Transition],
+    actions: list[Action],
+    internal_queue: list[Event],
+    context: dict | None = None,
+    event: Event | None = None,
 ):
     for transition in enabled_transitions:
         for action in transition.actions:
@@ -763,10 +763,10 @@ def execute_transition_content(
 
 def execute_content(
     action: Action,
-    actions: List[Action],
-    internal_queue: List[Event],
-    context: Optional[Dict] = None,
-    event: Optional[Event] = None,
+    actions: list[Action],
+    internal_queue: list[Event],
+    context: dict | None = None,
+    event: Event | None = None,
 ):
     if action.type == RAISE_TYPE:
         internal_queue.append(Event(action.data.get("event", "")))
@@ -777,15 +777,15 @@ def execute_content(
 
 
 def microstep(
-    enabled_transitions: List[Transition],
-    configuration: Set[StateNode],
-    states_to_invoke: Set[StateNode],
+    enabled_transitions: list[Transition],
+    configuration: set[StateNode],
+    states_to_invoke: set[StateNode],
     history_value: HistoryValue,
-    context: Optional[Dict] = None,
-    event: Optional[Event] = None,
-) -> Tuple[Set[StateNode], List[Action], List[Event]]:
-    actions: List[Action] = []
-    internal_queue: List[Event] = []
+    context: dict | None = None,
+    event: Event | None = None,
+) -> tuple[set[StateNode], list[Action], list[Event]]:
+    actions: list[Action] = []
+    internal_queue: list[Event] = []
 
     exit_states(
         enabled_transitions,
@@ -823,15 +823,15 @@ def microstep(
 
 def get_configuration_from_state(
     from_node: StateNode,
-    state_value: Union[Dict, str],
-    partial_configuration: Set[StateNode],
-) -> Set[StateNode]:
+    state_value: dict | str,
+    partial_configuration: set[StateNode],
+) -> set[StateNode]:
     if isinstance(state_value, str):
         node = from_node.states.get(state_value)
         assert node is not None, f"State '{state_value}' not found in '#{from_node.id}'"
         partial_configuration.add(node)
     else:
-        for key in state_value.keys():
+        for key in state_value:
             node = from_node.states.get(key)
             assert node is not None, f"State '{key}' not found in '#{from_node.id}'"
             partial_configuration.add(node)
@@ -840,8 +840,8 @@ def get_configuration_from_state(
     return partial_configuration
 
 
-def get_adj_list(configuration: Set[StateNode]) -> Dict[str, Set[StateNode]]:
-    adj_list: Dict[str, Set[StateNode]] = {}
+def get_adj_list(configuration: set[StateNode]) -> dict[str, set[StateNode]]:
+    adj_list: dict[str, set[StateNode]] = {}
 
     for s in configuration:
         if not adj_list.get(s.id):
@@ -856,11 +856,11 @@ def get_adj_list(configuration: Set[StateNode]) -> Dict[str, Set[StateNode]]:
     return adj_list
 
 
-def get_state_value(state_node: StateNode, configuration: Set[StateNode]):
+def get_state_value(state_node: StateNode, configuration: set[StateNode]) -> Any:
     return get_value_from_adj(state_node, get_adj_list(configuration))
 
 
-def get_value_from_adj(state_node: StateNode, adj_list: Dict[str, Set[StateNode]]):
+def get_value_from_adj(state_node: StateNode, adj_list: dict[str, set[StateNode]]):
     child_state_nodes = adj_list.get(state_node.id, set())
 
     if is_compound_state(state_node):

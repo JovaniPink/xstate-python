@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, List, Literal, Optional, Union
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Literal
 
 from xstate.action import Action, build_action
 from xstate.event import Event
@@ -12,21 +13,21 @@ CondFunction = Callable[[Any, Event], bool]
 
 
 class Transition:
-    event: Optional[str]
+    event: str | None
     source: StateNode
-    config: Union[str, "StateNode"]
-    actions: List[Action]
-    cond: Optional[CondFunction]
+    config: str | StateNode
+    actions: list[Action]
+    cond: CondFunction | None
     order: int
     type: Literal["internal", "external"]
 
     def __init__(
         self,
-        config,
+        config: Any,
         source: StateNode,
-        event: Optional[str],
+        event: str | None,
         order: int,
-        cond: Optional[CondFunction] = None,
+        cond: CondFunction | None = None,
     ):
         self.event = event
         self.config = config
@@ -54,7 +55,7 @@ class Transition:
         )
 
     @property
-    def target(self) -> List[StateNode]:
+    def target(self) -> list[StateNode]:
         if isinstance(self.config, str):
             return [self.source._get_relative(self.config)]
         elif isinstance(self.config, dict):

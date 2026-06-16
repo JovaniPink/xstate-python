@@ -1,19 +1,11 @@
 from __future__ import annotations
 
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    List,
-    Literal,
-    Optional,
-    Set,
-    Union,
-)
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Literal
 
 from xstate.algorithm import get_state_value, is_in_final_state
 from xstate.event import to_event
+from xstate.exceptions import InvalidConfigError
 
 if TYPE_CHECKING:
     from xstate.action import Action
@@ -21,25 +13,27 @@ if TYPE_CHECKING:
 
 
 class State:
-    configuration: Set[StateNode]
+    configuration: set[StateNode]
     value: str
-    context: Dict[str, Any]
-    actions: List[Union[Callable, "Action"]]
-    history_value: Dict[str, Set[StateNode]]
+    context: dict[str, Any]
+    actions: list[Callable | Action]
+    history_value: dict[str, set[StateNode]]
     status: Literal["active", "done", "error"]
-    output: Optional[Any]
-    error: Optional[Any]
-    event: Optional[
-        Any
-    ]  # stamped by Interpreter; None when produced by machine.transition
+    output: Any | None
+    error: Any | None
+    event: (
+        Any | None
+    )  # stamped by Interpreter; None when produced by machine.transition
 
     def __init__(
         self,
-        configuration: Set[StateNode],
-        context: Dict[str, Any],
-        actions: Optional[List[Union[Callable, "Action"]]] = None,
-        history_value: Optional[Dict[str, Set[StateNode]]] = None,
+        configuration: set[StateNode],
+        context: dict[str, Any],
+        actions: list[Callable | Action] | None = None,
+        history_value: dict[str, set[StateNode]] | None = None,
     ):
+        if not configuration:
+            raise InvalidConfigError("State requires a non-empty configuration.")
         root = next(iter(configuration)).machine.root
         self.configuration = configuration
         self.value = get_state_value(root, configuration)
@@ -66,7 +60,7 @@ class State:
             self.status = "active"
             self.output = None
 
-    def can(self, event) -> bool:
+    def can(self, event: Any) -> bool:
         """Return True if any enabled transition exists for *event* right now.
 
         Respects guards and the current context, so the result reflects whether
@@ -83,7 +77,7 @@ class State:
         )
         return len(transitions) > 0
 
-    def matches(self, value) -> bool:
+    def matches(self, value: Any) -> bool:
         """Return True if the current state value matches *value*.
 
         Accepts a string (exact match) or a dict describing a partial nested
@@ -102,9 +96,9 @@ class State:
         )
 
 
-def _matches_dict(state_value, pattern) -> bool:
+def _matches_dict(state_value: Any, pattern: Any) -> bool:
     if isinstance(pattern, str):
-        return state_value == pattern
+        return bool(state_value == pattern)
     if not isinstance(pattern, dict) or not isinstance(state_value, dict):
         return False
     return all(

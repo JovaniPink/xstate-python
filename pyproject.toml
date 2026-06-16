@@ -1,9 +1,9 @@
 [project]
 name = "xstate"
-version = "0.5.0"
+version = "0.3.0"
 description = "Statecharts and state machines for Python, inspired by XState."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [
@@ -25,19 +25,20 @@ classifiers = [
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dependencies = []
 
 [project.optional-dependencies]
 # Js2Py powers SCXML `cond` (JavaScript) evaluation only. It is optional so the
 # core library installs and imports cleanly on modern Python.
+# NOTE: Js2Py does not build on Python 3.11+ (cffi dependency). Gate your use.
 # TODO(0.2.0): replace with a pure-Python SCXML condition evaluator.
-scxml = ["Js2Py>=0.71"]
+scxml = ["Js2Py>=0.71; python_version < '3.11'"]
 
 [project.urls]
 homepage = "https://github.com/JovaniPink/xstate-python"
@@ -45,27 +46,49 @@ repository = "https://github.com/JovaniPink/xstate-python"
 
 [tool.poetry]
 packages = [
-    { include = "xstate" },
-]
-include = [
-    { path = "xstate/py.typed", format = ["sdist", "wheel"] },
+    { include = "xstate", from = "src" },
 ]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0"
 pytest-cov = "^4.0"
-black = "^24.0"
-isort = "^5.12"
-flake8 = "^7.0"
+ruff = ">=0.4"
 mypy = "^1.0"
 
-[tool.isort]
-profile = "black"
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "A", "SIM", "C4"]
+ignore = [
+    "A002",   # shadowing builtins in function args (type=, id=) — matches XState JS API
+    "SIM108", # ternary over if/else — less readable in complex guards
+]
+
+[tool.ruff.lint.per-file-ignores]
+# scxml.py uses ET internals, legacy % format, and `id` as a local variable name
+"src/xstate/scxml.py" = ["A001", "UP031"]
+# Test helpers use `input` as a lambda param to match XState's `input` semantics
+"tests/test_actor_logic.py" = ["A006"]
+"tests/test_actor_messaging.py" = ["A006"]
+"tests/test_invoke.py" = ["A006"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["xstate"]
 
 [tool.mypy]
+mypy_path = "src"
+# Strict checks enforced on the public surface (event.py, state.py, machine.py,
+# exceptions.py). Internal algorithm/actor/interpreter complexity is covered
+# progressively via the per-module overrides below.
+disallow_untyped_defs = true
+check_untyped_defs = true
+warn_return_any = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 no_implicit_optional = true
+no_implicit_reexport = true
 
 # Js2Py is an optional extra with no type stubs; it is lazy-imported inside
 # scxml.py and never required by the core library.
@@ -73,12 +96,34 @@ no_implicit_optional = true
 module = "js2py"
 ignore_missing_imports = true
 
+# scxml.py uses dynamic eval and ET internals — skip.
+[[tool.mypy.overrides]]
+module = "xstate.scxml"
+ignore_errors = true
+
+# algorithm.py implements W3C SCXML; internal functions intentionally use Any
+# for config dicts (arbitrary user data). Full annotation is a future task.
+[[tool.mypy.overrides]]
+module = "xstate.algorithm"
+disallow_untyped_defs = false
+warn_return_any = false
+
+# actor.py has many Any-typed public hooks (logic, input, snapshot).
+[[tool.mypy.overrides]]
+module = "xstate.actor"
+disallow_untyped_defs = false
+warn_return_any = false
+
+# state_node.py config is always an untyped dict from user code.
+[[tool.mypy.overrides]]
+module = "xstate.state_node"
+disallow_untyped_defs = false
+
 [tool.pytest.ini_options]
-minversion = "6.0"
+minversion = "7.0"
 addopts = "-ra -q"
-testpaths = [
-    "tests",
-]
+testpaths = ["tests"]
+pythonpath = ["src"]
 
 [tool.coverage.run]
 source = ["xstate"]

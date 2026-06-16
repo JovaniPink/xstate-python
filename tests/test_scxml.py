@@ -1,6 +1,5 @@
 import json
 from pprint import PrettyPrinter
-from typing import Dict, List
 
 import pytest
 
@@ -10,7 +9,7 @@ pp = PrettyPrinter(indent=2)
 
 test_dir = "test-framework/test"
 
-test_groups: Dict[str, List[str]] = {
+test_groups: dict[str, list[str]] = {
     "actionSend": [
         "send1",
         "send2",

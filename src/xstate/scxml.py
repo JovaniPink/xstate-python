@@ -1,5 +1,4 @@
 import xml.etree.ElementTree as ET
-from typing import Dict, List, Optional
 
 from xstate.machine import Machine
 
@@ -24,15 +23,11 @@ def _eval_scxml_cond(event_cond_str: str):
     return js2py.eval_js("function cond() { return %s }" % event_cond_str)
 
 
-def get_all_state_els(element: ET.Element) -> List[ET.Element]:
-    all_state_els = [
-        e for e in element if get_tag(e) == "state" or get_tag(e) == "parallel"
-    ]
-
-    return all_state_els
+def get_all_state_els(element: ET.Element) -> list[ET.Element]:
+    return [e for e in element if get_tag(e) == "state" or get_tag(e) == "parallel"]
 
 
-def convert_scxml(element: ET.Element, parent):
+def convert_scxml(element: ET.Element, parent: ET.Element | None) -> dict:
     all_state_els = get_all_state_els(element)
 
     initial_state_key = element.attrib.get(
@@ -52,7 +47,7 @@ def get_tag(element: ET.Element) -> str:
     return tag
 
 
-def accumulate_states(element: ET.Element, parent: ET.Element):
+def accumulate_states(element: ET.Element, parent: ET.Element | None) -> dict:
     all_state_els = [
         e for e in element if get_tag(e) == "state" or get_tag(e) == "parallel"
     ]
@@ -66,7 +61,7 @@ def accumulate_states(element: ET.Element, parent: ET.Element):
     return states_dict
 
 
-def convert_state(element: ET.Element, parent: ET.Element):
+def convert_state(element: ET.Element, parent: ET.Element | None) -> dict:
     id = element.attrib.get("id")
     transition_els = element.findall("scxml:transition", namespaces=ns)
     transitions = [convert_transition(el, element) for el in transition_els]
@@ -76,11 +71,15 @@ def convert_state(element: ET.Element, parent: ET.Element):
     states = accumulate_states(element, parent)
 
     onexit_el = element.find("scxml:onexit", namespaces=ns)
-    onexit = convert_onexit(onexit_el, parent=element) if onexit_el else None
+    onexit = (
+        convert_onexit(onexit_el, parent=element) if onexit_el is not None else None
+    )
     onentry_el = element.find("scxml:onentry", namespaces=ns)
-    onentry = convert_onentry(onentry_el, parent=element) if onentry_el else None
+    onentry = (
+        convert_onentry(onentry_el, parent=element) if onentry_el is not None else None
+    )
 
-    result = {
+    result: dict = {
         "type": "parallel" if get_tag(element) == "parallel" else None,
         "id": f"{id}",
         "key": id,
@@ -91,7 +90,7 @@ def convert_state(element: ET.Element, parent: ET.Element):
     }
 
     if len(transitions) > 0:
-        transitions_dict: Dict[Optional[str], list] = {}
+        transitions_dict: dict[str | None, list] = {}
 
         for t in transitions:
             transitions_dict[t.get("event")] = transitions_dict.get(t.get("event"), [])
@@ -102,7 +101,7 @@ def convert_state(element: ET.Element, parent: ET.Element):
     return result
 
 
-def convert_transition(element: ET.Element, parent: ET.Element):
+def convert_transition(element: ET.Element, parent: ET.Element) -> dict:
     event_type = element.attrib.get("event")
     target_attr = element.attrib.get("target")
     event_targets = target_attr.split(" ") if target_attr else []
@@ -111,7 +110,6 @@ def convert_transition(element: ET.Element, parent: ET.Element):
     event_cond = _eval_scxml_cond(event_cond_str) if event_cond_str else None
 
     raise_els = element.findall("scxml:raise", namespaces=ns)
-
     actions = [convert_raise(raise_el, element) for raise_el in raise_els]
 
     return {
@@ -122,32 +120,27 @@ def convert_transition(element: ET.Element, parent: ET.Element):
     }
 
 
-def convert_raise(element: ET.Element, parent: ET.Element):
+def convert_raise(element: ET.Element, parent: ET.Element) -> dict:
     return {"type": "xstate:raise", "event": element.attrib.get("event")}
 
 
-def convert_onexit(element: ET.Element, parent: ET.Element):
+def convert_onexit(element: ET.Element, parent: ET.Element) -> list:
     raise_els = element.findall("scxml:raise", namespaces=ns)
-    actions = [convert_raise(raise_el, element) for raise_el in raise_els]
-
-    return actions
+    return [convert_raise(raise_el, element) for raise_el in raise_els]
 
 
-def convert_onentry(element: ET.Element, parent: ET.Element):
+def convert_onentry(element: ET.Element, parent: ET.Element) -> list:
     raise_els = element.findall("scxml:raise", namespaces=ns)
-    actions = [convert_raise(raise_el, element) for raise_el in raise_els]
-
-    return actions
+    return [convert_raise(raise_el, element) for raise_el in raise_els]
 
 
-def convert(element: ET.Element, parent: Optional[ET.Element] = None):
+def convert(element: ET.Element, parent: ET.Element | None = None) -> dict:
     _, _, element_tag = element.tag.rpartition("}")  # strip namespace
     result = elements.get(element_tag, lambda *_: f"Invalid tag: {element_tag}")
-
     return result(element, parent)
 
 
-elements = {"scxml": convert_scxml, "state": convert_state}
+elements: dict = {"scxml": convert_scxml, "state": convert_state}
 
 
 def scxml_to_machine(source: str) -> Machine:
@@ -155,5 +148,4 @@ def scxml_to_machine(source: str) -> Machine:
     root = tree.getroot()
     result = convert(root)
     machine = Machine(result)
-
     return machine

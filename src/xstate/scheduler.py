@@ -14,7 +14,8 @@ from __future__ import annotations
 
 import abc
 import threading
-from typing import Any, Callable, Dict
+from collections.abc import Callable
+from typing import Any
 
 
 class Clock(abc.ABC):
@@ -36,7 +37,7 @@ class SimulatedClock(Clock):
         self._now: float = 0.0
         self._next_id: int = 0
         # timeout_id -> {"due": float, "fn": Callable}
-        self._timeouts: Dict[int, dict] = {}
+        self._timeouts: dict[int, dict] = {}
 
     def set_timeout(self, fn: Callable[[], Any], delay_ms: float) -> int:
         timeout_id = self._next_id
@@ -73,7 +74,7 @@ class ThreadClock(Clock):
     """Real-time clock backed by ``threading.Timer`` (interpreter default)."""
 
     def __init__(self) -> None:
-        self._timers: Dict[int, threading.Timer] = {}
+        self._timers: dict[int, threading.Timer] = {}
         self._next_id: int = 0
         self._lock = threading.Lock()
 

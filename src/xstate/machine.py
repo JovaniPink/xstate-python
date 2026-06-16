@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import copy
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from collections.abc import Callable
+from typing import Any
 
 from xstate.action import INTERPRETER_TYPES
 from xstate.algorithm import (
@@ -12,6 +13,7 @@ from xstate.algorithm import (
     main_event_loop2,
 )
 from xstate.event import Event, to_event
+from xstate.exceptions import InvalidConfigError, UnregisteredImplementationError
 from xstate.state import State
 from xstate.state_node import StateNode
 
@@ -19,25 +21,25 @@ from xstate.state_node import StateNode
 class Machine:
     id: str
     root: StateNode
-    _id_map: Dict[str, StateNode]
-    config: Dict[str, Any]
-    states: Dict[str, StateNode]
-    actions: Dict[str, Callable]
-    guards: Dict[str, Callable]
-    delays: Dict[str, Any]
-    actors: Dict[str, Any]
+    _id_map: dict[str, StateNode]
+    config: dict[str, Any]
+    states: dict[str, StateNode]
+    actions: dict[str, Callable]
+    guards: dict[str, Callable]
+    delays: dict[str, Any]
+    actors: dict[str, Any]
     _order: int
 
     def __init__(
         self,
-        config: Dict[str, Any],
-        actions: Optional[Dict[str, Any]] = None,
-        guards: Optional[Dict[str, Callable]] = None,
-        delays: Optional[Dict[str, Any]] = None,
-        actors: Optional[Dict[str, Any]] = None,
+        config: dict[str, Any],
+        actions: dict[str, Any] | None = None,
+        guards: dict[str, Callable] | None = None,
+        delays: dict[str, Any] | None = None,
+        actors: dict[str, Any] | None = None,
     ):
         if "id" not in config:
-            raise ValueError(
+            raise InvalidConfigError(
                 "Machine config must include an 'id' key. "
                 "Example: Machine({'id': 'myMachine', 'initial': ..., 'states': {...}})"
             )
@@ -66,10 +68,10 @@ class Machine:
         self._order += 1
         return order
 
-    def _to_event(self, event) -> Event:
+    def _to_event(self, event: Any) -> Event:
         return to_event(event)
 
-    def transition(self, state: State, event):
+    def transition(self, state: State, event: Any) -> State:
         event = self._to_event(event)
         configuration = get_configuration_from_state(
             from_node=self.root, state_value=state.value, partial_configuration=set()
@@ -91,8 +93,8 @@ class Machine:
         )
 
     def _get_actions(
-        self, actions: List
-    ) -> Tuple[List[Union[Callable, Any]], List[str]]:
+        self, actions: list[Any]
+    ) -> tuple[list[Callable | Any], list[str]]:
         """Resolve resolved-engine actions for the caller.
 
         Assigns and raises were already applied/queued by the SCXML engine and
@@ -102,8 +104,8 @@ class Machine:
         registered in ``self.actions``), and inline callables. Names with no
         implementation are collected in ``unknown`` so the caller can warn.
         """
-        result: List[Union[Callable, Any]] = []
-        unknown: List[str] = []
+        result: list[Callable | Any] = []
+        unknown: list[str] = []
         for action in actions:
             if action.type in INTERPRETER_TYPES:
                 # Passed through as raw Action; the interpreter handles them.
@@ -116,28 +118,30 @@ class Machine:
                 unknown.append(str(action.type))
         return result, unknown
 
-    def _warn_unknown_actions(self, unknown: List[str]) -> None:
+    def _warn_unknown_actions(self, unknown: list[str]) -> None:
         """Warn once per action name that has no registered implementation."""
         for name in unknown:
             warnings.warn(
                 f"No implementation found for action '{name}'. "
                 f"Pass it via Machine(config, actions={{'{name}': ...}}).",
-                UserWarning,
+                UnregisteredImplementationError,
                 stacklevel=3,
             )
 
-    def state_from(self, state_value) -> State:
+    def state_from(self, state_value: Any) -> State:
         configuration = set(self._get_configuration(state_value=state_value))
         return State(configuration=configuration, context={})
 
-    def _register(self, state_node: StateNode):
+    def _register(self, state_node: StateNode) -> None:
         state_node.machine = self
         self._id_map[state_node.id] = state_node
 
-    def _get_by_id(self, id: str) -> Optional[StateNode]:
+    def _get_by_id(self, id: str) -> StateNode | None:
         return self._id_map.get(id, None)
 
-    def _get_configuration(self, state_value, parent=None) -> List[StateNode]:
+    def _get_configuration(
+        self, state_value: Any, parent: StateNode | None = None
+    ) -> list[StateNode]:
         if parent is None:
             parent = self.root
 
@@ -145,15 +149,16 @@ class Machine:
             state_node = parent.states.get(state_value, None)
 
             if state_node is None:
-                raise ValueError(f"State node {state_value} is missing")
+                raise InvalidConfigError(f"State node '{state_value}' is missing")
 
             return [state_node]
 
-        configuration = []
+        configuration: list[StateNode] = []
 
-        for key in state_value.keys():
+        for key in state_value:
             state_node = parent.states.get(key)
-            configuration.append(state_node)
+            if state_node is not None:
+                configuration.append(state_node)
 
             configuration += self._get_configuration(
                 state_value.get(key), parent=state_node
@@ -164,7 +169,7 @@ class Machine:
     @property
     def initial_state(self) -> State:
         context = copy.deepcopy(self.context)
-        history_value: Dict[str, Any] = {}
+        history_value: dict[str, Any] = {}
         init_event = Event("xstate.init")
         configuration, _actions, internal_queue = enter_states(
             [self.root.initial],

@@ -213,6 +213,7 @@ def test_initial_state_deep_copies_nested_context():
 
 
 def test_machine_without_id_raises_value_error():
+    # InvalidConfigError subclasses both XStateError and ValueError
     with pytest.raises(ValueError, match="'id'"):
         Machine({"initial": "a", "states": {"a": {}}})
 
@@ -237,4 +238,5 @@ def test_unknown_action_name_emits_warning():
         warnings.simplefilter("always")
         machine.transition(machine.initial_state, "GO")
     assert any("missing" in str(w.message) for w in caught)
+    # UnregisteredImplementationError subclasses both XStateError and UserWarning
     assert any(issubclass(w.category, UserWarning) for w in caught)

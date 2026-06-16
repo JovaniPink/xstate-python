@@ -7,7 +7,7 @@ deterministic: nothing fires until the test calls ``clock.increment(ms)``.
 
 import pytest
 
-from xstate import Machine, SimulatedClock, interpret
+from xstate import Machine, SimulatedClock, UnregisteredImplementationError, interpret
 
 # ---------------------------------------------------------------------------
 # Classic auto-advancing traffic light using `after`.
@@ -187,7 +187,7 @@ def test_missing_named_delay_raises():
         }
     )
     clock = SimulatedClock()
-    with pytest.raises(ValueError, match="Delay 'NOPE'"):
+    with pytest.raises(UnregisteredImplementationError, match="Delay 'NOPE'"):
         interpret(machine, clock=clock).start()
 
 
