@@ -35,7 +35,7 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
 
 ---
 
-## Current state (0.3.0 in progress)
+## Current state (0.4.0 in progress)
 
 **Working:**
 - Hierarchical (compound) states
@@ -57,15 +57,29 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
   Driven by a pluggable `Clock`: `SimulatedClock` (deterministic, advance with
   `clock.increment(ms)`) or `ThreadClock` (real wall-clock, the default)
 - SCXML XML import (requires `pip install xstate[scxml]` for JS-cond evaluation)
+- **XState v5 config alignment** (0.4.0):
+  - `guard` is the canonical key for transition conditions; `cond` still works
+    but emits a `DeprecationWarning`
+  - `output` is the canonical key for final-state data; `data` still works but
+    emits a `DeprecationWarning`
+  - `always:` for eventless transitions (alongside the v4 `on: {"": ...}` form)
+  - Single-object handler signatures via keyword-only params:
+    `def guard(*, context, event): ...` (the v5 `({context, event}) =>` shape).
+    The v4 positional styles still work — see the handler-signature note below
+  - `MachineSnapshot` (public alias of `State`) carries `status`
+    (`"active"`/`"done"`/`"error"`), `output`, and `error`; plus `state.matches()`
+    and `state.can(event)`
 
 **Stubbed / incomplete:**
 - Async support (0.5.0 target)
-- `setup()` API + XState v5 handler signatures (0.4.0+ target)
+- `setup()` API (0.6.0+ target)
 - Invoked services / actors (`invoke`) (0.5.0 target)
 
-Handler-signature note: guards/assigners are invoked arity-aware (`()`,
-`(context)`, or `(context, event)`) by `algorithm._invoke`. The XState v5
-single-object signature `({context, event})` is a 0.4.0 target.
+Handler-signature note: guards/assigners are invoked arity-aware by
+`algorithm._invoke`, which supports four calling conventions: `()`, `(context)`,
+`(context, event)` (the v4 positional styles), and keyword-only
+`(*, context, event)` (the v5 single-object style). `error` status plumbing is a
+placeholder until the actor model lands (0.5.0).
 
 ---
 

@@ -118,7 +118,7 @@ def test_after_with_guard(ready, expected):
                 "waiting": {
                     "after": {
                         1000: [
-                            {"target": "go", "cond": lambda ctx, _: ctx["ready"]},
+                            {"target": "go", "guard": lambda ctx, _: ctx["ready"]},
                             {"target": "stay"},
                         ]
                     }

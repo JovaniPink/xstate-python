@@ -129,7 +129,7 @@ def test_targetless_dict_transition_does_not_crash():
         {
             "id": "m",
             "initial": "idle",
-            "states": {"idle": {"on": {"PING": {"cond": lambda c, e: True}}}},
+            "states": {"idle": {"on": {"PING": {"guard": lambda c, e: True}}}},
         }
     )
     state = machine.initial_state

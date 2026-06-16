@@ -95,7 +95,7 @@ def test_guard_callable_blocks_transition():
                     "on": {
                         "OPEN": {
                             "target": "open",
-                            "cond": lambda ctx, ev: ctx["allowed"],
+                            "guard": lambda ctx, ev: ctx["allowed"],
                         }
                     }
                 },
@@ -120,7 +120,7 @@ def test_guard_callable_allows_transition():
                     "on": {
                         "OPEN": {
                             "target": "open",
-                            "cond": lambda ctx, ev: ctx["allowed"],
+                            "guard": lambda ctx, ev: ctx["allowed"],
                         }
                     }
                 },
@@ -142,7 +142,7 @@ def test_named_guard_from_registry():
             "states": {
                 "closed": {
                     "on": {
-                        "OPEN": {"target": "open", "cond": "isReady"},
+                        "OPEN": {"target": "open", "guard": "isReady"},
                     }
                 },
                 "open": {},
@@ -165,7 +165,7 @@ def test_guard_uses_event_data():
                     "on": {
                         "OPEN": {
                             "target": "open",
-                            "cond": lambda ctx, ev: ev.data.get("key") == "secret",
+                            "guard": lambda ctx, ev: ev.data.get("key") == "secret",
                         }
                     }
                 },
@@ -186,7 +186,7 @@ def test_missing_named_guard_raises():
             "id": "gate",
             "initial": "closed",
             "states": {
-                "closed": {"on": {"OPEN": {"target": "open", "cond": "nope"}}},
+                "closed": {"on": {"OPEN": {"target": "open", "guard": "nope"}}},
                 "open": {},
             },
         }
