@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -39,6 +40,13 @@ class Transition:
             if isinstance(config, dict)
             else None
         )
+        if isinstance(config, dict) and "cond" in config:
+            warnings.warn(
+                "`cond` is deprecated; use `guard` (XState v5 naming). "
+                "`cond` still works but will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         self.in_state = config.get("in", None) if isinstance(config, dict) else None
         self.order = order
 

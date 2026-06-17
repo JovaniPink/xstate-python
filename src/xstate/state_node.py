@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Literal
 
 from xstate.action import Action, build_action
@@ -116,6 +117,14 @@ class StateNode:
         self.donedata = (
             config.get("output", config.get("data")) if self.type == "final" else None
         )
+        if self.type == "final" and "data" in config:
+            warnings.warn(
+                "`data` on a final state is deprecated; use `output` "
+                "(XState v5 naming). `data` still works but will be removed "
+                "in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         if config.get("onDone"):
             done_event = f"done.state.{self.id}"

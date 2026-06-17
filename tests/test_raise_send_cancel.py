@@ -273,7 +273,7 @@ def test_done_data_static_dict_available_in_on_done_assign():
                     "states": {
                         "task": {
                             "type": "final",
-                            "data": {"value": 42},
+                            "output": {"value": 42},
                         }
                     },
                     "onDone": {
@@ -306,7 +306,9 @@ def test_done_data_callable_evaluated_with_context():
                     "states": {
                         "work": {
                             "type": "final",
-                            "data": lambda ctx, _: {"product": ctx["multiplier"] * 10},
+                            "output": lambda ctx, _: {
+                                "product": ctx["multiplier"] * 10
+                            },
                         }
                     },
                     "onDone": {
@@ -334,11 +336,11 @@ def test_done_data_available_in_guard():
             "states": {
                 "run": {
                     "initial": "work",
-                    "states": {"work": {"type": "final", "data": {"ok": True}}},
+                    "states": {"work": {"type": "final", "output": {"ok": True}}},
                     "onDone": [
                         {
                             "target": "success",
-                            "cond": lambda ctx, ev: ev.data.get("ok", False),
+                            "guard": lambda ctx, ev: ev.data.get("ok", False),
                         },
                         {"target": "failure"},
                     ],

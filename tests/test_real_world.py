@@ -59,7 +59,7 @@ def make_session_machine(saved_token: bool = False):
                         "LOGIN": "authenticating",
                         "AUTO_LOGIN": {
                             "target": "authenticated",
-                            "cond": lambda ctx, _: ctx.get("savedToken", False),
+                            "guard": lambda ctx, _: ctx.get("savedToken", False),
                         },
                     }
                 },
@@ -82,7 +82,7 @@ def make_session_machine(saved_token: bool = False):
                         "FAILURE": [
                             {
                                 "target": "lockedOut",
-                                "cond": lambda ctx, _: (
+                                "guard": lambda ctx, _: (
                                     ctx.get("attempts", 0) + 1 >= MAX_ATTEMPTS
                                 ),
                                 "actions": [
@@ -143,7 +143,7 @@ def make_session_machine(saved_token: bool = False):
                                 "UNLOCK": [
                                     {
                                         "target": "active",
-                                        "cond": lambda ctx, ev: (
+                                        "guard": lambda ctx, ev: (
                                             ev.data.get("pin") == "1234"
                                         ),
                                     }

@@ -7,6 +7,10 @@
 - ``State.matches()`` — helper for checking nested state values
 """
 
+import warnings
+
+import pytest
+
 from xstate import Machine, MachineSnapshot, assign
 
 # ---------------------------------------------------------------------------
@@ -72,55 +76,57 @@ def test_guard_false_falls_through_to_next():
 
 
 def test_cond_still_works_for_backwards_compat():
-    """``cond`` continues to work as a backwards-compatible spelling."""
-    machine = Machine(
-        {
-            "id": "g",
-            "initial": "idle",
-            "context": {"ok": True},
-            "states": {
-                "idle": {
-                    "on": {
-                        "GO": [
-                            {"target": "yes", "cond": lambda ctx, _: ctx["ok"]},
-                            {"target": "no"},
-                        ]
-                    }
+    """``cond`` continues to work, but emits a DeprecationWarning."""
+    with pytest.warns(DeprecationWarning, match="`cond` is deprecated"):
+        machine = Machine(
+            {
+                "id": "g",
+                "initial": "idle",
+                "context": {"ok": True},
+                "states": {
+                    "idle": {
+                        "on": {
+                            "GO": [
+                                {"target": "yes", "cond": lambda ctx, _: ctx["ok"]},
+                                {"target": "no"},
+                            ]
+                        }
+                    },
+                    "yes": {},
+                    "no": {},
                 },
-                "yes": {},
-                "no": {},
-            },
-        }
-    )
+            }
+        )
     state = machine.initial_state
     state = machine.transition(state, "GO")
     assert state.value == "yes"
 
 
 def test_guard_takes_precedence_over_cond_when_both_present():
-    """If both keys appear, ``guard`` wins."""
-    machine = Machine(
-        {
-            "id": "g",
-            "initial": "idle",
-            "states": {
-                "idle": {
-                    "on": {
-                        "GO": [
-                            {
-                                "target": "a",
-                                "guard": lambda *_: True,
-                                "cond": lambda *_: False,
-                            },
-                            {"target": "b"},
-                        ]
-                    }
+    """If both keys appear, ``guard`` wins (and the legacy ``cond`` still warns)."""
+    with pytest.warns(DeprecationWarning, match="`cond` is deprecated"):
+        machine = Machine(
+            {
+                "id": "g",
+                "initial": "idle",
+                "states": {
+                    "idle": {
+                        "on": {
+                            "GO": [
+                                {
+                                    "target": "a",
+                                    "guard": lambda *_: True,
+                                    "cond": lambda *_: False,
+                                },
+                                {"target": "b"},
+                            ]
+                        }
+                    },
+                    "a": {},
+                    "b": {},
                 },
-                "a": {},
-                "b": {},
-            },
-        }
-    )
+            }
+        )
     state = machine.initial_state
     state = machine.transition(state, "GO")
     assert state.value == "a"
@@ -184,29 +190,69 @@ def test_output_on_final_state_reaches_on_done():
 
 
 def test_data_still_works_for_backwards_compat():
-    machine = Machine(
-        {
-            "id": "o",
-            "initial": "work",
-            "context": {"result": None},
-            "states": {
-                "work": {
-                    "initial": "task",
-                    "states": {"task": {"type": "final", "data": {"value": 42}}},
-                    "onDone": {
-                        "target": "done",
-                        "actions": [
-                            assign({"result": lambda ctx, ev: ev.data["value"]})
-                        ],
+    """``data`` on a final state still works, but emits a DeprecationWarning."""
+    with pytest.warns(DeprecationWarning, match="`data` on a final state"):
+        machine = Machine(
+            {
+                "id": "o",
+                "initial": "work",
+                "context": {"result": None},
+                "states": {
+                    "work": {
+                        "initial": "task",
+                        "states": {"task": {"type": "final", "data": {"value": 42}}},
+                        "onDone": {
+                            "target": "done",
+                            "actions": [
+                                assign({"result": lambda ctx, ev: ev.data["value"]})
+                            ],
+                        },
                     },
+                    "done": {},
                 },
-                "done": {},
-            },
-        }
-    )
+            }
+        )
     state = machine.initial_state
     assert state.value == "done"
     assert state.context["result"] == 42
+
+
+def test_guard_does_not_warn():
+    """The canonical ``guard`` spelling must not emit a DeprecationWarning."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        Machine(
+            {
+                "id": "g",
+                "initial": "idle",
+                "states": {
+                    "idle": {"on": {"GO": {"target": "a", "guard": lambda *_: True}}},
+                    "a": {},
+                },
+            }
+        )
+
+
+def test_output_does_not_warn():
+    """The canonical ``output`` spelling must not emit a DeprecationWarning."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        Machine(
+            {
+                "id": "o",
+                "initial": "work",
+                "states": {
+                    "work": {
+                        "initial": "task",
+                        "states": {
+                            "task": {"type": "final", "output": {"value": 1}}
+                        },
+                        "onDone": "done",
+                    },
+                    "done": {},
+                },
+            }
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -214,7 +214,7 @@ def make_combined():
                                 "GO": {
                                     "target": "a2",
                                     "in": {"b": "b2"},
-                                    "cond": lambda ctx, _: ctx.get("allowed", False),
+                                    "guard": lambda ctx, _: ctx.get("allowed", False),
                                 }
                             }
                         },
@@ -249,7 +249,7 @@ def test_combined_both_must_pass():
                                 "GO": {
                                     "target": "a2",
                                     "in": {"b": "b2"},
-                                    "cond": lambda ctx, _: ctx.get("ok", False),
+                                    "guard": lambda ctx, _: ctx.get("ok", False),
                                 }
                             }
                         },
