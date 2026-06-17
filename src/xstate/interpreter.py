@@ -41,6 +41,31 @@ RUNNING = "running"
 STOPPED = "stopped"
 
 
+def resolve_delay_ms(
+    machine: Machine, delay_spec: Any, context: Any, event: Any
+) -> float:
+    """Resolve a delay key to milliseconds.
+
+    Numbers are taken as-is; strings are looked up in ``machine.delays`` and may
+    be a number or a ``(context, event) -> number`` callable. Shared by the
+    synchronous :class:`Interpreter` and the asyncio
+    :class:`~xstate.async_interpreter.AsyncInterpreter`.
+    """
+    if isinstance(delay_spec, (int, float)):
+        return float(delay_spec)
+    delay = machine.delays.get(delay_spec)
+    if delay is None:
+        raise UnregisteredImplementationError(
+            f"Delay '{delay_spec}' is not configured. "
+            f"Pass it via Machine(config, delays={{'{delay_spec}': ...}})."
+        )
+    if callable(delay):
+        from xstate.algorithm import _invoke
+
+        return float(_invoke(delay, context, event))
+    return float(delay)
+
+
 class Subscription:
     """Handle returned by :meth:`Interpreter.subscribe`; call ``unsubscribe``."""
 
@@ -231,26 +256,12 @@ class Interpreter:
     # -- delayed transitions ------------------------------------------------
 
     def _resolve_delay(self, delay_spec: Any) -> float:
-        """Resolve a delay key to milliseconds.
-
-        Numbers are taken as-is; strings are looked up in ``machine.delays`` and
-        may be a number or a ``(context, event) -> number`` callable.
-        """
-        if isinstance(delay_spec, (int, float)):
-            return float(delay_spec)
-        delay = self.machine.delays.get(delay_spec)
-        if delay is None:
-            raise UnregisteredImplementationError(
-                f"Delay '{delay_spec}' is not configured. "
-                f"Pass it via Machine(config, delays={{'{delay_spec}': ...}})."
-            )
-        if callable(delay):
-            from xstate.algorithm import _invoke
-
-            return float(
-                _invoke(delay, self.state.context, getattr(self.state, "event", None))
-            )
-        return float(delay)
+        return resolve_delay_ms(
+            self.machine,
+            delay_spec,
+            self.state.context,
+            getattr(self.state, "event", None),
+        )
 
     def _sync_delays(self) -> None:
         """Reconcile scheduled timers with the current configuration.

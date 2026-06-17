@@ -6,6 +6,7 @@ from xstate.actor import (  # noqa
     from_callback,
     from_promise,
 )
+from xstate.async_interpreter import AsyncInterpreter, interpret_async  # noqa
 from xstate.event import Event, to_event  # noqa
 from xstate.exceptions import (  # noqa
     InvalidConfigError,
@@ -24,6 +25,9 @@ __all__ = [
     # Interpreter
     "interpret",
     "Interpreter",
+    # Async interpreter (v5 / 0.5.0)
+    "interpret_async",
+    "AsyncInterpreter",
     # Actor model (v5)
     "create_actor",
     "Actor",
