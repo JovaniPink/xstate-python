@@ -37,7 +37,7 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
 
 ---
 
-## Current state (0.5.0 in progress)
+## Current state (0.5.0)
 
 **Working:**
 - Hierarchical (compound) states
@@ -74,7 +74,12 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
 - **Actor model** (0.5.0, `from xstate import create_actor`) — `Actor` + `ActorSystem`
   with `id`/`parent`/`children`, `spawn`, `from_promise`/`from_callback` logic,
   `send_parent`/`send_to`, and `invoke:` child-actor reconciliation feeding back
-  `done.invoke.<id>` / `error.platform.<id>` (synchronous resolution)
+  `done.invoke.<id>` / `error.platform.<id>`
+- **Async actors** (0.5.0) — a coroutine `from_promise` and `from_observable`
+  schedule their work as an `asyncio.Task` and resolve / emit on the event loop
+  (a plain `from_promise` still resolves eagerly); `to_promise(actor)` adapts any
+  actor to an `asyncio.Future`. Async `invoke:` children feed `done.invoke.<id>` /
+  `error.platform.<id>` back to a machine parent once their task settles
 - **AsyncInterpreter** (0.5.0, `from xstate import interpret_async`) — asyncio-native
   runtime: `await start()`/`send()`/`stop()`, run-to-completion event queue,
   **awaitable action callables** (`async def` side effects are awaited), and
@@ -82,10 +87,8 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
   guard layer stays synchronous, so `algorithm.py` is shared with the sync runtime
 
 **Stubbed / incomplete:**
-- Async **actors** (`from_promise` coroutine resolution, `from_observable`,
-  `to_promise(actor)`) — the sync actor model and async *interpreter* exist;
-  bridging actors onto the event loop is the remaining 0.5.0 async step
-- `setup()` API (0.6.0+ target)
+- `setup()` API + composable guards (0.6.0+ target)
+- Persistence / snapshot serialization (0.6.0+ target)
 
 Handler-signature note: guards/assigners are invoked arity-aware by
 `algorithm._invoke`, which supports four calling conventions: `()`, `(context)`,

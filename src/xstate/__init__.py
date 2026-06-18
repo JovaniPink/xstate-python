@@ -4,7 +4,9 @@ from xstate.actor import (  # noqa
     ActorSystem,
     create_actor,
     from_callback,
+    from_observable,
     from_promise,
+    to_promise,
 )
 from xstate.async_interpreter import AsyncInterpreter, interpret_async  # noqa
 from xstate.event import Event, to_event  # noqa
@@ -34,6 +36,8 @@ __all__ = [
     "ActorSystem",
     "from_promise",
     "from_callback",
+    "from_observable",
+    "to_promise",
     # Action creators
     "assign",
     "send",
