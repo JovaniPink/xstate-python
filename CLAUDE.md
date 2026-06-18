@@ -24,6 +24,8 @@ xstate/
   action.py         Action — entry/exit/transition side effects
   event.py          Event — typed event wrapper
   interpreter.py    Interpreter — synchronous event loop + queue, subscriptions, `after` scheduling
+  async_interpreter.py  AsyncInterpreter — asyncio-native runtime (`async start/send/stop`, awaitable actions)
+  actor.py          Actor model — create_actor, ActorSystem, from_promise/from_callback, invoke reconciliation
   scheduler.py      Clock abstractions (`SimulatedClock` for tests, `ThreadClock` for real time)
   scxml.py          SCXML XML → Machine config converter (requires `scxml` extra for js conds)
 ```
@@ -35,7 +37,7 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
 
 ---
 
-## Current state (0.4.0 in progress)
+## Current state (0.5.0 in progress)
 
 **Working:**
 - Hierarchical (compound) states
@@ -69,11 +71,21 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
   - `MachineSnapshot` (public alias of `State`) carries `status`
     (`"active"`/`"done"`/`"error"`), `output`, and `error`; plus `state.matches()`
     and `state.can(event)`
+- **Actor model** (0.5.0, `from xstate import create_actor`) — `Actor` + `ActorSystem`
+  with `id`/`parent`/`children`, `spawn`, `from_promise`/`from_callback` logic,
+  `send_parent`/`send_to`, and `invoke:` child-actor reconciliation feeding back
+  `done.invoke.<id>` / `error.platform.<id>` (synchronous resolution)
+- **AsyncInterpreter** (0.5.0, `from xstate import interpret_async`) — asyncio-native
+  runtime: `await start()`/`send()`/`stop()`, run-to-completion event queue,
+  **awaitable action callables** (`async def` side effects are awaited), and
+  `after` delayed transitions scheduled on the event loop. The pure transition /
+  guard layer stays synchronous, so `algorithm.py` is shared with the sync runtime
 
 **Stubbed / incomplete:**
-- Async support (0.5.0 target)
+- Async **actors** (`from_promise` coroutine resolution, `from_observable`,
+  `to_promise(actor)`) — the sync actor model and async *interpreter* exist;
+  bridging actors onto the event loop is the remaining 0.5.0 async step
 - `setup()` API (0.6.0+ target)
-- Invoked services / actors (`invoke`) (0.5.0 target)
 
 Handler-signature note: guards/assigners are invoked arity-aware by
 `algorithm._invoke`, which supports four calling conventions: `()`, `(context)`,

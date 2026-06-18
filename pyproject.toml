@@ -50,8 +50,9 @@ packages = [
 ]
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.0"
-pytest-cov = "^4.0"
+pytest = ">=8.4"
+pytest-asyncio = ">=1.0"
+pytest-cov = ">=4.0"
 ruff = ">=0.4"
 mypy = "^1.0"
 
@@ -120,10 +121,12 @@ module = "xstate.state_node"
 disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
-minversion = "7.0"
+minversion = "8.4"
 addopts = "-ra -q"
 testpaths = ["tests"]
 pythonpath = ["src"]
+# `async def test_*` are collected and run without a per-test decorator.
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["xstate"]
