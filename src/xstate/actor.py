@@ -25,14 +25,20 @@ This module provides:
   lifetime of that state, feeding its completion back as ``done.invoke.<id>`` /
   ``error.platform.<id>`` events.
 
-Synchronous-resolution note: this layer runs on the synchronous
-:class:`~xstate.interpreter.Interpreter`.  A :func:`from_promise` actor's
-function is therefore called eagerly on ``start`` and resolves immediately;
-true deferred/asyncio resolution is the remaining 0.5.0 async milestone.
+Sync and async resolution: the machine layer runs on the synchronous
+:class:`~xstate.interpreter.Interpreter`, so a :func:`from_promise` actor with a
+*plain* function is called eagerly on ``start`` and resolves immediately.  A
+:func:`from_promise` actor with an ``async def`` (coroutine) function, and any
+:func:`from_observable` actor, instead schedule their work as an
+:class:`asyncio.Task` on the running event loop and resolve / emit later — so
+they require a running loop (start them inside ``asyncio.run(...)``).
+:func:`to_promise` adapts any actor to an :class:`asyncio.Future` that resolves
+with its ``output`` (or raises its ``error``).
 """
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 from collections.abc import Callable
 from typing import Any, Literal
@@ -74,14 +80,65 @@ class CallbackLogic:
         self.fn = fn
 
 
+class ObservableLogic:
+    """Logic that emits each value from an async iterable.
+
+    Created with :func:`from_observable`.  On start the actor iterates the
+    async iterable returned by ``fn(input)`` (or ``fn`` itself if it is already
+    an async iterable) as an :class:`asyncio.Task`: each value updates the
+    snapshot (``status == "active"`` with ``context`` set to the value and the
+    listeners notified); when the iterable is exhausted the snapshot becomes
+    ``status == "done"`` with ``output`` set to the final value, and if it
+    raises, ``status == "error"``.
+    """
+
+    def __init__(self, fn: Any):
+        self.fn = fn
+
+
 def from_promise(fn: Callable[..., Any]) -> PromiseLogic:
-    """Create promise actor logic from ``fn`` (XState v5 ``fromPromise``)."""
+    """Create promise actor logic from ``fn`` (XState v5 ``fromPromise``).
+
+    ``fn`` may be synchronous (resolves eagerly on start) or an ``async def``
+    coroutine function (resolved on the running event loop).
+    """
     return PromiseLogic(fn)
 
 
 def from_callback(fn: Callable[..., Any]) -> CallbackLogic:
     """Create callback actor logic from ``fn`` (XState v5 ``fromCallback``)."""
     return CallbackLogic(fn)
+
+
+def from_observable(fn: Any) -> ObservableLogic:
+    """Create observable actor logic from ``fn`` (XState v5 ``fromObservable``).
+
+    ``fn`` is a callable returning an async iterable (e.g. an async generator
+    function), or an async iterable directly.  Requires a running event loop.
+    """
+    return ObservableLogic(fn)
+
+
+def _ensure_future(awaitable: Any) -> asyncio.Task:
+    """Schedule *awaitable* on the running loop, with a clear error if none.
+
+    Async actor logic (coroutine ``from_promise`` / ``from_observable``) can
+    only run when an event loop is active; surface that requirement explicitly
+    rather than letting a lower-level ``RuntimeError`` leak.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        # Close the orphaned coroutine so it doesn't emit a "never awaited"
+        # warning when garbage-collected.
+        if inspect.iscoroutine(awaitable):
+            awaitable.close()
+        raise RuntimeError(
+            "Async actor logic (a coroutine from_promise or a from_observable) "
+            "requires a running event loop. Start the actor inside an async "
+            "context, e.g. within asyncio.run(...)."
+        ) from None
+    return asyncio.ensure_future(awaitable)
 
 
 def _call_with_supported_kwargs(fn: Callable[..., Any], **kwargs: Any) -> Any:
@@ -234,11 +291,16 @@ class _MachineBackend:
 
 
 class _PromiseBackend(_ListenerBackend):
-    """Backs an actor with :func:`from_promise` logic."""
+    """Backs an actor with :func:`from_promise` logic.
+
+    A plain function resolves synchronously on :meth:`start`; a coroutine
+    function is scheduled on the event loop and resolves via a done-callback.
+    """
 
     def __init__(self, actor: Actor, logic: PromiseLogic, input: Any):
         super().__init__(actor, input)
         self._fn = logic.fn
+        self._task: asyncio.Task | None = None
 
     def start(self, initial_state: State | None = None) -> None:
         if self._status != NOT_STARTED:
@@ -246,12 +308,33 @@ class _PromiseBackend(_ListenerBackend):
         self._status = RUNNING
         try:
             result = _call_with_supported_kwargs(self._fn, input=self._input)
-            self._snapshot = ActorSnapshot("done", output=result)
         except Exception as exc:  # noqa: BLE001 - surfaced as actor error
             self._snapshot = ActorSnapshot("error", error=exc)
+            self._notify()
+            return
+        if inspect.isawaitable(result):
+            # Defer resolution to the event loop; snapshot stays "active" until
+            # the coroutine completes.
+            self._task = _ensure_future(result)
+            self._task.add_done_callback(self._on_resolved)
+        else:
+            self._snapshot = ActorSnapshot("done", output=result)
+            self._notify()
+
+    def _on_resolved(self, task: asyncio.Task) -> None:
+        if self._status == STOPPED or task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            self._snapshot = ActorSnapshot("error", error=exc)
+        else:
+            self._snapshot = ActorSnapshot("done", output=task.result())
         self._notify()
 
     def stop(self) -> None:
+        if self._task is not None and not self._task.done():
+            self._task.cancel()
+        self._task = None
         self._status = STOPPED
         self._listeners.clear()
 
@@ -301,6 +384,63 @@ class _CallbackBackend(_ListenerBackend):
         return self._snapshot
 
 
+class _ObservableBackend(_ListenerBackend):
+    """Backs an actor with :func:`from_observable` logic."""
+
+    def __init__(self, actor: Actor, logic: ObservableLogic, input: Any):
+        super().__init__(actor, input)
+        self._fn = logic.fn
+        self._task: asyncio.Task | None = None
+
+    def start(self, initial_state: State | None = None) -> None:
+        if self._status != NOT_STARTED:
+            return
+        self._status = RUNNING
+        try:
+            source = (
+                _call_with_supported_kwargs(self._fn, input=self._input)
+                if callable(self._fn)
+                else self._fn
+            )
+        except Exception as exc:  # noqa: BLE001 - surfaced as actor error
+            self._snapshot = ActorSnapshot("error", error=exc)
+            self._notify()
+            return
+        self._task = _ensure_future(self._consume(source))
+        self._task.add_done_callback(self._on_finished)
+
+    async def _consume(self, source: Any) -> Any:
+        last = None
+        async for value in source:
+            if self._status == STOPPED:
+                break
+            last = value
+            self._snapshot = ActorSnapshot("active", context=value)
+            self._notify()
+        return last
+
+    def _on_finished(self, task: asyncio.Task) -> None:
+        if self._status == STOPPED or task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            self._snapshot = ActorSnapshot("error", error=exc)
+        else:
+            self._snapshot = ActorSnapshot("done", output=task.result())
+        self._notify()
+
+    def stop(self) -> None:
+        if self._task is not None and not self._task.done():
+            self._task.cancel()
+        self._task = None
+        self._status = STOPPED
+        self._listeners.clear()
+
+    def send(self, event) -> ActorSnapshot:
+        # Observable actors ignore incoming events.
+        return self._snapshot
+
+
 def _build_backend(actor: Actor, logic, clock: Clock | None, input: Any):
     if isinstance(logic, Machine):
         return _MachineBackend(actor, logic, clock)
@@ -308,9 +448,11 @@ def _build_backend(actor: Actor, logic, clock: Clock | None, input: Any):
         return _PromiseBackend(actor, logic, input)
     if isinstance(logic, CallbackLogic):
         return _CallbackBackend(actor, logic, input)
+    if isinstance(logic, ObservableLogic):
+        return _ObservableBackend(actor, logic, input)
     raise TypeError(
-        "create_actor expects a Machine, from_promise(...), or from_callback(...) "
-        f"logic, got {type(logic).__name__}."
+        "create_actor expects a Machine, from_promise(...), from_callback(...), "
+        f"or from_observable(...) logic, got {type(logic).__name__}."
     )
 
 
@@ -565,7 +707,7 @@ class Actor:
         A logic object (Machine / promise / callback logic) is used directly; a
         string is looked up in the machine's ``actors`` registry.
         """
-        if isinstance(src, (Machine, PromiseLogic, CallbackLogic)):
+        if isinstance(src, (Machine, PromiseLogic, CallbackLogic, ObservableLogic)):
             return src
         if isinstance(src, str):
             machine = self._backend.interpreter.machine
@@ -627,3 +769,46 @@ def create_actor(
     owned by this actor.
     """
     return Actor(logic, id=id, clock=clock, system=system, input=input)
+
+
+def to_promise(actor: Actor) -> asyncio.Future:
+    """Adapt *actor* to an :class:`asyncio.Future` (XState v5 ``toPromise``).
+
+    The future resolves with the actor's ``output`` when its snapshot reaches
+    ``status == "done"``, or raises its ``error`` when it reaches
+    ``status == "error"``.  If the actor is already settled the future resolves
+    immediately; otherwise it resolves on the next settling snapshot.  Must be
+    called with a running event loop.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        raise RuntimeError(
+            "to_promise() requires a running event loop; await it inside an "
+            "async context, e.g. within asyncio.run(...)."
+        ) from None
+
+    future: asyncio.Future = loop.create_future()
+
+    def _settle(snapshot: Any) -> None:
+        if future.done():
+            return
+        status = getattr(snapshot, "status", None)
+        if status == "done":
+            future.set_result(getattr(snapshot, "output", None))
+        elif status == "error":
+            error = getattr(snapshot, "error", None)
+            future.set_exception(
+                error
+                if isinstance(error, BaseException)
+                else RuntimeError(str(error))
+            )
+
+    snapshot = actor.get_snapshot()
+    if getattr(snapshot, "status", None) in ("done", "error"):
+        _settle(snapshot)
+        return future
+
+    subscription = actor.subscribe(_settle)
+    future.add_done_callback(lambda _f: subscription.unsubscribe())
+    return future

@@ -1,6 +1,6 @@
 [project]
 name = "xstate"
-version = "0.4.0"
+version = "0.5.0"
 description = "Statecharts and state machines for Python, inspired by XState."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -73,6 +73,7 @@ ignore = [
 # Test helpers use `input` as a lambda param to match XState's `input` semantics
 "tests/test_actor_logic.py" = ["A006"]
 "tests/test_actor_messaging.py" = ["A006"]
+"tests/test_async_actors.py" = ["A006"]
 "tests/test_invoke.py" = ["A006"]
 
 [tool.ruff.lint.isort]
