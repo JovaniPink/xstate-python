@@ -170,6 +170,9 @@ class Interpreter:
                 while self._event_queue:
                     next_event = self._event_queue.popleft()
                     self._process(next_event)
+            except Exception:
+                self._event_queue.clear()
+                raise
             finally:
                 self._processing = False
             return self.state

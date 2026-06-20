@@ -422,6 +422,8 @@ class StateNodeConfigParser:
         )
 
     def _resolve_target(self, source: StateNode, target: Any, path: str) -> StateNode:
+        if isinstance(target, StateNode):
+            return target
         if not isinstance(target, str):
             raise InvalidConfigError(
                 f"{path} target must be a string, got {type(target)!r}."

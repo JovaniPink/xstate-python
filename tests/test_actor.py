@@ -8,6 +8,9 @@ Covers the v5 ``create_actor`` entry point and the actor system registry:
   - ActorSystem: ids, get(), registration and cleanup on stop
 """
 
+import time
+from concurrent.futures import ThreadPoolExecutor
+
 import pytest
 
 from xstate import Machine, SimulatedClock, create_actor
@@ -175,3 +178,25 @@ def test_anonymous_ids_are_unique():
     a = create_actor(_toggle_machine(), system=system)
     b = create_actor(_toggle_machine(), system=system)
     assert a.id != b.id
+
+
+def test_concurrent_anonymous_actor_creation_uses_unique_ids():
+    class SlowActorSystem(ActorSystem):
+        def _next_id_unlocked(self) -> str:
+            time.sleep(0.001)
+            return super()._next_id_unlocked()
+
+    system = SlowActorSystem()
+
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        actors = list(
+            pool.map(
+                lambda _index: create_actor(_toggle_machine(), system=system),
+                range(100),
+            )
+        )
+
+    ids = {actor.id for actor in actors}
+
+    assert len(ids) == len(actors)
+    assert all(system.get(actor.id) is actor for actor in actors)

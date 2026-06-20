@@ -108,6 +108,42 @@ def test_threaded_timer_send_racing_user_send_is_serialized():
     assert service.state.context["count"] == 2
 
 
+def test_sync_interpreter_clears_queued_events_after_action_error():
+    service = None
+
+    def queue_then_boom():
+        assert service is not None
+        service.send("NEXT")
+        raise RuntimeError("boom")
+
+    machine = Machine(
+        {
+            "id": "clear-queue",
+            "context": {"count": 0},
+            "initial": "active",
+            "states": {
+                "active": {
+                    "on": {
+                        "GO": {"actions": [queue_then_boom]},
+                        "NEXT": {
+                            "actions": [assign({"count": lambda c, _e: c["count"] + 1})]
+                        },
+                        "PING": {},
+                    }
+                }
+            },
+        }
+    )
+    service = interpret(machine).start()
+
+    with pytest.raises(RuntimeError, match="boom"):
+        service.send("GO")
+
+    service.send("PING")
+
+    assert service.state.context["count"] == 0
+
+
 def test_scxml_boolean_cond_subset():
     assert _eval_scxml_cond("true && !(false || false)")() is True
     assert _eval_scxml_cond("false || (true && false)")() is False
