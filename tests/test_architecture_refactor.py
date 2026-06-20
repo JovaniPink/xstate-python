@@ -54,6 +54,34 @@ def test_parser_accepts_resolved_nodes_inside_target_lists():
     assert targets == [machine.states["done"]]
 
 
+def test_schema_models_literal_in_transition_key():
+    from xstate.schema import TransitionConfig
+
+    assert "in" in TransitionConfig.__annotations__
+    assert "in_" not in TransitionConfig.__annotations__
+
+
+def test_parser_rejects_invalid_transition_type_with_path():
+    with pytest.raises(InvalidConfigError, match=r"states\.idle\.on\.GO\[0\]\.type"):
+        Machine(
+            {
+                "id": "bad-transition-type",
+                "initial": "idle",
+                "states": {
+                    "idle": {
+                        "on": {
+                            "GO": {
+                                "target": "done",
+                                "type": "sideways",
+                            }
+                        }
+                    },
+                    "done": {},
+                },
+            }
+        )
+
+
 def test_handler_adapter_accepts_union_handler_args_annotation():
     calls = []
     namespace = {"HandlerArgs": HandlerArgs, "calls": calls}
