@@ -30,22 +30,22 @@ dependencies; development tools are managed through Poetry.
 Run the primary suite before opening a PR:
 
 ```bash
-python3 -m pytest tests/ --ignore=tests/test_scxml.py
+poetry run python -m pytest tests/ --ignore=tests/test_scxml.py
 ```
 
 Run type checking and linting:
 
 ```bash
-python3 -m mypy src/xstate/
-ruff format --check src/ tests/
-ruff check src/ tests/
+poetry run mypy src/xstate/
+poetry run ruff format --check src/ tests/
+poetry run ruff check src/ tests/
 ```
 
 SCXML changes need the SCXML test framework:
 
 ```bash
 git submodule update --init
-PYTHONPATH=src python3 -m pytest tests/test_scxml.py
+poetry run python -m pytest tests/test_scxml.py
 ```
 
 The current known full-SCXML gap is the `more-parallel` conformance group.

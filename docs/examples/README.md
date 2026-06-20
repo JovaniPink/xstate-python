@@ -18,7 +18,7 @@ matching the shape exported by Stately/XState tooling. Python supplies only the
 live implementation details:
 
 ```python
-with open("traffic_intersection.json") as f:
+with open("docs/examples/traffic_intersection.json") as f:
     config = json.load(f)
 
 machine = Machine(config, actions=ACTIONS, guards=GUARDS, delays=DELAYS)

@@ -361,7 +361,7 @@ framework:
 
 ```bash
 git submodule update --init
-PYTHONPATH=src python3 -m pytest tests/test_scxml.py
+poetry run python -m pytest tests/test_scxml.py
 ```
 
 Current branch result: `45 passed`, `8 failed`; the remaining failures are the
@@ -374,14 +374,14 @@ safe Boolean evaluator.
 poetry install
 
 # Primary suite
-python3 -m pytest tests/ --ignore=tests/test_scxml.py
+poetry run python -m pytest tests/ --ignore=tests/test_scxml.py
 
 # Type checking
-python3 -m mypy src/xstate/
+poetry run mypy src/xstate/
 
 # Formatting and linting
-ruff format --check src/ tests/
-ruff check src/ tests/
+poetry run ruff format --check src/ tests/
+poetry run ruff check src/ tests/
 ```
 
 ## Roadmap
