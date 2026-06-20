@@ -37,9 +37,10 @@ def _get_params(fn: Any) -> tuple[inspect.Parameter, ...] | None:
 def _annotation_is_handler_args(annotation: Any) -> bool:
     if annotation is HandlerArgs:
         return True
-    if isinstance(annotation, str):
-        return "HandlerArgs" in annotation
-    return False
+    if annotation is inspect.Parameter.empty:
+        return False
+    annotation_text = annotation if isinstance(annotation, str) else str(annotation)
+    return "HandlerArgs" in annotation_text
 
 
 def _looks_like_handler_args_param(param: inspect.Parameter) -> bool:

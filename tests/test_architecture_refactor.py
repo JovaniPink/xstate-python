@@ -14,6 +14,7 @@ from xstate import (
     raise_,
     setup,
 )
+from xstate.config_parser import StateNodeConfigParser
 
 
 def test_parser_resolves_transition_targets_once():
@@ -31,6 +32,61 @@ def test_parser_resolves_transition_targets_once():
     transition = machine.states["idle"].transitions[0]
 
     assert transition.target == [machine.states["done"]]
+
+
+def test_parser_accepts_resolved_nodes_inside_target_lists():
+    machine = Machine(
+        {
+            "id": "resolved-list",
+            "initial": "idle",
+            "states": {
+                "idle": {},
+                "done": {},
+            },
+        }
+    )
+    parser = StateNodeConfigParser(machine)
+
+    targets = parser._resolve_targets(
+        machine.states["idle"], [machine.states["done"]], "states.idle.on.GO"
+    )
+
+    assert targets == [machine.states["done"]]
+
+
+def test_handler_adapter_accepts_union_handler_args_annotation():
+    calls = []
+    namespace = {"HandlerArgs": HandlerArgs, "calls": calls}
+    exec(
+        "def is_allowed(payload: HandlerArgs | None) -> bool:\n"
+        "    calls.append((payload.context['allowed'], payload.event.name))\n"
+        "    return payload.context['allowed']\n",
+        namespace,
+    )
+
+    machine = Machine(
+        {
+            "id": "union-args",
+            "context": {"allowed": True},
+            "initial": "idle",
+            "states": {
+                "idle": {
+                    "on": {
+                        "GO": {
+                            "target": "done",
+                            "guard": namespace["is_allowed"],
+                        }
+                    }
+                },
+                "done": {},
+            },
+        }
+    )
+
+    state = machine.transition(machine.initial_state, "GO")
+
+    assert state.value == "done"
+    assert calls == [(True, "GO")]
 
 
 def test_setup_canonical_handler_args_guard_assign_and_action_params():
