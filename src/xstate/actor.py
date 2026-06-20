@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import threading
 from collections.abc import AsyncIterable, Callable
 from typing import Any, Literal, Protocol, cast
 
@@ -513,6 +514,7 @@ class ActorSystem:
     def __init__(self) -> None:
         self._actors: dict[str, Actor] = {}
         self._anonymous_count = 0
+        self._lock = threading.RLock()
 
     def _next_id(self) -> str:
         """Generate an id for an actor created without an explicit one.
@@ -520,6 +522,10 @@ class ActorSystem:
         Skips ids already taken so an anonymous actor never collides with an
         explicit ``"x:N"`` id a caller chose.
         """
+        with self._lock:
+            return self._next_id_unlocked()
+
+    def _next_id_unlocked(self) -> str:
         candidate = f"x:{self._anonymous_count}"
         while candidate in self._actors:
             self._anonymous_count += 1
@@ -528,6 +534,10 @@ class ActorSystem:
         return candidate
 
     def _register(self, actor: Actor) -> None:
+        with self._lock:
+            self._register_unlocked(actor)
+
+    def _register_unlocked(self, actor: Actor) -> None:
         actor_id = actor.id
         if actor_id in self._actors and self._actors[actor_id] is not actor:
             raise ValueError(
@@ -536,13 +546,15 @@ class ActorSystem:
         self._actors[actor_id] = actor
 
     def _unregister(self, actor: Actor) -> None:
-        actor_id = actor.id
-        if self._actors.get(actor_id) is actor:
-            del self._actors[actor_id]
+        with self._lock:
+            actor_id = actor.id
+            if self._actors.get(actor_id) is actor:
+                del self._actors[actor_id]
 
     def get(self, actor_id: str) -> Actor | None:
         """Return the actor registered under *actor_id*, or ``None``."""
-        return self._actors.get(actor_id)
+        with self._lock:
+            return self._actors.get(actor_id)
 
 
 class Actor:
@@ -565,17 +577,18 @@ class Actor:
         input: Any = None,
     ) -> None:
         self._system = system if system is not None else ActorSystem()
-        self._id = id if id is not None else self._system._next_id()
-        self._parent = parent
-        self._clock = clock
-        self._input = input
-        self._children: dict[str, Actor] = {}
-        # invocation id -> child actor spawned by an `invoke:` on a state
-        self._invoked: dict[str, Actor] = {}
-        self._invocation_sub: SubscriptionProtocol | None = None
-        self._syncing = False
-        self._backend: ActorBackend = _build_backend(self, logic, clock, input)
-        self._system._register(self)
+        with self._system._lock:
+            self._id = id if id is not None else self._system._next_id_unlocked()
+            self._parent = parent
+            self._clock = clock
+            self._input = input
+            self._children: dict[str, Actor] = {}
+            # invocation id -> child actor spawned by an `invoke:` on a state
+            self._invoked: dict[str, Actor] = {}
+            self._invocation_sub: SubscriptionProtocol | None = None
+            self._syncing = False
+            self._backend: ActorBackend = _build_backend(self, logic, clock, input)
+            self._system._register_unlocked(self)
 
     # -- identity -----------------------------------------------------------
 
