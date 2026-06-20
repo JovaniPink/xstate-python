@@ -10,13 +10,18 @@ ActionSpec: TypeAlias = str | dict[str, Any] | Callable[..., Any]
 TransitionTarget: TypeAlias = str | list[str]
 
 
-class TransitionConfig(TypedDict, total=False):
-    target: TransitionTarget
-    actions: ActionSpec | list[ActionSpec]
-    guard: HandlerSpec
-    cond: HandlerSpec
-    in_: Any
-    type: Literal["internal", "external"]
+TransitionConfig = TypedDict(
+    "TransitionConfig",
+    {
+        "target": TransitionTarget,
+        "actions": ActionSpec | list[ActionSpec],
+        "guard": HandlerSpec,
+        "cond": HandlerSpec,
+        "in": Any,
+        "type": Literal["internal", "external"],
+    },
+    total=False,
+)
 
 
 class InvokeConfig(TypedDict, total=False):
