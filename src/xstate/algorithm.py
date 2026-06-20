@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from collections.abc import Set as AbstractSet
 from typing import Any
 
@@ -13,6 +13,7 @@ from xstate.state_node import StateNode
 from xstate.transition import Transition
 
 HistoryValue = dict[str, set[StateNode]]
+ReadOnlyHistoryValue = Mapping[str, AbstractSet[StateNode]]
 
 
 def _invoke(fn, context: dict | None, event: Event | None) -> Any:
@@ -201,7 +202,7 @@ def is_descendent(state: StateNode, state2: StateNode | None) -> bool:
 #     else:
 #         return findLCCA([t.source].append(tstates))
 def get_transition_domain(
-    transition: Transition, history_value: HistoryValue
+    transition: Transition, history_value: ReadOnlyHistoryValue
 ) -> StateNode | None:
     tstates = get_effective_target_states(transition, history_value=history_value)
     if not tstates:
@@ -224,7 +225,7 @@ def find_lcca(state_list: list[StateNode]) -> StateNode | None:
 
 
 def get_effective_target_states(
-    transition: Transition, history_value: HistoryValue
+    transition: Transition, history_value: ReadOnlyHistoryValue
 ) -> set[StateNode]:
     targets: set[StateNode] = set()
 
@@ -449,8 +450,8 @@ def exit_states(
 
 def compute_exit_set(
     enabled_transitions: list[Transition],
-    configuration: set[StateNode],
-    history_value: HistoryValue,
+    configuration: AbstractSet[StateNode],
+    history_value: ReadOnlyHistoryValue,
 ) -> set[StateNode]:
     states_to_exit: set[StateNode] = set()
     for t in enabled_transitions:
@@ -467,7 +468,7 @@ def name_match(event: str, specific_event: str) -> bool:
     return event == specific_event
 
 
-def _matches_in_state(in_spec, configuration: set[StateNode]) -> bool:
+def _matches_in_state(in_spec, configuration: AbstractSet[StateNode]) -> bool:
     """Return True if ``in_spec`` matches the current configuration.
 
     ``in_spec`` is the value of an XState ``in`` transition guard:
@@ -515,7 +516,7 @@ def condition_match(
     transition: Transition,
     context: dict | None = None,
     event: Event | None = None,
-    configuration: set[StateNode] | None = None,
+    configuration: AbstractSet[StateNode] | None = None,
 ) -> bool:
     cond = transition.cond
     params = None
@@ -556,9 +557,9 @@ def condition_match(
 
 def select_transitions(
     event: Event,
-    configuration: set[StateNode],
+    configuration: AbstractSet[StateNode],
     context: dict | None = None,
-    history_value: HistoryValue | None = None,
+    history_value: ReadOnlyHistoryValue | None = None,
 ):
     if history_value is None:
         history_value = {}
@@ -623,8 +624,8 @@ def select_eventless_transitions(
 
 def remove_conflicting_transitions(
     enabled_transitions: set[Transition],
-    configuration: set[StateNode],
-    history_value: HistoryValue,
+    configuration: AbstractSet[StateNode],
+    history_value: ReadOnlyHistoryValue,
 ) -> set[Transition]:
     ordered = sorted(enabled_transitions, key=lambda t: t.order)
 

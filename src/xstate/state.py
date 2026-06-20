@@ -83,11 +83,9 @@ class State:
 
         transitions = select_transitions(
             event=to_event(event),
-            configuration=set(self.configuration),
+            configuration=self.configuration,
             context=self.context,
-            history_value={
-                state_id: set(states) for state_id, states in self.history_value.items()
-            },
+            history_value=self.history_value,
         )
         return len(transitions) > 0
 

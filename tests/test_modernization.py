@@ -144,6 +144,47 @@ def test_sync_interpreter_clears_queued_events_after_action_error():
     assert service.state.context["count"] == 0
 
 
+def test_sync_interpreter_does_not_hold_lock_while_running_actions():
+    service = None
+
+    def send_from_worker_thread():
+        assert service is not None
+        completed = threading.Event()
+
+        def worker():
+            service.send("WORK")
+            completed.set()
+
+        thread = threading.Thread(target=worker)
+        thread.start()
+        assert completed.wait(timeout=1)
+        thread.join(timeout=1)
+        assert not thread.is_alive()
+
+    machine = Machine(
+        {
+            "id": "action-lock",
+            "context": {"count": 0},
+            "initial": "active",
+            "states": {
+                "active": {
+                    "on": {
+                        "GO": {"actions": [send_from_worker_thread]},
+                        "WORK": {
+                            "actions": [assign({"count": lambda c, _e: c["count"] + 1})]
+                        },
+                    }
+                }
+            },
+        }
+    )
+    service = interpret(machine).start()
+
+    service.send("GO")
+
+    assert service.state.context["count"] == 1
+
+
 def test_scxml_boolean_cond_subset():
     assert _eval_scxml_cond("true && !(false || false)")() is True
     assert _eval_scxml_cond("false || (true && false)")() is False
