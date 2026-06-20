@@ -297,7 +297,7 @@ class StateNodeConfigParser:
     ) -> Transition:
         cond = None
         in_state = None
-        transition_type = "external"
+        transition_type: Literal["internal", "external"] = "external"
         actions: list[Action] = []
         target_spec = raw_transition
 
@@ -314,7 +314,10 @@ class StateNodeConfigParser:
                 self._path(path, "guard"),
             )
             in_state = raw_transition.get("in")
-            transition_type = raw_transition.get("type", "external")
+            transition_type = self._resolve_transition_type(
+                raw_transition.get("type", "external"),
+                self._path(path, "type"),
+            )
             actions = self._build_actions(
                 raw_transition.get("actions"),
                 self._path(path, "actions"),
@@ -331,7 +334,18 @@ class StateNodeConfigParser:
             actions=actions,
             cond=cond,
             in_state=in_state,
-            type=cast(Literal["internal", "external"], transition_type),
+            type=transition_type,
+        )
+
+    def _resolve_transition_type(
+        self, transition_type: Any, path: str
+    ) -> Literal["internal", "external"]:
+        if transition_type == "internal":
+            return "internal"
+        if transition_type == "external":
+            return "external"
+        raise InvalidConfigError(
+            f"{path} must be 'internal' or 'external', got {transition_type!r}."
         )
 
     def _build_guard(self, guard: Any, path: str) -> Any:

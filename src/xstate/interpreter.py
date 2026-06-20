@@ -134,9 +134,10 @@ class Interpreter:
             self.state.event = _Event("xstate.init")
             self._status = RUNNING
             self._sync_delays()
-            self._execute(self.state)
-            self._notify(self.state)
-            return self
+            state = self.state
+        self._execute(state)
+        self._notify(state)
+        return self
 
     def stop(self) -> Interpreter:
         """Stop the service: cancel pending timers and drop all listeners."""
@@ -166,22 +167,40 @@ class Interpreter:
                 return self.state
 
             self._processing = True
-            try:
-                while self._event_queue:
-                    next_event = self._event_queue.popleft()
-                    self._process(next_event)
-            except Exception:
-                self._event_queue.clear()
-                raise
-            finally:
-                self._processing = False
+        self._drain_event_queue()
+        with self._lock:
             return self.state
 
+    def _drain_event_queue(self) -> None:
+        while True:
+            with self._lock:
+                if self._status != RUNNING or not self._event_queue:
+                    self._processing = False
+                    return
+                next_event = self._event_queue.popleft()
+            try:
+                self._process(next_event)
+            except Exception:
+                with self._lock:
+                    self._event_queue.clear()
+                    self._processing = False
+                raise
+
     def _process(self, event: Any) -> None:
-        next_state = self.machine.transition(self.state, event)
+        with self._lock:
+            if self._status != RUNNING:
+                return
+            state = self.state
+
+        next_state = self.machine.transition(state, event)
         next_state.event = self.machine._to_event(event)
-        self.state = next_state
-        self._sync_delays()
+
+        with self._lock:
+            if self._status != RUNNING:
+                return
+            self.state = next_state
+            self._sync_delays()
+
         self._execute(next_state)
         self._notify(next_state)
 
@@ -191,12 +210,15 @@ class Interpreter:
         """Register a listener called with the current state and on each change."""
         with self._lock:
             self._listeners.add(listener)
-            if self._status == RUNNING:
-                listener(self.state)
-            return Subscription(self, listener)
+            state = self.state if self._status == RUNNING else None
+        if state is not None:
+            listener(state)
+        return Subscription(self, listener)
 
     def _notify(self, state: State) -> None:
-        for listener in list(self._listeners):
+        with self._lock:
+            listeners = tuple(self._listeners)
+        for listener in listeners:
             listener(state)
 
     # -- side effects -------------------------------------------------------
