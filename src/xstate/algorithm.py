@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections import deque
+from collections.abc import Iterable
+from collections.abc import Set as AbstractSet
 from typing import Any
 
 from xstate.action import ASSIGN_TYPE, RAISE_TYPE, Action
@@ -311,7 +314,7 @@ def get_child_states(state_node: StateNode) -> list[StateNode]:
     return [s for s in state_node.states.values() if not is_history_state(s)]
 
 
-def is_in_final_state(state: StateNode, configuration: set[StateNode]) -> bool:
+def is_in_final_state(state: StateNode, configuration: AbstractSet[StateNode]) -> bool:
     if is_compound_state(state):
         return any(
             is_final_state(s) and (s in configuration) for s in get_child_states(state)
@@ -328,10 +331,10 @@ def enter_states(
     states_to_invoke: set[StateNode],
     history_value: HistoryValue,
     actions: list[Action],
-    internal_queue: list[Event],
+    internal_queue: deque[Event],
     context: dict | None = None,
     event: Event | None = None,
-) -> tuple[set[StateNode], list[Action], list[Event], Any]:
+) -> tuple[set[StateNode], list[Action], deque[Event], Any]:
     states_to_enter: set[StateNode] = set()
     states_for_default_entry: set[StateNode] = set()
 
@@ -399,7 +402,7 @@ def exit_states(
     states_to_invoke: set[StateNode],
     history_value: HistoryValue,
     actions: list[Action],
-    internal_queue: list[Event],
+    internal_queue: deque[Event],
     context: dict | None = None,
     event: Event | None = None,
 ):
@@ -694,7 +697,7 @@ def main_event_loop(
 def main_event_loop2(
     configuration: set[StateNode],
     actions: list[Action],
-    internal_queue: list[Event],
+    internal_queue: deque[Event],
     context: dict | None = None,
     event: Event | None = None,
     history_value: HistoryValue | None = None,
@@ -716,7 +719,7 @@ def main_event_loop2(
             if not internal_queue:
                 macrostep_done = True
             else:
-                internal_event = internal_queue.pop(0)
+                internal_event = internal_queue.popleft()
                 event = internal_event
                 enabled_transitions = select_transitions(
                     event=internal_event,
@@ -743,7 +746,7 @@ def main_event_loop2(
 def execute_transition_content(
     enabled_transitions: list[Transition],
     actions: list[Action],
-    internal_queue: list[Event],
+    internal_queue: deque[Event],
     context: dict | None = None,
     event: Event | None = None,
 ) -> Any:
@@ -756,7 +759,7 @@ def execute_transition_content(
 def execute_content(
     action: Action,
     actions: list[Action],
-    internal_queue: list[Event],
+    internal_queue: deque[Event],
     context: dict | None = None,
     event: Event | None = None,
 ) -> Any:
@@ -776,9 +779,9 @@ def microstep(
     history_value: HistoryValue,
     context: dict | None = None,
     event: Event | None = None,
-) -> tuple[set[StateNode], list[Action], list[Event], Any]:
+) -> tuple[set[StateNode], list[Action], deque[Event], Any]:
     actions: list[Action] = []
-    internal_queue: list[Event] = []
+    internal_queue: deque[Event] = deque()
 
     configuration, actions, context = exit_states(
         enabled_transitions,
@@ -833,7 +836,7 @@ def get_configuration_from_state(
     return partial_configuration
 
 
-def get_adj_list(configuration: set[StateNode]) -> dict[str, set[StateNode]]:
+def get_adj_list(configuration: Iterable[StateNode]) -> dict[str, set[StateNode]]:
     adj_list: dict[str, set[StateNode]] = {}
 
     for s in configuration:
@@ -849,7 +852,7 @@ def get_adj_list(configuration: set[StateNode]) -> dict[str, set[StateNode]]:
     return adj_list
 
 
-def get_state_value(state_node: StateNode, configuration: set[StateNode]) -> Any:
+def get_state_value(state_node: StateNode, configuration: Iterable[StateNode]) -> Any:
     return get_value_from_adj(state_node, get_adj_list(configuration))
 
 

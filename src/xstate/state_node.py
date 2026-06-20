@@ -13,8 +13,10 @@ if TYPE_CHECKING:
 
 StateNodeType = Literal["atomic", "compound", "parallel", "final", "history"]
 
+__all__ = ["StateNodeType", "StateNode"]
 
-@dataclass(eq=False, slots=True)
+
+@dataclass(eq=False, slots=True, kw_only=True)
 class StateNode:
     config: dict[str, Any]
     machine: Machine

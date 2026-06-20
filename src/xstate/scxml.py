@@ -1,27 +1,123 @@
 import xml.etree.ElementTree as ET
 
+from xstate.exceptions import InvalidConfigError
 from xstate.machine import Machine
 
 ns = {"scxml": "http://www.w3.org/2005/07/scxml"}
 
+__all__ = ["scxml_to_machine"]
+
+
+class _BooleanCondParser:
+    def __init__(self, source: str) -> None:
+        self.source = source
+        self.tokens = self._tokenize(source)
+        self.pos = 0
+
+    def parse(self) -> bool:
+        if not self.tokens:
+            self._unsupported()
+        result = self._parse_or()
+        if self._peek() is not None:
+            self._unsupported()
+        return result
+
+    def _parse_or(self) -> bool:
+        result = self._parse_and()
+        while self._match("||"):
+            rhs = self._parse_and()
+            result = result or rhs
+        return result
+
+    def _parse_and(self) -> bool:
+        result = self._parse_not()
+        while self._match("&&"):
+            rhs = self._parse_not()
+            result = result and rhs
+        return result
+
+    def _parse_not(self) -> bool:
+        if self._match("!"):
+            return not self._parse_not()
+        return self._parse_atom()
+
+    def _parse_atom(self) -> bool:
+        token = self._peek()
+        if token == "true":
+            self.pos += 1
+            return True
+        if token == "false":
+            self.pos += 1
+            return False
+        if self._match("("):
+            result = self._parse_or()
+            if not self._match(")"):
+                self._unsupported()
+            return result
+        self._unsupported()
+
+    def _peek(self) -> str | None:
+        if self.pos >= len(self.tokens):
+            return None
+        return self.tokens[self.pos]
+
+    def _match(self, token: str) -> bool:
+        if self._peek() == token:
+            self.pos += 1
+            return True
+        return False
+
+    def _unsupported(self) -> None:
+        raise InvalidConfigError(
+            "Unsupported SCXML JavaScript cond expression "
+            f"{self.source!r}. Supported subset: true, false, !, &&, ||, "
+            "and parentheses."
+        )
+
+    @staticmethod
+    def _tokenize(source: str) -> list[str]:
+        tokens: list[str] = []
+        index = 0
+        while index < len(source):
+            char = source[index]
+            if char.isspace():
+                index += 1
+                continue
+            if source.startswith("&&", index) or source.startswith("||", index):
+                tokens.append(source[index : index + 2])
+                index += 2
+                continue
+            if char in "!()":
+                tokens.append(char)
+                index += 1
+                continue
+            if char.isalpha():
+                start = index
+                while index < len(source) and source[index].isalpha():
+                    index += 1
+                word = source[start:index]
+                if word not in {"true", "false"}:
+                    raise InvalidConfigError(
+                        "Unsupported SCXML JavaScript cond expression "
+                        f"{source!r}. Unsupported token {word!r}."
+                    )
+                tokens.append(word)
+                continue
+            raise InvalidConfigError(
+                "Unsupported SCXML JavaScript cond expression "
+                f"{source!r}. Unsupported token {char!r}."
+            )
+        return tokens
+
 
 def _eval_scxml_cond(event_cond_str: str):
-    """Compile an SCXML ``cond`` (a JavaScript boolean expression) into a callable.
+    """Compile a safe subset of SCXML JavaScript ``cond`` into a callable."""
+    result = _BooleanCondParser(event_cond_str).parse()
 
-    JavaScript evaluation is an optional feature; ``js2py`` is imported lazily so
-    that importing :mod:`xstate` and running native (Python-config) machines never
-    requires it. A pure-Python SCXML condition evaluator is planned to replace this.
-    """
-    try:
-        import js2py
-    except ImportError as exc:  # pragma: no cover - depends on optional extra
-        raise ImportError(
-            "Evaluating SCXML 'cond' expressions requires the optional 'js2py' "
-            "dependency (Python < 3.11 only). "
-            "Install it with: pip install xstate[scxml]"
-        ) from exc
+    def cond() -> bool:
+        return result
 
-    return js2py.eval_js("function cond() { return %s }" % event_cond_str)
+    return cond
 
 
 def get_all_state_els(element: ET.Element) -> list[ET.Element]:

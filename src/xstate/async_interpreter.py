@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+from collections import deque
 from collections.abc import Callable
 from typing import Any
 
@@ -50,6 +51,8 @@ from xstate.event import Event as _Event
 from xstate.interpreter import NOT_STARTED, RUNNING, STOPPED, resolve_delay_ms
 from xstate.machine import Machine
 from xstate.state import State
+
+__all__ = ["AsyncSubscription", "AsyncInterpreter", "interpret_async"]
 
 
 class AsyncSubscription:
@@ -83,8 +86,8 @@ class AsyncInterpreter:
         self.machine = machine
         self.state = machine.initial_state
         self._status = NOT_STARTED
-        self._listeners: set = set()
-        self._event_queue: list = []
+        self._listeners: set[Callable[[State], None]] = set()
+        self._event_queue: deque[Any] = deque()
         self._processing = False
         # `after`-event name -> asyncio.Task running the delay
         self._scheduled: dict[str, asyncio.Task] = {}
@@ -146,7 +149,7 @@ class AsyncInterpreter:
         self._processing = True
         try:
             while self._event_queue:
-                next_event = self._event_queue.pop(0)
+                next_event = self._event_queue.popleft()
                 await self._process(next_event)
         finally:
             self._processing = False

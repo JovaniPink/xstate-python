@@ -13,7 +13,25 @@ SEND_TO_TYPE = "xstate.send_to"
 
 # Action types handled by the interpreter, not the algorithm — passed through
 # _get_actions without resolution so the interpreter can act on them.
-INTERPRETER_TYPES = {SEND_TYPE, CANCEL_TYPE, SEND_PARENT_TYPE, SEND_TO_TYPE}
+INTERPRETER_TYPES = frozenset({SEND_TYPE, CANCEL_TYPE, SEND_PARENT_TYPE, SEND_TO_TYPE})
+
+__all__ = [
+    "ASSIGN_TYPE",
+    "RAISE_TYPE",
+    "SEND_TYPE",
+    "CANCEL_TYPE",
+    "SEND_PARENT_TYPE",
+    "SEND_TO_TYPE",
+    "INTERPRETER_TYPES",
+    "Action",
+    "build_action",
+    "assign",
+    "raise_",
+    "send",
+    "send_parent",
+    "send_to",
+    "cancel",
+]
 
 
 class Action:

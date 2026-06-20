@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import functools
 import warnings
+from collections import deque
 from collections.abc import Callable
 from typing import Any
 
-from xstate.action import INTERPRETER_TYPES
+from xstate.action import INTERPRETER_TYPES, Action
 from xstate.algorithm import (
     enter_states,
     get_configuration_from_state,
@@ -20,6 +21,11 @@ from xstate.handlers import HandlerAdapter, adapt_handler
 from xstate.state import State
 from xstate.state_node import StateNode
 
+__all__ = ["Machine"]
+
+type ActionCallable = Callable[[], Any]
+type ResolvedAction = Action | ActionCallable
+
 
 class Machine:
     id: str
@@ -27,8 +33,8 @@ class Machine:
     _id_map: dict[str, StateNode]
     config: dict[str, Any]
     states: dict[str, StateNode]
-    actions: dict[str, Callable]
-    guards: dict[str, Callable]
+    actions: dict[str, Any]
+    guards: dict[str, Any]
     delays: dict[str, Any]
     actors: dict[str, Any]
     _order: int
@@ -39,7 +45,7 @@ class Machine:
         self,
         config: dict[str, Any],
         actions: dict[str, Any] | None = None,
-        guards: dict[str, Callable] | None = None,
+        guards: dict[str, Any] | None = None,
         delays: dict[str, Any] | None = None,
         actors: dict[str, Any] | None = None,
         context_adapter: ContextAdapter | None = None,
@@ -97,7 +103,9 @@ class Machine:
             from_node=self.root, state_value=state.value, partial_configuration=set()
         )
         context = self.context_adapter.snapshot(state.context)
-        history_value = dict(state.history_value) if state.history_value else {}
+        history_value = {
+            state_id: set(states) for state_id, states in state.history_value.items()
+        }
         configuration, _actions, context = main_event_loop(
             configuration, event, context, history_value
         )
@@ -113,8 +121,8 @@ class Machine:
         )
 
     def _get_actions(
-        self, actions: list[Any], context: Any, event: Event | None
-    ) -> tuple[list[Callable | Any], list[str]]:
+        self, actions: list[Action], context: Any, event: Event | None
+    ) -> tuple[list[ResolvedAction], list[str]]:
         """Resolve resolved-engine actions for the caller.
 
         Assigns and raises were already applied/queued by the SCXML engine and
@@ -124,7 +132,7 @@ class Machine:
         registered in ``self.actions``), and inline callables. Names with no
         implementation are collected in ``unknown`` so the caller can warn.
         """
-        result: list[Callable | Any] = []
+        result: list[ResolvedAction] = []
         unknown: list[str] = []
         for action in actions:
             if action.type in INTERPRETER_TYPES:
@@ -151,7 +159,7 @@ class Machine:
         implementation: Any,
         context: Any,
         event: Event | None,
-    ) -> Callable:
+    ) -> ActionCallable:
         params = action.data.get("params") if hasattr(action, "data") else None
         if isinstance(implementation, HandlerAdapter):
             return functools.partial(implementation, context, event, params=params)
@@ -221,7 +229,7 @@ class Machine:
             states_to_invoke=set(),
             history_value=history_value,
             actions=[],
-            internal_queue=[],
+            internal_queue=deque(),
             context=context,
             event=init_event,
         )

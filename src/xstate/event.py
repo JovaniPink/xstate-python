@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+__all__ = ["Event", "to_event"]
+
 
 @dataclass(slots=True, frozen=True)
 class Event:

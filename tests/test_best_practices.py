@@ -171,7 +171,7 @@ def test_separate_machines_dont_share_registries():
 
 
 def test_separate_states_dont_share_actions_list():
-    """Two State objects from the same machine must not share an actions list."""
+    """State action snapshots expose immutable action containers."""
     machine = Machine(
         {
             "id": "s",
@@ -181,8 +181,8 @@ def test_separate_states_dont_share_actions_list():
     )
     s1 = machine.initial_state
     s2 = machine.transition(s1, "NOOP")  # no transition — returns same state shape
-    # Mutating one actions list must not corrupt the other.
-    s1.actions.append("sentinel")
+    with pytest.raises(AttributeError):
+        s1.actions.append("sentinel")
     assert "sentinel" not in s2.actions
 
 

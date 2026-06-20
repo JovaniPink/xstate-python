@@ -6,6 +6,8 @@ from typing import Any
 from xstate.context import ContextAdapter
 from xstate.machine import Machine
 
+__all__ = ["MachineSetup", "setup"]
+
 
 @dataclass(frozen=True, slots=True)
 class MachineSetup:
