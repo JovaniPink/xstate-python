@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 class State:
     configuration: set[StateNode]
     value: str
-    context: dict[str, Any]
+    context: Any
     actions: list[Callable | Action]
     history_value: dict[str, set[StateNode]]
     status: Literal["active", "done", "error"]
@@ -28,7 +28,7 @@ class State:
     def __init__(
         self,
         configuration: set[StateNode],
-        context: dict[str, Any],
+        context: Any,
         actions: list[Callable | Action] | None = None,
         history_value: dict[str, set[StateNode]] | None = None,
     ):

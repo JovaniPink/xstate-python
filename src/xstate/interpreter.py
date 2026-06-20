@@ -25,6 +25,7 @@ Example::
 
 from __future__ import annotations
 
+import functools
 from collections.abc import Callable
 from typing import Any
 
@@ -208,9 +209,7 @@ class Interpreter:
         send_id = action.data.get("id")
         if delay is not None:
             delay_ms = self._resolve_delay(delay)
-            tid = self.clock.set_timeout(
-                (lambda e: lambda: self.send(e))(event), delay_ms
-            )
+            tid = self.clock.set_timeout(functools.partial(self.send, event), delay_ms)
             # Use the explicit id if given; fall back to tid so stop() can
             # cancel anonymous delayed sends too.
             self._send_timers[send_id if send_id else tid] = tid
@@ -247,7 +246,7 @@ class Interpreter:
         if delay is not None:
             delay_ms = self._resolve_delay(delay)
             tid = self.clock.set_timeout(
-                (lambda t, e: lambda: t.send(e))(target, event), delay_ms
+                functools.partial(target.send, event), delay_ms
             )
             self._send_timers[send_id if send_id else tid] = tid
         else:
@@ -286,7 +285,7 @@ class Interpreter:
             delay_ms = self._resolve_delay(delay_spec)
             # Bind event_name per-iteration so each timer sends its own event.
             self._scheduled[event_name] = self.clock.set_timeout(
-                (lambda en: lambda: self.send(en))(event_name), delay_ms
+                functools.partial(self.send, event_name), delay_ms
             )
 
 

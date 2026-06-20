@@ -183,48 +183,42 @@ def test_machine_state_from_nested_dict():
 
 
 def test_state_node_initial_invalid_key_raises():
-    # StateNode.initial: initial_key present but not a child
-    machine = Machine(
-        {
-            "id": "m",
-            "initial": "nonexistent",
-            "states": {"a": {}, "b": {}},
-        }
-    )
     with pytest.raises(ValueError, match="Initial state 'nonexistent'"):
-        _ = machine.initial_state
+        Machine(
+            {
+                "id": "m",
+                "initial": "nonexistent",
+                "states": {"a": {}, "b": {}},
+            }
+        )
 
 
 def test_state_node_get_relative_missing_sibling():
-    # StateNode._get_relative: relative name not found on parent
-    machine = Machine(
-        {
-            "id": "m",
-            "initial": "a",
-            "states": {
-                "a": {"on": {"GO": "typo_state"}},
-                "b": {},
-            },
-        }
-    )
     with pytest.raises(ValueError, match="typo_state"):
-        machine.transition(machine.initial_state, "GO")
+        Machine(
+            {
+                "id": "m",
+                "initial": "a",
+                "states": {
+                    "a": {"on": {"GO": "typo_state"}},
+                    "b": {},
+                },
+            }
+        )
 
 
 def test_state_node_get_relative_missing_id():
-    # StateNode._get_relative: #id not found in machine
-    machine = Machine(
-        {
-            "id": "m",
-            "initial": "a",
-            "states": {
-                "a": {"on": {"GO": "#no-such-id"}},
-                "b": {},
-            },
-        }
-    )
     with pytest.raises(ValueError, match="No state with id 'no-such-id'"):
-        machine.transition(machine.initial_state, "GO")
+        Machine(
+            {
+                "id": "m",
+                "initial": "a",
+                "states": {
+                    "a": {"on": {"GO": "#no-such-id"}},
+                    "b": {},
+                },
+            }
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -427,8 +421,8 @@ def test_state_node_initial_on_atomic_raises():
         _ = a_node.initial
 
 
-def test_state_node_get_relative_from_root_raises():
-    # state_node.py:260 — relative target from root (no parent) is invalid
+def test_state_node_get_relative_from_root_resolves_child():
+    # Root-level transitions can target child states by key after parser resolution.
     machine = Machine(
         {
             "id": "m",
@@ -437,8 +431,8 @@ def test_state_node_get_relative_from_root_raises():
             "states": {"a": {}, "b": {}},
         }
     )
-    with pytest.raises(ValueError, match="Cannot resolve relative target"):
-        machine.transition(machine.initial_state, "RESET")
+    state = machine.transition(machine.initial_state, "RESET")
+    assert state.value == "a"
 
 
 def test_state_node_repr():

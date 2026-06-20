@@ -799,9 +799,7 @@ def to_promise(actor: Actor) -> asyncio.Future:
         elif status == "error":
             error = getattr(snapshot, "error", None)
             future.set_exception(
-                error
-                if isinstance(error, BaseException)
-                else RuntimeError(str(error))
+                error if isinstance(error, BaseException) else RuntimeError(str(error))
             )
 
     snapshot = actor.get_snapshot()

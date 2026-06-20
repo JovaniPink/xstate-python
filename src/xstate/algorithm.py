@@ -1,70 +1,31 @@
 from __future__ import annotations
 
-import functools
-import inspect
 from typing import Any
 
 from xstate.action import ASSIGN_TYPE, RAISE_TYPE, Action
 from xstate.event import Event
 from xstate.exceptions import UnregisteredImplementationError
+from xstate.handlers import GuardReference, invoke_handler
 from xstate.state_node import StateNode
 from xstate.transition import Transition
 
 HistoryValue = dict[str, set[StateNode]]
 
 
-@functools.lru_cache(maxsize=512)
-def _get_params(fn):
-    """Return the parameters of *fn*, cached to avoid repeated signature lookups."""
-    try:
-        return tuple(inspect.signature(fn).parameters.values())
-    except (TypeError, ValueError):
-        return None
-
-
 def _invoke(fn, context: dict | None, event: Event | None) -> Any:
-    """Call ``fn`` arity-aware, supporting three calling conventions:
+    """Compatibility shim for arity-aware callables.
 
-    * ``()``                     — zero-arg (SCXML JS conditions)
-    * ``(context)``              — positional context only (v4 guard style)
-    * ``(context, event)``       — positional context + event (v4 full style)
-    * ``(*, context, event)``    — keyword-only (v5 single-object style in Python)
-
-    The v5 JS single-object ``({context, event}) =>`` maps to Python keyword-only
-    parameters: ``def guard(*, context, event): ...``
+    New machines adapt handlers at parse/setup time via ``HandlerAdapter``.
+    This remains for tests and for opaque callables that enter through public
+    extension points outside the parser.
     """
-    params = _get_params(fn)
-    if params is None:
-        return fn(context, event)
-
-    # v5 single-object style: def guard(*, context, event): ...
-    kw_only = [p for p in params if p.kind == p.KEYWORD_ONLY]
-    if kw_only:
-        kw_names = {p.name for p in kw_only}
-        kwargs: dict[str, Any] = {}
-        if "context" in kw_names:
-            kwargs["context"] = context
-        if "event" in kw_names:
-            kwargs["event"] = event
-        return fn(**kwargs)
-
-    if any(p.kind == p.VAR_POSITIONAL for p in params):
-        return fn(context, event)
-
-    positional = [
-        p for p in params if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
-    ]
-    if len(positional) == 0:
-        return fn()
-    if len(positional) == 1:
-        return fn(context)
-    return fn(context, event)
+    return invoke_handler(fn, context, event)
 
 
-def _apply_assignment(action: Action, context: dict | None, event: Event | None):
-    """Mutate ``context`` in place with the updates produced by an assign action."""
+def _apply_assignment(action: Action, context: Any, event: Event | None) -> Any:
+    """Return context with the updates produced by an assign action applied."""
     if context is None:
-        return
+        return context
     assignment = action.data.get("assignment", {})
     if callable(assignment):
         updates = _invoke(assignment, context, event) or {}
@@ -72,7 +33,15 @@ def _apply_assignment(action: Action, context: dict | None, event: Event | None)
         updates = {}
         for key, value in assignment.items():
             updates[key] = _invoke(value, context, event) if callable(value) else value
-    context.update(updates)
+
+    adapter = action.data.get("_context_adapter")
+    if adapter is not None:
+        return adapter.apply(context, updates)
+    if isinstance(context, dict):
+        next_context = dict(context)
+        next_context.update(updates)
+        return next_context
+    return context
 
 
 def compute_entry_set(
@@ -244,10 +213,11 @@ def get_transition_domain(
         return find_lcca([transition.source] + list(tstates))
 
 
-def find_lcca(state_list: list[StateNode]):
+def find_lcca(state_list: list[StateNode]) -> StateNode | None:
     for anc in get_proper_ancestors(state_list[0], state2=None):
         if all(is_descendent(s, state2=anc) for s in state_list[1:]):
             return anc
+    return None
 
 
 def get_effective_target_states(
@@ -361,7 +331,7 @@ def enter_states(
     internal_queue: list[Event],
     context: dict | None = None,
     event: Event | None = None,
-) -> tuple[set[StateNode], list[Action], list[Event]]:
+) -> tuple[set[StateNode], list[Action], list[Event], Any]:
     states_to_enter: set[StateNode] = set()
     states_for_default_entry: set[StateNode] = set()
 
@@ -386,7 +356,7 @@ def enter_states(
 
         # TODO: sort
         for action in s.entry:
-            execute_content(
+            context = execute_content(
                 action,
                 actions=actions,
                 internal_queue=internal_queue,
@@ -410,13 +380,17 @@ def enter_states(
             )
             internal_queue.append(Event(f"done.state.{parent.id}", donedata))
 
-            if grandparent is not None and is_parallel_state(grandparent) and all(
-                is_in_final_state(parent_state, configuration)
-                for parent_state in get_child_states(grandparent)
+            if (
+                grandparent is not None
+                and is_parallel_state(grandparent)
+                and all(
+                    is_in_final_state(parent_state, configuration)
+                    for parent_state in get_child_states(grandparent)
+                )
             ):
                 internal_queue.append(Event(f"done.state.{grandparent.id}"))
 
-    return (configuration, actions, internal_queue)
+    return (configuration, actions, internal_queue, context)
 
 
 def exit_states(
@@ -452,7 +426,7 @@ def exit_states(
 
     for s in states_to_exit:
         for action in s.exit:
-            execute_content(
+            context = execute_content(
                 action,
                 actions=actions,
                 internal_queue=internal_queue,
@@ -466,6 +440,7 @@ def exit_states(
     return (
         configuration,
         actions,
+        context,
     )
 
 
@@ -540,7 +515,21 @@ def condition_match(
     configuration: set[StateNode] | None = None,
 ) -> bool:
     cond = transition.cond
-    if isinstance(cond, str):
+    params = None
+    if isinstance(cond, GuardReference):
+        params = cond.params
+        if callable(params):
+            params = _invoke(params, context, event)
+        cond_name = cond.name
+        guards = getattr(transition.source.machine, "guards", {}) or {}
+        if cond_name not in guards:
+            raise UnregisteredImplementationError(
+                f"Guard '{cond_name}' is referenced by a transition on "
+                f"'#{transition.source.id}' at {cond.path or '<unknown>'} but is "
+                "not implemented. Pass it via Machine(config, guards={...})."
+            )
+        cond = guards[cond_name]
+    elif isinstance(cond, str):
         guards = getattr(transition.source.machine, "guards", {}) or {}
         if cond not in guards:
             raise UnregisteredImplementationError(
@@ -550,7 +539,9 @@ def condition_match(
             )
         cond = guards[cond]
 
-    if cond is not None and not bool(_invoke(cond, context, event)):
+    if cond is not None and not bool(
+        invoke_handler(cond, context, event, params=params)
+    ):
         return False
 
     in_spec = getattr(transition, "in_state", None)
@@ -670,7 +661,7 @@ def main_event_loop(
     event: Event,
     context: dict | None = None,
     history_value: HistoryValue | None = None,
-) -> tuple[set[StateNode], list[Action]]:
+) -> tuple[set[StateNode], list[Action], Any]:
     states_to_invoke: set[StateNode] = set()
     if history_value is None:
         history_value = {}
@@ -680,7 +671,7 @@ def main_event_loop(
         context=context,
         history_value=history_value,
     )
-    configuration, actions, internal_queue = microstep(
+    configuration, actions, internal_queue, context = microstep(
         enabled_transitions,
         configuration=configuration,
         states_to_invoke=states_to_invoke,
@@ -688,7 +679,7 @@ def main_event_loop(
         context=context,
         event=event,
     )
-    configuration, actions = main_event_loop2(
+    configuration, actions, context = main_event_loop2(
         configuration=configuration,
         actions=actions,
         internal_queue=internal_queue,
@@ -697,7 +688,7 @@ def main_event_loop(
         history_value=history_value,
     )
 
-    return (configuration, actions)
+    return (configuration, actions, context)
 
 
 def main_event_loop2(
@@ -707,7 +698,7 @@ def main_event_loop2(
     context: dict | None = None,
     event: Event | None = None,
     history_value: HistoryValue | None = None,
-) -> tuple[set[StateNode], list[Action]]:
+) -> tuple[set[StateNode], list[Action], Any]:
     enabled_transitions = set()
     macrostep_done = False
     if history_value is None:
@@ -736,7 +727,7 @@ def main_event_loop2(
         if enabled_transitions:
             # Accumulate — microstep produces a fresh actions list each call, so
             # extend rather than rebind to avoid dropping actions from prior steps.
-            configuration, new_actions, internal_queue = microstep(
+            configuration, new_actions, internal_queue, context = microstep(
                 enabled_transitions=enabled_transitions,
                 configuration=configuration,
                 states_to_invoke=set(),  # TODO
@@ -746,7 +737,7 @@ def main_event_loop2(
             )
             actions.extend(new_actions)
 
-    return (configuration, actions)
+    return (configuration, actions, context)
 
 
 def execute_transition_content(
@@ -755,10 +746,11 @@ def execute_transition_content(
     internal_queue: list[Event],
     context: dict | None = None,
     event: Event | None = None,
-):
+) -> Any:
     for transition in enabled_transitions:
         for action in transition.actions:
-            execute_content(action, actions, internal_queue, context, event)
+            context = execute_content(action, actions, internal_queue, context, event)
+    return context
 
 
 def execute_content(
@@ -767,13 +759,14 @@ def execute_content(
     internal_queue: list[Event],
     context: dict | None = None,
     event: Event | None = None,
-):
+) -> Any:
     if action.type == RAISE_TYPE:
         internal_queue.append(Event(action.data.get("event", "")))
     elif action.type == ASSIGN_TYPE:
-        _apply_assignment(action, context, event)
+        context = _apply_assignment(action, context, event)
     else:
         actions.append(action)
+    return context
 
 
 def microstep(
@@ -783,11 +776,11 @@ def microstep(
     history_value: HistoryValue,
     context: dict | None = None,
     event: Event | None = None,
-) -> tuple[set[StateNode], list[Action], list[Event]]:
+) -> tuple[set[StateNode], list[Action], list[Event], Any]:
     actions: list[Action] = []
     internal_queue: list[Event] = []
 
-    exit_states(
+    configuration, actions, context = exit_states(
         enabled_transitions,
         configuration=configuration,
         states_to_invoke=states_to_invoke,
@@ -797,7 +790,7 @@ def microstep(
         context=context,
         event=event,
     )
-    execute_transition_content(
+    context = execute_transition_content(
         enabled_transitions,
         actions=actions,
         internal_queue=internal_queue,
@@ -805,7 +798,7 @@ def microstep(
         event=event,
     )
 
-    enter_states(
+    configuration, actions, internal_queue, context = enter_states(
         enabled_transitions,
         configuration=configuration,
         states_to_invoke=states_to_invoke,
@@ -815,7 +808,7 @@ def microstep(
         context=context,
         event=event,
     )
-    return (configuration, actions, internal_queue)
+    return (configuration, actions, internal_queue, context)
 
 
 # ===================

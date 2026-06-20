@@ -9,21 +9,32 @@ from xstate.actor import (  # noqa
     to_promise,
 )
 from xstate.async_interpreter import AsyncInterpreter, interpret_async  # noqa
+from xstate.context import (  # noqa
+    ContextAdapter,
+    DataclassContextAdapter,
+    DeepCopyContextAdapter,
+    dataclass_context,
+)
 from xstate.event import Event, to_event  # noqa
 from xstate.exceptions import (  # noqa
     InvalidConfigError,
     UnregisteredImplementationError,
     XStateError,
 )
+from xstate.handlers import HandlerArgs  # noqa
 from xstate.interpreter import Interpreter, interpret  # noqa
 from xstate.machine import Machine  # noqa
 from xstate.scheduler import Clock, SimulatedClock, ThreadClock  # noqa
+from xstate.setup_api import MachineSetup, setup  # noqa
 from xstate.state import MachineSnapshot  # noqa
 
 __all__ = [
     # Core
     "Machine",
     "MachineSnapshot",
+    "setup",
+    "MachineSetup",
+    "HandlerArgs",
     # Interpreter
     "interpret",
     "Interpreter",
@@ -45,6 +56,11 @@ __all__ = [
     "send_to",
     "cancel",
     "raise_",
+    # Context adapters
+    "ContextAdapter",
+    "DeepCopyContextAdapter",
+    "DataclassContextAdapter",
+    "dataclass_context",
     # Event
     "Event",
     "to_event",

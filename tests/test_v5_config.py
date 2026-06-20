@@ -244,9 +244,7 @@ def test_output_does_not_warn():
                 "states": {
                     "work": {
                         "initial": "task",
-                        "states": {
-                            "task": {"type": "final", "output": {"value": 1}}
-                        },
+                        "states": {"task": {"type": "final", "output": {"value": 1}}},
                         "onDone": "done",
                     },
                     "done": {},
