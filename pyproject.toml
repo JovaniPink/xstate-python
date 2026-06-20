@@ -103,23 +103,17 @@ ignore_missing_imports = true
 module = "xstate.scxml"
 ignore_errors = true
 
-# algorithm.py implements W3C SCXML; internal functions intentionally use Any
-# for config dicts (arbitrary user data). Full annotation is a future task.
+# algorithm.py implements W3C SCXML; internal control-flow helpers still use
+# loose signatures while the parsed config boundary is now typed separately.
 [[tool.mypy.overrides]]
 module = "xstate.algorithm"
 disallow_untyped_defs = false
-warn_return_any = false
 
 # actor.py has many Any-typed public hooks (logic, input, snapshot).
 [[tool.mypy.overrides]]
 module = "xstate.actor"
 disallow_untyped_defs = false
 warn_return_any = false
-
-# state_node.py config is always an untyped dict from user code.
-[[tool.mypy.overrides]]
-module = "xstate.state_node"
-disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
 minversion = "8.4"

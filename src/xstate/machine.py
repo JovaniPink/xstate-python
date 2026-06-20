@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import copy
+import functools
 import warnings
 from collections.abc import Callable
 from typing import Any
@@ -12,8 +12,11 @@ from xstate.algorithm import (
     main_event_loop,
     main_event_loop2,
 )
+from xstate.config_parser import StateNodeConfigParser
+from xstate.context import ContextAdapter, DeepCopyContextAdapter
 from xstate.event import Event, to_event
 from xstate.exceptions import InvalidConfigError, UnregisteredImplementationError
+from xstate.handlers import HandlerAdapter, adapt_handler
 from xstate.state import State
 from xstate.state_node import StateNode
 
@@ -29,6 +32,8 @@ class Machine:
     delays: dict[str, Any]
     actors: dict[str, Any]
     _order: int
+    strict: bool
+    context_adapter: ContextAdapter
 
     def __init__(
         self,
@@ -37,6 +42,8 @@ class Machine:
         guards: dict[str, Callable] | None = None,
         delays: dict[str, Any] | None = None,
         actors: dict[str, Any] | None = None,
+        context_adapter: ContextAdapter | None = None,
+        strict: bool = False,
     ):
         if "id" not in config:
             raise InvalidConfigError(
@@ -46,22 +53,35 @@ class Machine:
         self.id = config["id"]
         self._id_map = {}
         self._order = 0
+        self.strict = strict
+        self.context_adapter = context_adapter or DeepCopyContextAdapter()
         # Registries must be populated *before* the state tree is built: node and
         # transition construction resolves named actions against `self.actions`
         # (see action.build_action), so a named assign/raise/send is expanded to
         # its real type and applied by the engine in declared order.
-        self.actions = actions if actions is not None else {}
-        self.guards = guards if guards is not None else {}
-        self.delays = delays if delays is not None else {}
+        self.actions = self._adapt_registry(actions or {}, kind="action")
+        self.guards = self._adapt_registry(guards or {}, kind="guard")
+        self.delays = self._adapt_registry(delays or {}, kind="delay")
         # Named actor logic referenced by `invoke: {"src": "<name>"}`; resolved
         # by the actor layer when an invoking state is entered.
         self.actors = actors if actors is not None else {}
-        self.root = StateNode(
-            config, machine=self, key=config.get("id", "(machine)"), parent=None
-        )
+        self.root = StateNodeConfigParser(self).parse(config)
         self.states = self.root.states
         self.config = config
-        self.context = config.get("context", {}) or {}
+        self.context = (
+            config.get("context") if config.get("context") is not None else {}
+        )
+
+    def _adapt_registry(self, registry: dict[str, Any], *, kind: str) -> dict[str, Any]:
+        return {
+            name: adapt_handler(
+                value,
+                kind=f"{kind} '{name}'",
+                strict=self.strict,
+                path=f"{kind}s.{name}",
+            )
+            for name, value in registry.items()
+        }
 
     def _get_order(self) -> int:
         order = self._order
@@ -76,13 +96,13 @@ class Machine:
         configuration = get_configuration_from_state(
             from_node=self.root, state_value=state.value, partial_configuration=set()
         )
-        context = copy.deepcopy(state.context) if state.context else {}
+        context = self.context_adapter.snapshot(state.context)
         history_value = dict(state.history_value) if state.history_value else {}
-        configuration, _actions = main_event_loop(
+        configuration, _actions, context = main_event_loop(
             configuration, event, context, history_value
         )
 
-        actions, unknown = self._get_actions(_actions)
+        actions, unknown = self._get_actions(_actions, context, event)
         self._warn_unknown_actions(unknown)
 
         return State(
@@ -93,7 +113,7 @@ class Machine:
         )
 
     def _get_actions(
-        self, actions: list[Any]
+        self, actions: list[Any], context: Any, event: Event | None
     ) -> tuple[list[Callable | Any], list[str]]:
         """Resolve resolved-engine actions for the caller.
 
@@ -111,12 +131,36 @@ class Machine:
                 # Passed through as raw Action; the interpreter handles them.
                 result.append(action)
             elif action.type in self.actions:
-                result.append(self.actions[action.type])
+                result.append(
+                    self._bind_action(
+                        action,
+                        self.actions[action.type],
+                        context,
+                        event,
+                    )
+                )
             elif callable(action.type):
-                result.append(action.type)
+                result.append(self._bind_action(action, action.type, context, event))
             else:
                 unknown.append(str(action.type))
         return result, unknown
+
+    def _bind_action(
+        self,
+        action: Any,
+        implementation: Any,
+        context: Any,
+        event: Event | None,
+    ) -> Callable:
+        params = action.data.get("params") if hasattr(action, "data") else None
+        if isinstance(implementation, HandlerAdapter):
+            return functools.partial(implementation, context, event, params=params)
+        if callable(implementation):
+            adapter = HandlerAdapter(implementation, kind="action")
+            return functools.partial(adapter, context, event, params=params)
+        raise InvalidConfigError(
+            f"Action implementation for '{action.type}' is not callable."
+        )
 
     def _warn_unknown_actions(self, unknown: list[str]) -> None:
         """Warn once per action name that has no registered implementation."""
@@ -168,10 +212,10 @@ class Machine:
 
     @property
     def initial_state(self) -> State:
-        context = copy.deepcopy(self.context)
+        context = self.context_adapter.snapshot(self.context)
         history_value: dict[str, Any] = {}
         init_event = Event("xstate.init")
-        configuration, _actions, internal_queue = enter_states(
+        configuration, _actions, internal_queue, context = enter_states(
             [self.root.initial],
             configuration=set(),
             states_to_invoke=set(),
@@ -182,7 +226,7 @@ class Machine:
             event=init_event,
         )
 
-        configuration, _actions = main_event_loop2(
+        configuration, _actions, context = main_event_loop2(
             configuration=configuration,
             actions=_actions,
             internal_queue=internal_queue,
@@ -191,7 +235,7 @@ class Machine:
             history_value=history_value,
         )
 
-        actions, unknown = self._get_actions(_actions)
+        actions, unknown = self._get_actions(_actions, context, init_event)
         self._warn_unknown_actions(unknown)
 
         return State(
