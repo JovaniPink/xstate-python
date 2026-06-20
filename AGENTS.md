@@ -32,6 +32,7 @@ src/xstate/
   algorithm.py          SCXML microstep/macrostep execution algorithm
   action.py             Action constructors and interpreter-owned action types
   event.py              Event wrapper and conversion helpers
+  exceptions.py         Custom exception classes
   handlers.py           HandlerArgs and HandlerAdapter callable adaptation
   context.py            ContextAdapter policies, including dataclass contexts
   interpreter.py        Synchronous runtime, queue, subscriptions, timers
