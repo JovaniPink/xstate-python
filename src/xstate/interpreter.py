@@ -26,6 +26,8 @@ Example::
 from __future__ import annotations
 
 import functools
+import threading
+from collections import deque
 from collections.abc import Callable
 from typing import Any
 
@@ -35,6 +37,15 @@ from xstate.exceptions import UnregisteredImplementationError
 from xstate.machine import Machine
 from xstate.scheduler import Clock, ThreadClock
 from xstate.state import State
+
+__all__ = [
+    "NOT_STARTED",
+    "RUNNING",
+    "STOPPED",
+    "Subscription",
+    "Interpreter",
+    "interpret",
+]
 
 # Interpreter lifecycle states.
 NOT_STARTED = "not_started"
@@ -75,9 +86,10 @@ class Subscription:
         self._listener: Callable[[State], None] | None = listener
 
     def unsubscribe(self) -> None:
-        if self._listener is not None:
-            self._interpreter._listeners.discard(self._listener)
-            self._listener = None
+        with self._interpreter._lock:
+            if self._listener is not None:
+                self._interpreter._listeners.discard(self._listener)
+                self._listener = None
 
 
 class Interpreter:
@@ -90,13 +102,14 @@ class Interpreter:
         self.clock = clock if clock is not None else ThreadClock()
         self.state = machine.initial_state
         self._status = NOT_STARTED
-        self._listeners: set = set()
-        self._event_queue: list = []
+        self._lock = threading.RLock()
+        self._listeners: set[Callable[[State], None]] = set()
+        self._event_queue: deque[Any] = deque()
         self._processing = False
         # `after`-event name → clock timeout id
         self._scheduled: dict[str, int] = {}
         # named `send(..., id=...)` or tid → clock timeout id (all delayed sends)
-        self._send_timers: dict = {}
+        self._send_timers: dict[Any, int] = {}
         # Optional back-reference to the owning Actor, set by the actor layer so
         # interpreter-owned actions (send_parent / send_to) can reach the system.
         self._actor: Any | None = None
@@ -113,56 +126,81 @@ class Interpreter:
 
     def start(self, initial_state: State | None = None) -> Interpreter:
         """Start the service.  Idempotent while already running."""
-        if self._status == RUNNING:
-            return self
-        if initial_state is not None:
-            self.state = initial_state
-        self.state.event = _Event("xstate.init")
-        self._status = RUNNING
-        self._sync_delays()
-        self._execute(self.state)
-        self._notify(self.state)
+        with self._lock:
+            if self._status == RUNNING:
+                return self
+            if initial_state is not None:
+                self.state = initial_state
+            self.state.event = _Event("xstate.init")
+            self._status = RUNNING
+            self._sync_delays()
+            state = self.state
+        self._execute(state)
+        self._notify(state)
         return self
 
     def stop(self) -> Interpreter:
         """Stop the service: cancel pending timers and drop all listeners."""
-        for timeout_id in self._scheduled.values():
-            self.clock.clear_timeout(timeout_id)
-        self._scheduled.clear()
-        for timeout_id in self._send_timers.values():
-            self.clock.clear_timeout(timeout_id)
-        self._send_timers.clear()
-        self._listeners.clear()
-        self._event_queue.clear()
-        self._status = STOPPED
-        return self
+        with self._lock:
+            for timeout_id in self._scheduled.values():
+                self.clock.clear_timeout(timeout_id)
+            self._scheduled.clear()
+            for timeout_id in self._send_timers.values():
+                self.clock.clear_timeout(timeout_id)
+            self._send_timers.clear()
+            self._listeners.clear()
+            self._event_queue.clear()
+            self._status = STOPPED
+            return self
 
     # -- events -------------------------------------------------------------
 
     def send(self, event: Any) -> State:
         """Send an event.  Events sent during processing are queued (RTC)."""
-        if self._status != RUNNING:
-            # Match XState: events before start / after stop are dropped.
+        with self._lock:
+            if self._status != RUNNING:
+                # Match XState: events before start / after stop are dropped.
+                return self.state
+
+            self._event_queue.append(event)
+            if self._processing:
+                return self.state
+
+            self._processing = True
+        self._drain_event_queue()
+        with self._lock:
             return self.state
 
-        self._event_queue.append(event)
-        if self._processing:
-            return self.state
-
-        self._processing = True
-        try:
-            while self._event_queue:
-                next_event = self._event_queue.pop(0)
+    def _drain_event_queue(self) -> None:
+        while True:
+            with self._lock:
+                if self._status != RUNNING or not self._event_queue:
+                    self._processing = False
+                    return
+                next_event = self._event_queue.popleft()
+            try:
                 self._process(next_event)
-        finally:
-            self._processing = False
-        return self.state
+            except Exception:
+                with self._lock:
+                    self._event_queue.clear()
+                    self._processing = False
+                raise
 
     def _process(self, event: Any) -> None:
-        next_state = self.machine.transition(self.state, event)
+        with self._lock:
+            if self._status != RUNNING:
+                return
+            state = self.state
+
+        next_state = self.machine.transition(state, event)
         next_state.event = self.machine._to_event(event)
-        self.state = next_state
-        self._sync_delays()
+
+        with self._lock:
+            if self._status != RUNNING:
+                return
+            self.state = next_state
+            self._sync_delays()
+
         self._execute(next_state)
         self._notify(next_state)
 
@@ -170,13 +208,17 @@ class Interpreter:
 
     def subscribe(self, listener: Callable[[State], None]) -> Subscription:
         """Register a listener called with the current state and on each change."""
-        self._listeners.add(listener)
-        if self._status == RUNNING:
-            listener(self.state)
+        with self._lock:
+            self._listeners.add(listener)
+            state = self.state if self._status == RUNNING else None
+        if state is not None:
+            listener(state)
         return Subscription(self, listener)
 
     def _notify(self, state: State) -> None:
-        for listener in list(self._listeners):
+        with self._lock:
+            listeners = tuple(self._listeners)
+        for listener in listeners:
             listener(state)
 
     # -- side effects -------------------------------------------------------

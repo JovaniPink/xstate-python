@@ -6,6 +6,13 @@ from typing import Any, Protocol
 
 from xstate.exceptions import InvalidConfigError
 
+__all__ = [
+    "ContextAdapter",
+    "DeepCopyContextAdapter",
+    "DataclassContextAdapter",
+    "dataclass_context",
+]
+
 
 class ContextAdapter(Protocol):
     def snapshot(self, context: Any) -> Any:

@@ -8,7 +8,7 @@ delayed transitions.
 
 import asyncio
 
-from xstate import Machine, interpret_async
+from xstate import Machine, assign, interpret_async
 from xstate.async_interpreter import AsyncInterpreter
 
 # ---------------------------------------------------------------------------
@@ -178,6 +178,48 @@ async def test_send_action_without_delay_drains_in_rtc():
     service = await interpret_async(machine).start()
     await service.send("GO")
     assert service.state.value == "c"
+
+
+async def test_concurrent_send_waits_until_its_event_is_processed():
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def slow_action():
+        started.set()
+        await release.wait()
+
+    machine = Machine(
+        {
+            "id": "async-queue",
+            "context": {"count": 0},
+            "initial": "active",
+            "states": {
+                "active": {
+                    "on": {
+                        "SLOW": {"actions": [slow_action]},
+                        "INC": {
+                            "actions": [assign({"count": lambda c, _e: c["count"] + 1})]
+                        },
+                    }
+                }
+            },
+        }
+    )
+    service = await interpret_async(machine).start()
+
+    slow_task = asyncio.create_task(service.send("SLOW"))
+    await started.wait()
+    inc_task = asyncio.create_task(service.send("INC"))
+    await asyncio.sleep(0)
+
+    assert not inc_task.done()
+
+    release.set()
+    inc_state = await inc_task
+    await slow_task
+
+    assert inc_state.context["count"] == 1
+    assert service.state.context["count"] == 1
 
 
 # ---------------------------------------------------------------------------

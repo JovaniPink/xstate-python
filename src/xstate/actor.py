@@ -40,14 +40,37 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-from collections.abc import Callable
-from typing import Any, Literal
+import threading
+from collections.abc import AsyncIterable, Callable
+from typing import Any, Literal, Protocol, cast
 
 from xstate.event import Event
-from xstate.interpreter import NOT_STARTED, RUNNING, STOPPED, Interpreter
+from xstate.interpreter import NOT_STARTED, RUNNING, STOPPED, Interpreter, Subscription
 from xstate.machine import Machine
 from xstate.scheduler import Clock
 from xstate.state import State
+
+__all__ = [
+    "PromiseLogic",
+    "CallbackLogic",
+    "ObservableLogic",
+    "ActorSnapshot",
+    "ActorSystem",
+    "Actor",
+    "ActorLogic",
+    "ActorSnapshotValue",
+    "SubscriptionProtocol",
+    "from_promise",
+    "from_callback",
+    "from_observable",
+    "create_actor",
+    "to_promise",
+]
+
+
+class SubscriptionProtocol(Protocol):
+    def unsubscribe(self) -> None: ...
+
 
 # ---------------------------------------------------------------------------
 # Actor logic kinds
@@ -96,6 +119,9 @@ class ObservableLogic:
         self.fn = fn
 
 
+type ActorLogic = Machine | PromiseLogic | CallbackLogic | ObservableLogic
+
+
 def from_promise(fn: Callable[..., Any]) -> PromiseLogic:
     """Create promise actor logic from ``fn`` (XState v5 ``fromPromise``).
 
@@ -110,7 +136,9 @@ def from_callback(fn: Callable[..., Any]) -> CallbackLogic:
     return CallbackLogic(fn)
 
 
-def from_observable(fn: Any) -> ObservableLogic:
+def from_observable(
+    fn: Callable[..., AsyncIterable[Any]] | AsyncIterable[Any],
+) -> ObservableLogic:
     """Create observable actor logic from ``fn`` (XState v5 ``fromObservable``).
 
     ``fn`` is a callable returning an async iterable (e.g. an async generator
@@ -201,7 +229,11 @@ class ActorSnapshot:
 class _ListenerSubscription:
     """``unsubscribe``-able handle over a plain listener set."""
 
-    def __init__(self, listeners: set, listener: Callable[[Any], None]):
+    def __init__(
+        self,
+        listeners: set[Callable[[Any], None]],
+        listener: Callable[[Any], None],
+    ) -> None:
         self._listeners = listeners
         self._listener: Callable[[Any], None] | None = listener
 
@@ -230,7 +262,7 @@ class _ListenerBackend:
     def __init__(self, actor: Actor, input: Any):
         self._actor = actor
         self._input = input
-        self._listeners: set = set()
+        self._listeners: set[Callable[[Any], None]] = set()
         self._snapshot = ActorSnapshot("active")
         self._status = NOT_STARTED
 
@@ -242,7 +274,9 @@ class _ListenerBackend:
     def snapshot(self) -> ActorSnapshot:
         return self._snapshot
 
-    def subscribe(self, listener: Callable[[ActorSnapshot], None]):
+    def subscribe(
+        self, listener: Callable[[ActorSnapshot], None]
+    ) -> _ListenerSubscription:
         self._listeners.add(listener)
         if self._status == RUNNING:
             listener(self._snapshot)
@@ -283,10 +317,10 @@ class _MachineBackend:
     def stop(self) -> None:
         self.interpreter.stop()
 
-    def send(self, event) -> Any:
+    def send(self, event: object) -> Any:
         return self.interpreter.send(event)
 
-    def subscribe(self, listener: Callable[[State], None]):
+    def subscribe(self, listener: Callable[[State], None]) -> Subscription:
         return self.interpreter.subscribe(listener)
 
 
@@ -338,7 +372,7 @@ class _PromiseBackend(_ListenerBackend):
         self._status = STOPPED
         self._listeners.clear()
 
-    def send(self, event) -> ActorSnapshot:
+    def send(self, event: object) -> ActorSnapshot:
         # Promise actors ignore incoming events.
         return self._snapshot
 
@@ -357,7 +391,7 @@ class _CallbackBackend(_ListenerBackend):
             return
         self._status = RUNNING
 
-        def send_back(event) -> None:
+        def send_back(event: object) -> None:
             parent = self._actor.parent
             if parent is not None:
                 parent.send(event)
@@ -378,7 +412,7 @@ class _CallbackBackend(_ListenerBackend):
         self._receivers.clear()
         self._listeners.clear()
 
-    def send(self, event) -> ActorSnapshot:
+    def send(self, event: object) -> ActorSnapshot:
         for handler in list(self._receivers):
             handler(event)
         return self._snapshot
@@ -436,12 +470,20 @@ class _ObservableBackend(_ListenerBackend):
         self._status = STOPPED
         self._listeners.clear()
 
-    def send(self, event) -> ActorSnapshot:
+    def send(self, event: object) -> ActorSnapshot:
         # Observable actors ignore incoming events.
         return self._snapshot
 
 
-def _build_backend(actor: Actor, logic, clock: Clock | None, input: Any):
+type ActorBackend = (
+    _MachineBackend | _PromiseBackend | _CallbackBackend | _ObservableBackend
+)
+type ActorSnapshotValue = State | ActorSnapshot
+
+
+def _build_backend(
+    actor: Actor, logic: ActorLogic, clock: Clock | None, input: Any
+) -> ActorBackend:
     if isinstance(logic, Machine):
         return _MachineBackend(actor, logic, clock)
     if isinstance(logic, PromiseLogic):
@@ -472,6 +514,7 @@ class ActorSystem:
     def __init__(self) -> None:
         self._actors: dict[str, Actor] = {}
         self._anonymous_count = 0
+        self._lock = threading.RLock()
 
     def _next_id(self) -> str:
         """Generate an id for an actor created without an explicit one.
@@ -479,6 +522,10 @@ class ActorSystem:
         Skips ids already taken so an anonymous actor never collides with an
         explicit ``"x:N"`` id a caller chose.
         """
+        with self._lock:
+            return self._next_id_unlocked()
+
+    def _next_id_unlocked(self) -> str:
         candidate = f"x:{self._anonymous_count}"
         while candidate in self._actors:
             self._anonymous_count += 1
@@ -487,6 +534,10 @@ class ActorSystem:
         return candidate
 
     def _register(self, actor: Actor) -> None:
+        with self._lock:
+            self._register_unlocked(actor)
+
+    def _register_unlocked(self, actor: Actor) -> None:
         actor_id = actor.id
         if actor_id in self._actors and self._actors[actor_id] is not actor:
             raise ValueError(
@@ -495,13 +546,15 @@ class ActorSystem:
         self._actors[actor_id] = actor
 
     def _unregister(self, actor: Actor) -> None:
-        actor_id = actor.id
-        if self._actors.get(actor_id) is actor:
-            del self._actors[actor_id]
+        with self._lock:
+            actor_id = actor.id
+            if self._actors.get(actor_id) is actor:
+                del self._actors[actor_id]
 
     def get(self, actor_id: str) -> Actor | None:
         """Return the actor registered under *actor_id*, or ``None``."""
-        return self._actors.get(actor_id)
+        with self._lock:
+            return self._actors.get(actor_id)
 
 
 class Actor:
@@ -515,26 +568,27 @@ class Actor:
 
     def __init__(
         self,
-        logic,
+        logic: ActorLogic,
         *,
         id: str | None = None,
         clock: Clock | None = None,
         system: ActorSystem | None = None,
         parent: Actor | None = None,
         input: Any = None,
-    ):
+    ) -> None:
         self._system = system if system is not None else ActorSystem()
-        self._id = id if id is not None else self._system._next_id()
-        self._parent = parent
-        self._clock = clock
-        self._input = input
-        self._children: dict[str, Actor] = {}
-        # invocation id -> child actor spawned by an `invoke:` on a state
-        self._invoked: dict[str, Actor] = {}
-        self._invocation_sub = None
-        self._syncing = False
-        self._backend = _build_backend(self, logic, clock, input)
-        self._system._register(self)
+        with self._system._lock:
+            self._id = id if id is not None else self._system._next_id_unlocked()
+            self._parent = parent
+            self._clock = clock
+            self._input = input
+            self._children: dict[str, Actor] = {}
+            # invocation id -> child actor spawned by an `invoke:` on a state
+            self._invoked: dict[str, Actor] = {}
+            self._invocation_sub: SubscriptionProtocol | None = None
+            self._syncing = False
+            self._backend: ActorBackend = _build_backend(self, logic, clock, input)
+            self._system._register_unlocked(self)
 
     # -- identity -----------------------------------------------------------
 
@@ -597,23 +651,23 @@ class Actor:
 
     # -- messaging ----------------------------------------------------------
 
-    def send(self, event) -> Any:
+    def send(self, event: object) -> ActorSnapshotValue:
         """Deliver *event* to this actor (run-to-completion for machines)."""
         self._backend.send(event)
         return self.get_snapshot()
 
-    def subscribe(self, listener: Callable[[Any], None]):
+    def subscribe(self, listener: Callable[[Any], None]) -> SubscriptionProtocol:
         """Observe snapshot changes. Returns a subscription with ``unsubscribe``."""
         return self._backend.subscribe(listener)
 
     # -- snapshot -----------------------------------------------------------
 
-    def get_snapshot(self) -> Any:
+    def get_snapshot(self) -> ActorSnapshotValue:
         """Return the current snapshot (XState v5 ``actor.getSnapshot()``)."""
         return self._backend.snapshot
 
     @property
-    def state(self) -> Any:
+    def state(self) -> ActorSnapshotValue:
         """Alias for :meth:`get_snapshot`."""
         return self._backend.snapshot
 
@@ -621,7 +675,7 @@ class Actor:
 
     def spawn(
         self,
-        logic,
+        logic: ActorLogic,
         *,
         id: str | None = None,
         input: Any = None,
@@ -664,7 +718,8 @@ class Actor:
             self._syncing = False
 
     def _reconcile_invocations_once(self) -> bool:
-        configuration = self._backend.snapshot.configuration
+        backend = cast(_MachineBackend, self._backend)
+        configuration = backend.snapshot.configuration
         wanted: dict[str, dict] = {}
         for node in configuration:
             for invocation in getattr(node, "invoke", []):
@@ -701,7 +756,7 @@ class Actor:
 
         return changed
 
-    def _resolve_src(self, src):
+    def _resolve_src(self, src: Any) -> ActorLogic:
         """Resolve an invoke ``src`` to actor logic.
 
         A logic object (Machine / promise / callback logic) is used directly; a
@@ -710,21 +765,22 @@ class Actor:
         if isinstance(src, (Machine, PromiseLogic, CallbackLogic, ObservableLogic)):
             return src
         if isinstance(src, str):
-            machine = self._backend.interpreter.machine
+            backend = cast(_MachineBackend, self._backend)
+            machine = backend.interpreter.machine
             actors = getattr(machine, "actors", {}) or {}
             if src in actors:
-                return actors[src]
+                return cast(ActorLogic, actors[src])
             raise ValueError(
                 f"Actor logic '{src}' is not registered. "
                 f"Pass it via Machine(config, actors={{'{src}': logic}})."
             )
         raise TypeError(f"Unsupported invoke src: {src!r}")
 
-    def _resolve_input(self, input_spec):
+    def _resolve_input(self, input_spec: Any) -> Any:
         if callable(input_spec):
             from xstate.algorithm import _invoke
 
-            state = self._backend.snapshot
+            state = cast(_MachineBackend, self._backend).snapshot
             return _invoke(input_spec, state.context, getattr(state, "event", None))
         return input_spec
 
@@ -732,7 +788,7 @@ class Actor:
         """Feed a child actor's completion back to this actor as an event."""
         sent = {"done": False}
 
-        def listener(snapshot) -> None:
+        def listener(snapshot: Any) -> None:
             if sent["done"]:
                 return
             status = getattr(snapshot, "status", None)
@@ -754,7 +810,7 @@ class Actor:
 
 
 def create_actor(
-    logic,
+    logic: ActorLogic,
     *,
     id: str | None = None,
     clock: Clock | None = None,
@@ -771,7 +827,7 @@ def create_actor(
     return Actor(logic, id=id, clock=clock, system=system, input=input)
 
 
-def to_promise(actor: Actor) -> asyncio.Future:
+def to_promise(actor: Actor) -> asyncio.Future[Any]:
     """Adapt *actor* to an :class:`asyncio.Future` (XState v5 ``toPromise``).
 
     The future resolves with the actor's ``output`` when its snapshot reaches
@@ -788,7 +844,7 @@ def to_promise(actor: Actor) -> asyncio.Future:
             "async context, e.g. within asyncio.run(...)."
         ) from None
 
-    future: asyncio.Future = loop.create_future()
+    future: asyncio.Future[Any] = loop.create_future()
 
     def _settle(snapshot: Any) -> None:
         if future.done():

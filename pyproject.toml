@@ -3,7 +3,7 @@ name = "xstate"
 version = "0.5.0"
 description = "Statecharts and state machines for Python, inspired by XState."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [
@@ -25,20 +25,15 @@ classifiers = [
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = []
 
 [project.optional-dependencies]
-# Js2Py powers SCXML `cond` (JavaScript) evaluation only. It is optional so the
-# core library installs and imports cleanly on modern Python.
-# NOTE: Js2Py does not build on Python 3.11+ (cffi dependency). Gate your use.
-# TODO(0.2.0): replace with a pure-Python SCXML condition evaluator.
-scxml = ["Js2Py>=0.71; python_version < '3.11'"]
+# SCXML import is dependency-free on modern Python. JavaScript-style `cond`
+# support intentionally covers a small safe boolean subset in xstate.scxml.
+scxml = []
 
 [project.urls]
 homepage = "https://github.com/JovaniPink/xstate-python"
@@ -58,7 +53,7 @@ mypy = "^1.0"
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "A", "SIM", "C4"]
@@ -81,6 +76,7 @@ known-first-party = ["xstate"]
 
 [tool.mypy]
 mypy_path = "src"
+python_version = "3.13"
 # Strict checks enforced on the public surface (event.py, state.py, machine.py,
 # exceptions.py). Internal algorithm/actor/interpreter complexity is covered
 # progressively via the per-module overrides below.
@@ -91,12 +87,6 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 no_implicit_optional = true
 no_implicit_reexport = true
-
-# Js2Py is an optional extra with no type stubs; it is lazy-imported inside
-# scxml.py and never required by the core library.
-[[tool.mypy.overrides]]
-module = "js2py"
-ignore_missing_imports = true
 
 # scxml.py uses dynamic eval and ET internals — skip.
 [[tool.mypy.overrides]]
@@ -109,11 +99,6 @@ ignore_errors = true
 module = "xstate.algorithm"
 disallow_untyped_defs = false
 
-# actor.py has many Any-typed public hooks (logic, input, snapshot).
-[[tool.mypy.overrides]]
-module = "xstate.actor"
-disallow_untyped_defs = false
-warn_return_any = false
 
 [tool.pytest.ini_options]
 minversion = "8.4"

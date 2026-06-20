@@ -1,23 +1,26 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Mapping
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal
 
+from xstate.action import Action
 from xstate.algorithm import get_state_value, is_in_final_state
 from xstate.event import to_event
 from xstate.exceptions import InvalidConfigError
 
 if TYPE_CHECKING:
-    from xstate.action import Action
     from xstate.state_node import StateNode
+
+__all__ = ["State", "MachineSnapshot"]
 
 
 class State:
-    configuration: set[StateNode]
-    value: str
+    configuration: frozenset[StateNode]
+    value: Any
     context: Any
-    actions: list[Callable | Action]
-    history_value: dict[str, set[StateNode]]
+    actions: tuple[Callable[..., Any] | Action, ...]
+    history_value: Mapping[str, frozenset[StateNode]]
     status: Literal["active", "done", "error"]
     output: Any | None
     error: Any | None
@@ -27,19 +30,24 @@ class State:
 
     def __init__(
         self,
-        configuration: set[StateNode],
+        configuration: set[StateNode] | frozenset[StateNode],
         context: Any,
-        actions: list[Callable | Action] | None = None,
-        history_value: dict[str, set[StateNode]] | None = None,
+        actions: Iterable[Callable[..., Any] | Action] | None = None,
+        history_value: Mapping[str, Iterable[StateNode]] | None = None,
     ):
         if not configuration:
             raise InvalidConfigError("State requires a non-empty configuration.")
         root = next(iter(configuration)).machine.root
-        self.configuration = configuration
-        self.value = get_state_value(root, configuration)
+        self.configuration = frozenset(configuration)
+        self.value = get_state_value(root, self.configuration)
         self.context = context
-        self.actions = actions if actions is not None else []
-        self.history_value = history_value if history_value is not None else {}
+        self.actions = tuple(actions or ())
+        self.history_value = MappingProxyType(
+            {
+                state_id: frozenset(states)
+                for state_id, states in (history_value or {}).items()
+            }
+        )
         self.error = None
         self.event = None
 
@@ -47,12 +55,16 @@ class State:
         # configuration. is_in_final_state handles both compound roots (a
         # direct final child is active) and parallel roots (all regions are in
         # a final state).
-        if is_in_final_state(root, configuration):
+        if is_in_final_state(root, self.configuration):
             self.status = "done"
             # For compound roots the final child carries donedata; parallel
             # roots have no single output value.
             final_child = next(
-                (s for s in configuration if s.type == "final" and s.parent is root),
+                (
+                    s
+                    for s in self.configuration
+                    if s.type == "final" and s.parent is root
+                ),
                 None,
             )
             self.output = final_child.donedata if final_child else None
@@ -84,7 +96,7 @@ class State:
         value, e.g. ``state.matches({"loading": "data"})``.
         """
         if isinstance(value, str):
-            return self.value == value
+            return bool(self.value == value)
         if isinstance(value, dict):
             return _matches_dict(self.value, value)
         return False
@@ -101,9 +113,11 @@ def _matches_dict(state_value: Any, pattern: Any) -> bool:
         return bool(state_value == pattern)
     if not isinstance(pattern, dict) or not isinstance(state_value, dict):
         return False
-    return all(
-        k in state_value and _matches_dict(state_value[k], v)
-        for k, v in pattern.items()
+    return bool(
+        all(
+            k in state_value and _matches_dict(state_value[k], v)
+            for k, v in pattern.items()
+        )
     )
 
 

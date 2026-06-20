@@ -15,7 +15,9 @@ from __future__ import annotations
 import abc
 import threading
 from collections.abc import Callable
-from typing import Any
+from typing import Any, override
+
+__all__ = ["Clock", "SimulatedClock", "ThreadClock"]
 
 
 class Clock(abc.ABC):
@@ -39,12 +41,14 @@ class SimulatedClock(Clock):
         # timeout_id -> {"due": float, "fn": Callable}
         self._timeouts: dict[int, dict] = {}
 
+    @override
     def set_timeout(self, fn: Callable[[], Any], delay_ms: float) -> int:
         timeout_id = self._next_id
         self._next_id += 1
         self._timeouts[timeout_id] = {"due": self._now + delay_ms, "fn": fn}
         return timeout_id
 
+    @override
     def clear_timeout(self, timeout_id: int) -> None:
         self._timeouts.pop(timeout_id, None)
 
@@ -78,6 +82,7 @@ class ThreadClock(Clock):
         self._next_id: int = 0
         self._lock = threading.Lock()
 
+    @override
     def set_timeout(self, fn: Callable[[], Any], delay_ms: float) -> int:
         with self._lock:
             timeout_id = self._next_id
@@ -97,6 +102,7 @@ class ThreadClock(Clock):
         timer.start()
         return timeout_id
 
+    @override
     def clear_timeout(self, timeout_id: int) -> None:
         with self._lock:
             timer = self._timers.pop(timeout_id, None)

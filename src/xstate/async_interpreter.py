@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+from collections import deque
 from collections.abc import Callable
 from typing import Any
 
@@ -50,6 +51,10 @@ from xstate.event import Event as _Event
 from xstate.interpreter import NOT_STARTED, RUNNING, STOPPED, resolve_delay_ms
 from xstate.machine import Machine
 from xstate.state import State
+
+__all__ = ["AsyncSubscription", "AsyncInterpreter", "interpret_async"]
+
+type _QueuedEvent = tuple[Any, asyncio.Future[State]]
 
 
 class AsyncSubscription:
@@ -83,9 +88,10 @@ class AsyncInterpreter:
         self.machine = machine
         self.state = machine.initial_state
         self._status = NOT_STARTED
-        self._listeners: set = set()
-        self._event_queue: list = []
+        self._listeners: set[Callable[[State], None]] = set()
+        self._event_queue: deque[_QueuedEvent] = deque()
         self._processing = False
+        self._processing_task: asyncio.Task[Any] | None = None
         # `after`-event name -> asyncio.Task running the delay
         self._scheduled: dict[str, asyncio.Task] = {}
         # named `send(..., id=...)` (or the Task itself) -> delayed-send Task
@@ -123,7 +129,7 @@ class AsyncInterpreter:
             task.cancel()
         self._send_timers.clear()
         self._listeners.clear()
-        self._event_queue.clear()
+        self._resolve_queued_events(self.state)
         self._status = STOPPED
         return self
 
@@ -135,22 +141,48 @@ class AsyncInterpreter:
             # Match XState: events before start / after stop are dropped.
             return self.state
 
-        self._event_queue.append(event)
+        future: asyncio.Future[State] = asyncio.get_running_loop().create_future()
+        self._event_queue.append((event, future))
         if self._processing:
-            # Re-entrant send (from an awaited action or a fired timer): the
-            # active drain loop will pick this event up. The stretch between the
-            # queue check and clearing `_processing` contains no `await`, so a
-            # concurrent task cannot slip an event past the drain.
-            return self.state
+            # Same-task re-entrant sends from an action must not await their own
+            # queued future: the active drain cannot process that future until
+            # the action returns.
+            if asyncio.current_task() is self._processing_task:
+                return self.state
+            return await future
 
         self._processing = True
+        self._processing_task = asyncio.current_task()
         try:
             while self._event_queue:
-                next_event = self._event_queue.pop(0)
-                await self._process(next_event)
+                next_event, event_done = self._event_queue.popleft()
+                try:
+                    await self._process(next_event)
+                except Exception as exc:
+                    if not event_done.done():
+                        event_done.set_exception(exc)
+                        event_done.exception()
+                    self._fail_queued_events(exc)
+                    raise
+                if not event_done.done():
+                    event_done.set_result(self.state)
         finally:
             self._processing = False
-        return self.state
+            self._processing_task = None
+        return future.result()
+
+    def _resolve_queued_events(self, state: State) -> None:
+        while self._event_queue:
+            _event, future = self._event_queue.popleft()
+            if not future.done():
+                future.set_result(state)
+
+    def _fail_queued_events(self, exc: BaseException) -> None:
+        while self._event_queue:
+            _event, future = self._event_queue.popleft()
+            if not future.done():
+                future.set_exception(exc)
+                future.exception()
 
     async def _process(self, event: Any) -> None:
         next_state = self.machine.transition(self.state, event)

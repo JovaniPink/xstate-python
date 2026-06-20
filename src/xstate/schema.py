@@ -1,13 +1,24 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Literal, TypeAlias, TypedDict
+from typing import Any, Literal, TypedDict
 
-StateNodeType: TypeAlias = Literal["atomic", "compound", "parallel", "final", "history"]
+type StateNodeType = Literal["atomic", "compound", "parallel", "final", "history"]
 
-HandlerSpec: TypeAlias = str | dict[str, Any] | Callable[..., Any]
-ActionSpec: TypeAlias = str | dict[str, Any] | Callable[..., Any]
-TransitionTarget: TypeAlias = str | list[str]
+type HandlerSpec = str | dict[str, Any] | Callable[..., Any]
+type ActionSpec = str | dict[str, Any] | Callable[..., Any]
+type TransitionTarget = str | list[str]
+
+__all__ = [
+    "StateNodeType",
+    "HandlerSpec",
+    "ActionSpec",
+    "TransitionTarget",
+    "TransitionConfig",
+    "InvokeConfig",
+    "StateNodeConfig",
+    "MachineConfig",
+]
 
 
 TransitionConfig = TypedDict(
@@ -39,7 +50,7 @@ class StateNodeConfig(TypedDict, total=False):
     type: StateNodeType
     initial: str
     states: dict[str, StateNodeConfig]
-    on: dict[str, TransitionConfig | str | list[TransitionConfig | str]]
+    on: dict[str | None, TransitionConfig | str | list[TransitionConfig | str]]
     always: TransitionConfig | str | list[TransitionConfig | str]
     entry: ActionSpec | list[ActionSpec]
     exit: ActionSpec | list[ActionSpec]
