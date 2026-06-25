@@ -141,7 +141,7 @@ poetry run python -m pytest tests/test_scxml.py -k cond-js
 poetry run mypy src/xstate/
 
 # Format and lint
-poetry run ruff format src/ tests/
+poetry run ruff format --check src/ tests/
 poetry run ruff check src/ tests/
 ```
 
