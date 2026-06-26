@@ -543,10 +543,18 @@ def condition_match(
             )
         cond = guards[cond]
 
-    if cond is not None and not bool(
-        invoke_handler(cond, context, event, params=params)
-    ):
-        return False
+    if cond is not None:
+        from xstate.guards import _ComposableGuard  # lazy — avoids circular import
+        from xstate.handlers import HandlerAdapter  # lazy — avoids circular import
+
+        # Unwrap HandlerAdapter to check if the inner callable is a _ComposableGuard
+        inner = cond.fn if isinstance(cond, HandlerAdapter) else cond
+        if isinstance(inner, _ComposableGuard):
+            guards = getattr(transition.source.machine, "guards", {}) or {}
+            if not inner._call(context, event, guards):
+                return False
+        elif not bool(invoke_handler(cond, context, event, params=params)):
+            return False
 
     in_spec = getattr(transition, "in_state", None)
     if in_spec is not None and configuration is not None:

@@ -13,9 +13,16 @@ implementations are provided:
 from __future__ import annotations
 
 import abc
+import sys
 import threading
 from collections.abc import Callable
-from typing import Any, override
+from typing import Any
+
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    def override(fn: Any) -> Any:  # noqa: D103
+        return fn
 
 __all__ = ["Clock", "SimulatedClock", "ThreadClock"]
 

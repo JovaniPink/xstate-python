@@ -21,11 +21,13 @@ from xstate.exceptions import (  # noqa
     UnregisteredImplementationError,
     XStateError,
 )
+from xstate.guards import and_, not_, or_  # noqa
 from xstate.handlers import HandlerArgs  # noqa
 from xstate.interpreter import Interpreter, interpret  # noqa
 from xstate.machine import Machine  # noqa
 from xstate.scheduler import Clock, SimulatedClock, ThreadClock  # noqa
 from xstate.setup_api import MachineSetup, setup  # noqa
+from xstate.snapshot import deserialize_snapshot, serialize_snapshot  # noqa
 from xstate.state import MachineSnapshot  # noqa
 
 __all__ = [
@@ -72,4 +74,11 @@ __all__ = [
     "Clock",
     "SimulatedClock",
     "ThreadClock",
+    # Composable guards (0.6.0)
+    "and_",
+    "or_",
+    "not_",
+    # Snapshot serialization (0.6.0)
+    "serialize_snapshot",
+    "deserialize_snapshot",
 ]

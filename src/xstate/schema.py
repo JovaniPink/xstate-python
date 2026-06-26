@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, TypedDict, Union
 
-type StateNodeType = Literal["atomic", "compound", "parallel", "final", "history"]
+StateNodeType = Literal["atomic", "compound", "parallel", "final", "history"]
 
-type HandlerSpec = str | dict[str, Any] | Callable[..., Any]
-type ActionSpec = str | dict[str, Any] | Callable[..., Any]
-type TransitionTarget = str | list[str]
+HandlerSpec = Union[str, "dict[str, Any]", "Callable[..., Any]"]
+ActionSpec = Union[str, "dict[str, Any]", "Callable[..., Any]"]
+TransitionTarget = Union[str, "list[str]"]
 
 __all__ = [
     "StateNodeType",

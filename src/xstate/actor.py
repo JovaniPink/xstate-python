@@ -119,7 +119,7 @@ class ObservableLogic:
         self.fn = fn
 
 
-type ActorLogic = Machine | PromiseLogic | CallbackLogic | ObservableLogic
+ActorLogic = Machine | PromiseLogic | CallbackLogic | ObservableLogic
 
 
 def from_promise(fn: Callable[..., Any]) -> PromiseLogic:
@@ -475,10 +475,8 @@ class _ObservableBackend(_ListenerBackend):
         return self._snapshot
 
 
-type ActorBackend = (
-    _MachineBackend | _PromiseBackend | _CallbackBackend | _ObservableBackend
-)
-type ActorSnapshotValue = State | ActorSnapshot
+ActorBackend = _MachineBackend | _PromiseBackend | _CallbackBackend | _ObservableBackend
+ActorSnapshotValue = State | ActorSnapshot
 
 
 def _build_backend(
@@ -575,6 +573,7 @@ class Actor:
         system: ActorSystem | None = None,
         parent: Actor | None = None,
         input: Any = None,
+        snapshot: Any = None,
     ) -> None:
         self._system = system if system is not None else ActorSystem()
         with self._system._lock:
@@ -582,6 +581,7 @@ class Actor:
             self._parent = parent
             self._clock = clock
             self._input = input
+            self._snapshot = snapshot
             self._children: dict[str, Actor] = {}
             # invocation id -> child actor spawned by an `invoke:` on a state
             self._invoked: dict[str, Actor] = {}
@@ -618,7 +618,8 @@ class Actor:
         if self._backend.status == STOPPED:
             # Match XState: a stopped actor does not restart.
             return self
-        self._backend.start(initial_state)
+        effective = initial_state if initial_state is not None else self._snapshot
+        self._backend.start(effective)
         # For machine actors that declare any `invoke:`, reconcile child actors
         # on every state change (the immediate subscribe call handles the
         # initial state). Invoke-free machines skip this entirely.
@@ -816,15 +817,19 @@ def create_actor(
     clock: Clock | None = None,
     system: ActorSystem | None = None,
     input: Any = None,
+    snapshot: Any = None,
 ) -> Actor:
     """Create an :class:`Actor` from actor *logic* (XState v5 ``createActor``).
 
     *logic* is a :class:`~xstate.machine.Machine`, :func:`from_promise` logic, or
     :func:`from_callback` logic.  The actor is not started; call
     :meth:`Actor.start`.  If no *system* is given a fresh one is created and
-    owned by this actor.
+    owned by this actor.  Pass *snapshot* (from
+    :func:`~xstate.snapshot.deserialize_snapshot`) to resume from a checkpoint.
     """
-    return Actor(logic, id=id, clock=clock, system=system, input=input)
+    return Actor(
+        logic, id=id, clock=clock, system=system, input=input, snapshot=snapshot
+    )
 
 
 def to_promise(actor: Actor) -> asyncio.Future[Any]:

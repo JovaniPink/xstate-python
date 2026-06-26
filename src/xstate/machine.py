@@ -23,8 +23,8 @@ from xstate.state_node import StateNode
 
 __all__ = ["Machine"]
 
-type ActionCallable = Callable[[], Any]
-type ResolvedAction = Action | ActionCallable
+ActionCallable = Callable[[], Any]
+ResolvedAction = Action | ActionCallable
 
 
 class Machine:
@@ -142,7 +142,7 @@ class Machine:
                 result.append(
                     self._bind_action(
                         action,
-                        self.actions[action.type],
+                        self.actions[action.type],  # type: ignore[index]
                         context,
                         event,
                     )

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Union
 
 from xstate.action import Action
 from xstate.handlers import GuardReference, HandlerAdapter
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 __all__ = ["GuardSpec", "Transition"]
 
-type GuardSpec = HandlerAdapter | GuardReference | Callable[..., object] | str
+GuardSpec = Union[HandlerAdapter, GuardReference, "Callable[..., object]", str]
 
 
 @dataclass(eq=False, slots=True, kw_only=True)
