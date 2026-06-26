@@ -54,7 +54,7 @@ from xstate.state import State
 
 __all__ = ["AsyncSubscription", "AsyncInterpreter", "interpret_async"]
 
-type _QueuedEvent = tuple[Any, asyncio.Future[State]]
+_QueuedEvent = tuple[Any, "asyncio.Future[State]"]
 
 
 class AsyncSubscription:

@@ -86,9 +86,12 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
   `after` delayed transitions scheduled on the event loop. The pure transition /
   guard layer stays synchronous, so `algorithm.py` is shared with the sync runtime
 
-**Stubbed / incomplete:**
-- `setup()` API + composable guards (0.6.0+ target)
-- Persistence / snapshot serialization (0.6.0+ target)
+- **Composable guards** (0.6.0, `from xstate import and_, or_, not_`) — `and_()`,
+  `or_()`, `not_()` combinators; string sub-guards resolved lazily from machine.guards
+- **`setup()` builder** (0.6.0, `from xstate import setup`) — XState v5 setup pattern:
+  `setup(guards=..., actions=..., delays=..., actors=...).create_machine(config)`
+- **Snapshot serialization** (0.6.0, `from xstate import serialize_snapshot, deserialize_snapshot`)
+  — persist and restore State; `create_actor(machine, snapshot=...)` for round-trip replay
 
 Handler-signature note: guards/assigners are invoked arity-aware by
 `algorithm._invoke`, which supports four calling conventions: `()`, `(context)`,
@@ -107,7 +110,8 @@ placeholder until the actor model lands (0.5.0).
 | 0.3.0 | Interpreter | Synchronous event loop + queue, delayed transitions (`after`/`cancel`) |
 | 0.4.0 | v5 config alignment | Rename `cond`→`guard`, `data`→`output`, `always:`, single-object handler signatures, MachineSnapshot |
 | 0.5.0 | Actor model | `create_actor`, actor system, `from_promise`/`from_callback`, asyncio |
-| 0.6.0+ | Setup & parity | `setup()`, composable guards, persistence, XState JSON from Stately.ai |
+| 0.6.0 | Setup & parity | `setup()`, composable guards (`and_`/`or_`/`not_`), snapshot serialization |
+| 0.7.0+ | Next parity | State tags, `choose`/`pure` actions, TypedDict config schemas, Mermaid diagrams |
 
 The differentiating niche: **XState / Stately.ai JSON compatibility** — neither `transitions`
 nor `python-statemachine` accepts XState JSON natively.
