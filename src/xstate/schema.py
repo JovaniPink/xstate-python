@@ -61,6 +61,7 @@ class StateNodeConfig(TypedDict, total=False):
     target: TransitionTarget
     output: Any
     data: Any
+    tags: str | list[str]
 
 
 class MachineConfig(StateNodeConfig, total=False):

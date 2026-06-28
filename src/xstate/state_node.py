@@ -36,6 +36,7 @@ class StateNode:
     after: list[tuple[Any, str]] = field(default_factory=list)
     invoke: list[dict[str, Any]] = field(default_factory=list)
     initial_transition: Transition | None = None
+    tags: tuple[str, ...] = field(default_factory=tuple)
 
     @property
     def history_states(self) -> list[StateNode]:
