@@ -21,8 +21,10 @@ from typing import Any
 if sys.version_info >= (3, 12):
     from typing import override
 else:
+
     def override(fn: Any) -> Any:  # noqa: D103
         return fn
+
 
 __all__ = ["Clock", "SimulatedClock", "ThreadClock"]
 

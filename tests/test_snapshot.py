@@ -8,7 +8,6 @@ Covers:
   - Error-status snapshots round-trip
 """
 
-
 from xstate import Machine, create_actor, deserialize_snapshot, serialize_snapshot
 
 
@@ -55,7 +54,12 @@ def test_serialize_active_snapshot_has_required_keys():
     actor = create_actor(_toggle_machine()).start()
     data = serialize_snapshot(actor.get_snapshot())
     assert set(data.keys()) == {
-        "value", "context", "status", "history_value", "output", "error"
+        "value",
+        "context",
+        "status",
+        "history_value",
+        "output",
+        "error",
     }
 
 

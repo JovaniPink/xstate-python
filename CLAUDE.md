@@ -128,14 +128,16 @@ public API or the SCXML core and need the verification gates below.
 | # | Item | Where | Status / plan |
 |---|------|-------|---------------|
 | 1 | **Dynamic handler arity** — `algorithm._invoke` / `handlers.invoke_handler` inspect a callable's signature on every call to support 4 calling conventions | `algorithm.py`, `handlers.py` | Short-term approach (signature inspection cached via `functools.lru_cache`) is fine. Moving to a single `Callable[[HandlerArgs], Any]` + `ParamSpec` contract is a **breaking** API change — defer to **0.8.0+** after `setup()` is stable. |
-| 2 | **`StateNode` God-constructor** — config parsing is spread across `StateNode.__init__` | `state_node.py`, `config_parser.py` | Master already extracted `config_parser.StateNodeConfigParser`. Finish moving remaining parse logic out of `StateNode.__init__` into the parser. Safe only **after** item 3 (typed inputs). Target **0.8.0+**. |
+| 2 | **Parser/model separation** — `StateNode` is already a pure dataclass, but some normalization responsibilities still sit close to the model boundary | `state_node.py`, `config_parser.py` | Master already extracted `config_parser.StateNodeConfigParser`. Finish consolidating raw-config traversal, defaults, and transition normalization in the parser so `StateNode` stays a resolved model. Safe only **after** item 3 (typed inputs). Target **0.8.0+**. |
 | 3 | **`Any` config boundary → TypedDict** — `Machine(config: dict[str, Any])` loses all static checking | `schema.py`, `machine.py` | Master added `schema.py` with `StateNodeConfig`/`TransitionConfig`/`InvokeConfig`/`MachineConfig` TypedDicts. Next: type `Machine(config: MachineConfig)` and enable stricter mypy on `machine.py` progressively. Target **0.7.0**. |
 | 4 | **`deepcopy` context cost** — context is `deepcopy`-ed on each transition | `context.py` | Master added `ContextAdapter` (`DeepCopyContextAdapter`, `DataclassContextAdapter`). Expose the adapter as a documented `context_factory`-style hook so power users opt into immutable/cheaper structures. Target **0.7.0+**. |
 | 5 | **IIFE lambda binding** — `(lambda e: lambda: self.send(e))(event)` | `interpreter.py` | ✅ **Done** — replaced with `functools.partial(self.send, event)` (0.6.0). |
 
 **Verification gates for any of the above:**
-- Changes to `algorithm.py` (items 1, 2) must pass the SCXML test framework (`tests/test_scxml.py`,
+- Changes to `algorithm.py` (item 1) must pass the SCXML test framework (`tests/test_scxml.py`,
   see "Algorithm changes require SCXML test verification" below).
+- Parser/model changes (item 2) must pass parser, transition, and SCXML import coverage; run full
+  SCXML conformance only if they alter transition selection or entry/exit semantics.
 - Public-API changes (items 1, 3, 4) must keep the v0.1.0 contract or land in a minor bump
   with a `DeprecationWarning` bridge, matching how `cond`→`guard` was handled in 0.4.0.
 

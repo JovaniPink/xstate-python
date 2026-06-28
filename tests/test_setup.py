@@ -8,7 +8,6 @@ Covers:
   - Multiple create_machine() calls from one setup() (registries are merged)
 """
 
-
 from xstate import Machine, SimulatedClock, and_, create_actor, setup
 from xstate.setup_api import MachineSetup
 
