@@ -72,6 +72,25 @@ class State:
             self.status = "active"
             self.output = None
 
+    @property
+    def tags(self) -> frozenset[str]:
+        """Union of the ``tags`` declared on every active state node.
+
+        XState v5 surfaces ``snapshot.tags`` as the set of tags across the
+        current configuration; querying it is the idiomatic way to ask "is the
+        machine loading / busy / editable" without enumerating state values.
+        """
+        return frozenset(
+            tag for node in self.configuration for tag in node.tags
+        )
+
+    def has_tag(self, tag: str) -> bool:
+        """Return True if any active state node declares *tag* (v5 ``hasTag``)."""
+        return any(tag in node.tags for node in self.configuration)
+
+    # XState v5 spells this ``hasTag``; expose both for JS-parity ergonomics.
+    hasTag = has_tag
+
     def can(self, event: Any) -> bool:
         """Return True if any enabled transition exists for *event* right now.
 

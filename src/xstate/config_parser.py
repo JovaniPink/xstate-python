@@ -105,9 +105,27 @@ class StateNodeConfigParser:
                 path=self._path(path, "target"),
             )
 
+        node.tags = self._build_tags(config.get("tags"), self._path(path, "tags"))
+
         node.donedata = self._build_output(node, path)
         self._build_configured_transitions(node, path)
         self._build_initial_transition(node, path)
+
+    def _build_tags(self, tags_config: Any, path: str) -> tuple[str, ...]:
+        if tags_config is None:
+            return ()
+        if isinstance(tags_config, str):
+            return (tags_config,)
+        if isinstance(tags_config, (list, tuple)):
+            if not all(isinstance(t, str) for t in tags_config):
+                raise InvalidConfigError(
+                    f"{path}: every tag must be a string, got {tags_config!r}."
+                )
+            return tuple(tags_config)
+        raise InvalidConfigError(
+            f"{path}: 'tags' must be a string or a list of strings, "
+            f"got {type(tags_config)!r}."
+        )
 
     def _build_output(self, node: StateNode, path: str) -> Any:
         if node.type != "final":
