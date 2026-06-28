@@ -111,10 +111,66 @@ placeholder until the actor model lands (0.5.0).
 | 0.4.0 | v5 config alignment | Rename `cond`→`guard`, `data`→`output`, `always:`, single-object handler signatures, MachineSnapshot |
 | 0.5.0 | Actor model | `create_actor`, actor system, `from_promise`/`from_callback`, asyncio |
 | 0.6.0 | Setup & parity | `setup()`, composable guards (`and_`/`or_`/`not_`), snapshot serialization |
-| 0.7.0+ | Next parity | State tags, `choose`/`pure` actions, TypedDict config schemas, Mermaid diagrams |
+| 0.7.0 | Next parity | State `tags` + `hasTag()`, `choose`/`pure` actions, `stateIn` guard, Mermaid/Graphviz diagrams, TypedDict config schemas |
+| 0.8.0+ | Internal refactor | `StateNodeConfigParser` factory, opt-in immutable `context_factory`, `ParamSpec` handler typing |
 
 The differentiating niche: **XState / Stately.ai JSON compatibility** — neither `transitions`
 nor `python-statemachine` accepts XState JSON natively.
+
+---
+
+## Architectural debt (deferred, tracked)
+
+These items came out of an architectural review. Each is intentionally deferred with a
+target version; do not silently "fix" them outside their milestone, because they touch the
+public API or the SCXML core and need the verification gates below.
+
+| # | Item | Where | Status / plan |
+|---|------|-------|---------------|
+| 1 | **Dynamic handler arity** — `algorithm._invoke` / `handlers.invoke_handler` inspect a callable's signature on every call to support 4 calling conventions | `algorithm.py`, `handlers.py` | Short-term approach (signature inspection cached via `functools.lru_cache`) is fine. Moving to a single `Callable[[HandlerArgs], Any]` + `ParamSpec` contract is a **breaking** API change — defer to **0.8.0+** after `setup()` is stable. |
+| 2 | **Parser/model separation** — `StateNode` is already a pure dataclass, but some normalization responsibilities still sit close to the model boundary | `state_node.py`, `config_parser.py` | Master already extracted `config_parser.StateNodeConfigParser`. Finish consolidating raw-config traversal, defaults, and transition normalization in the parser so `StateNode` stays a resolved model. Safe only **after** item 3 (typed inputs). Target **0.8.0+**. |
+| 3 | **`Any` config boundary → TypedDict** — `Machine(config: dict[str, Any])` loses all static checking | `schema.py`, `machine.py` | Master added `schema.py` with `StateNodeConfig`/`TransitionConfig`/`InvokeConfig`/`MachineConfig` TypedDicts. Next: type `Machine(config: MachineConfig)` and enable stricter mypy on `machine.py` progressively. Target **0.7.0**. |
+| 4 | **`deepcopy` context cost** — context is `deepcopy`-ed on each transition | `context.py` | Master added `ContextAdapter` (`DeepCopyContextAdapter`, `DataclassContextAdapter`). Expose the adapter as a documented `context_factory`-style hook so power users opt into immutable/cheaper structures. Target **0.7.0+**. |
+| 5 | **IIFE lambda binding** — `(lambda e: lambda: self.send(e))(event)` | `interpreter.py` | ✅ **Done** — replaced with `functools.partial(self.send, event)` (0.6.0). |
+
+**Verification gates for any of the above:**
+- Changes to `algorithm.py` (item 1) must pass the SCXML test framework (`tests/test_scxml.py`,
+  see "Algorithm changes require SCXML test verification" below).
+- Parser/model changes (item 2) must pass parser, transition, and SCXML import coverage; run full
+  SCXML conformance only if they alter transition selection or entry/exit semantics.
+- Public-API changes (items 1, 3, 4) must keep the v0.1.0 contract or land in a minor bump
+  with a `DeprecationWarning` bridge, matching how `cond`→`guard` was handled in 0.4.0.
+
+---
+
+## 0.7.0 feature backlog (research-informed)
+
+Targets drawn from XState v5 (https://stately.ai/docs/xstate) and the Python statechart
+landscape (`transitions`, `python-statemachine`, `Sismic`). Ranked by parity value × differentiation.
+
+**XState v5 parity gaps:**
+- **State `tags`** — `tags: ["loading"]` in config; `state.hasTag("loading")` on `MachineSnapshot`. Cheap, high-use.
+- **`choose` action** — conditional action selection (run the first branch whose guard passes).
+- **`pure` action** — a function returning a list of actions to run, with no side effects of its own.
+- **`stateIn` guard** — user-facing guard over the current configuration. We already have `in_state`
+  on transitions internally; expose it as a first-class guard (and as `stateIn(...)` alongside `and_`/`or_`/`not_`).
+- **`enqueueActions`** — batch/queue actions imperatively inside an action body.
+- **Transition `reenter: true`** — re-enter the source state on a self-transition (vs. internal).
+- **`stopChild` action** — explicitly stop a spawned/invoked actor.
+- **Dynamic `sendTo` targets** — `to=` resolved from `(context, event)`.
+- **Machine / state `meta`** — per-node metadata surfaced via `state.meta` / `getMeta()`.
+- **Partial event descriptors / wildcard** — `on: {"UPDATE.*": ...}` style matching.
+
+**Differentiators worth owning (gaps in the Python field):**
+- **Mermaid / Graphviz diagram export** — `transitions` has `GraphMachine`; we have none. High value
+  given native XState JSON in → diagram out.
+- **`hasTag` / `can` / `matches` snapshot ergonomics** — round out `MachineSnapshot` query methods.
+- **Observer pattern** — `python-statemachine`'s `add_observer`; we have `subscribe`, consider a
+  multi-callback observer protocol with entry/exit hooks.
+
+**Process note:** a deep-research workflow over the four comparison libraries was scoped in this
+session (see `deep-research` skill invocation) but not yet run to completion; re-run it before
+locking the final 0.7.0 scope to confirm method signatures and catch anything new upstream.
 
 ---
 

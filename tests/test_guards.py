@@ -124,9 +124,14 @@ def test_and_resolves_string_subguards():
             "id": "m",
             "initial": "a",
             "states": {
-                "a": {"on": {"GO": {
-                    "target": "b", "guard": and_("isLoggedIn", "hasPermission"),
-                }}},
+                "a": {
+                    "on": {
+                        "GO": {
+                            "target": "b",
+                            "guard": and_("isLoggedIn", "hasPermission"),
+                        }
+                    }
+                },
                 "b": {},
             },
         },
@@ -149,9 +154,14 @@ def test_and_string_guards_with_context():
             "initial": "a",
             "context": {"logged_in": True, "permission": True},
             "states": {
-                "a": {"on": {"GO": {
-                    "target": "b", "guard": and_("isLoggedIn", "hasPermission"),
-                }}},
+                "a": {
+                    "on": {
+                        "GO": {
+                            "target": "b",
+                            "guard": and_("isLoggedIn", "hasPermission"),
+                        }
+                    }
+                },
                 "b": {},
             },
         },
@@ -172,9 +182,14 @@ def test_and_string_guards_blocked_by_missing_permission():
             "initial": "a",
             "context": {"logged_in": True, "permission": False},
             "states": {
-                "a": {"on": {"GO": {
-                    "target": "b", "guard": and_("isLoggedIn", "hasPermission"),
-                }}},
+                "a": {
+                    "on": {
+                        "GO": {
+                            "target": "b",
+                            "guard": and_("isLoggedIn", "hasPermission"),
+                        }
+                    }
+                },
                 "b": {},
             },
         },
