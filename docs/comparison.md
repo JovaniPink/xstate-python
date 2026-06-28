@@ -1,14 +1,14 @@
 # Python State Machine Library Comparison
 
 Research snapshot: June 2026. Competitor figures are intentionally approximate;
-the xstate-python column reflects the current stacked branch state after the
-typed-core and Python 3.13 runtime-safety work.
+the xstate-python column reflects the current `master` branch after the 0.6.0
+release-readiness work.
 
 ## Feature Matrix
 
 | Feature | **transitions** | **python-statemachine** | **xstate-python** | **xstate-statemachine** | **Sismic** | **Automat** |
 |---|---|---|---|---|---|---|
-| Status | Mature / active | Mature / active | Alpha / active fork | Small active project | Mature niche | Mature focused FSM |
+| Status | Mature / active | Mature / active | Alpha / 0.6.0 release-ready | Small active project | Mature niche | Mature focused FSM |
 | Python support | Broad legacy support | Modern Python | **3.13+** | Modern Python | Modern Python | Modern Python |
 | XState JSON | No | No | **Yes, native** | Yes | No | No |
 | SCXML algorithm | No | Yes | **Yes, partial conformance** | Partial | Yes | No |
@@ -57,6 +57,7 @@ structure with a JavaScript/XState frontend or a Stately-authored design.
 - Actor model with `create_actor`, `ActorSystem`, `spawn`, `from_promise`,
   `from_callback`, `from_observable`, `to_promise`, `send_parent`, `send_to`,
   and `invoke` reconciliation.
+- Snapshot serialization and restoration helpers for persistence flows.
 - SCXML XML import with a safe Boolean cond subset: `true`, `false`, `!`, `&&`,
   `||`, and parentheses.
 
@@ -64,10 +65,9 @@ structure with a JavaScript/XState frontend or a Stately-authored design.
 
 | Gap | Notes |
 |---|---|
-| PyPI release | Packaging metadata is ready, but release is still pending. |
+| PyPI release | 0.6.0 packaging metadata and release workflow are ready; publish via GitHub Release. |
 | SCXML conformance | Current full SCXML run is `45 passed`, `8 failed`; remaining failures are the known `more-parallel` cases. |
 | Full ECMAScript cond support | Intentionally not implemented; unsupported SCXML expressions raise `InvalidConfigError`. |
-| Persistence | Snapshot serialization/deserialization helpers are not implemented yet. |
 | Graph/test utilities | No equivalent of XState graph traversal helpers yet. |
 | Inspector protocol | No `@statelyai/inspect` compatibility yet. |
 

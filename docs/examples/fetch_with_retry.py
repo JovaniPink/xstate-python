@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A data-fetch machine with retry/backoff — showcasing the 0.5.0 actor model.
+"""A data-fetch machine with retry/backoff — showcasing the actor runtime.
 
 Where ``traffic_intersection.py`` is a pure control-flow chart loaded from JSON,
 this example shows the pieces that need Python: **invoked actors**, **context**,
