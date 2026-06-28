@@ -21,6 +21,8 @@ class State:
     context: Any
     actions: tuple[Callable[..., Any] | Action, ...]
     history_value: Mapping[str, frozenset[StateNode]]
+    tags: frozenset[str]
+    meta: Mapping[str, Any]
     status: Literal["active", "done", "error"]
     output: Any | None
     error: Any | None
@@ -46,6 +48,19 @@ class State:
             {
                 state_id: frozenset(states)
                 for state_id, states in (history_value or {}).items()
+            }
+        )
+        self.tags = frozenset(
+            tag for state_node in self.configuration for tag in state_node.tags
+        )
+        self.meta = MappingProxyType(
+            {
+                state_node.id: state_node.meta
+                for state_node in sorted(
+                    self.configuration,
+                    key=lambda node: node.order,
+                )
+                if state_node.meta is not None
             }
         )
         self.error = None
@@ -100,6 +115,14 @@ class State:
         if isinstance(value, dict):
             return _matches_dict(self.value, value)
         return False
+
+    def has_tag(self, tag: str) -> bool:
+        """Return True if any active state node has *tag*."""
+        return tag in self.tags
+
+    def hasTag(self, tag: str) -> bool:
+        """XState-compatible alias for :meth:`has_tag`."""
+        return self.has_tag(tag)
 
     def __repr__(self) -> str:
         return (

@@ -7,27 +7,27 @@ hierarchical state machines for Python, following the W3C SCXML execution algori
 a **solid, published Python statechart library** that tracks XState v5's architecture and owns
 the niche of native XState JSON compatibility.
 
-**PyPI name:** `xstate` | **License:** MIT | **Python:** 3.9–3.13
+**PyPI name:** `xstate` | **License:** MIT | **Python:** 3.13+
 
 ---
 
 ## Architecture
 
 ```
-xstate/
+src/xstate/
   __init__.py       Public API: `from xstate import Machine`
-  machine.py        Machine class — entry point, orchestrates a statechart definition
-  state_node.py     StateNode — represents a single state in the hierarchy
-  state.py          State — current snapshot: {value, configuration, context, actions}
+  machine.py        Machine class — entry point and pure transition API
+  config_parser.py  Two-pass XState config parser and normalizer
+  schema.py         TypedDict boundary for raw XState config data
+  state_node.py     Resolved state hierarchy model
+  state.py          Public State / MachineSnapshot snapshots
   algorithm.py      SCXML execution engine (microstep/macrostep, entry/exit sets)
-  transition.py     Transition — event, guard, target, actions
-  action.py         Action — entry/exit/transition side effects
-  event.py          Event — typed event wrapper
-  interpreter.py    Interpreter — synchronous event loop + queue, subscriptions, `after` scheduling
-  async_interpreter.py  AsyncInterpreter — asyncio-native runtime (`async start/send/stop`, awaitable actions)
-  actor.py          Actor model — create_actor, ActorSystem, from_promise/from_callback, invoke reconciliation
-  scheduler.py      Clock abstractions (`SimulatedClock` for tests, `ThreadClock` for real time)
-  scxml.py          SCXML XML → Machine config converter (requires `scxml` extra for js conds)
+  transition.py     Resolved transition model
+  handlers.py       HandlerArgs and HandlerAdapter callable adaptation
+  guards.py         Composable guards and state_in/stateIn helpers
+  mermaid.py        Dependency-free Mermaid diagram export
+  actor.py          Actor model, create_actor, ActorSystem, actor logic helpers
+  scxml.py          SCXML XML → Machine config converter with safe Boolean conds
 ```
 
 `algorithm.py` is the heart of the library. It implements the W3C SCXML algorithm:
@@ -37,7 +37,7 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
 
 ---
 
-## Current state (0.5.0)
+## Current state (0.6.0 release-ready, 0.7.0 branch in progress)
 
 **Working:**
 - Hierarchical (compound) states
@@ -58,7 +58,8 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
   cancelled on exit; numeric delays or named refs via `Machine(config, delays={...})`.
   Driven by a pluggable `Clock`: `SimulatedClock` (deterministic, advance with
   `clock.increment(ms)`) or `ThreadClock` (real wall-clock, the default)
-- SCXML XML import (requires `pip install xstate[scxml]` for JS-cond evaluation)
+- SCXML XML import with a dependency-free safe Boolean cond subset
+  (`true`, `false`, `!`, `&&`, `||`, parentheses)
 - **XState v5 config alignment** (0.4.0):
   - `guard` is the canonical key for transition conditions; `cond` still works
     but emits a `DeprecationWarning`
@@ -92,12 +93,15 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
   `setup(guards=..., actions=..., delays=..., actors=...).create_machine(config)`
 - **Snapshot serialization** (0.6.0, `from xstate import serialize_snapshot, deserialize_snapshot`)
   — persist and restore State; `create_actor(machine, snapshot=...)` for round-trip replay
+- **Snapshot queries** (0.7.0 branch) — active `tags`, read-only `meta`,
+  `state.has_tag(...)`, `state.hasTag(...)`, and `state_in(...)` / `stateIn(...)`
+- **Mermaid export** (0.7.0 branch, `from xstate import to_mermaid`) —
+  dependency-free `stateDiagram-v2` text generation
 
-Handler-signature note: guards/assigners are invoked arity-aware by
-`algorithm._invoke`, which supports four calling conventions: `()`, `(context)`,
-`(context, event)` (the v4 positional styles), and keyword-only
-`(*, context, event)` (the v5 single-object style). `error` status plumbing is a
-placeholder until the actor model lands (0.5.0).
+Handler-signature note: public registries are adapted at machine construction by
+`HandlerAdapter`. Prefer `handler(HandlerArgs(...))`; legacy `()`, `(context)`,
+`(context, event)`, and keyword-only forms still work at the compatibility
+boundary.
 
 ---
 
@@ -111,7 +115,7 @@ placeholder until the actor model lands (0.5.0).
 | 0.4.0 | v5 config alignment | Rename `cond`→`guard`, `data`→`output`, `always:`, single-object handler signatures, MachineSnapshot |
 | 0.5.0 | Actor model | `create_actor`, actor system, `from_promise`/`from_callback`, asyncio |
 | 0.6.0 | Setup & parity | `setup()`, composable guards (`and_`/`or_`/`not_`), snapshot serialization |
-| 0.7.0 | Next parity | State `tags` + `hasTag()`, `choose`/`pure` actions, `stateIn` guard, Mermaid/Graphviz diagrams, TypedDict config schemas |
+| 0.7.0 | Next parity | State `tags` + `hasTag()`, `stateIn` guard, Mermaid diagrams; next: `choose`/`pure` actions, Graphviz diagrams, TypedDict config schemas |
 | 0.8.0+ | Internal refactor | `StateNodeConfigParser` factory, opt-in immutable `context_factory`, `ParamSpec` handler typing |
 
 The differentiating niche: **XState / Stately.ai JSON compatibility** — neither `transitions`
@@ -149,22 +153,20 @@ Targets drawn from XState v5 (https://stately.ai/docs/xstate) and the Python sta
 landscape (`transitions`, `python-statemachine`, `Sismic`). Ranked by parity value × differentiation.
 
 **XState v5 parity gaps:**
-- **State `tags`** — `tags: ["loading"]` in config; `state.hasTag("loading")` on `MachineSnapshot`. Cheap, high-use.
+- **State `tags`** — ✅ on 0.7.0 branch: `tags: ["loading"]` in config; `state.has_tag("loading")` and `state.hasTag("loading")` on `MachineSnapshot`.
 - **`choose` action** — conditional action selection (run the first branch whose guard passes).
 - **`pure` action** — a function returning a list of actions to run, with no side effects of its own.
-- **`stateIn` guard** — user-facing guard over the current configuration. We already have `in_state`
-  on transitions internally; expose it as a first-class guard (and as `stateIn(...)` alongside `and_`/`or_`/`not_`).
+- **`stateIn` guard** — ✅ on 0.7.0 branch: user-facing guard over the current configuration, exposed as `state_in(...)` and `stateIn(...)`.
 - **`enqueueActions`** — batch/queue actions imperatively inside an action body.
 - **Transition `reenter: true`** — re-enter the source state on a self-transition (vs. internal).
 - **`stopChild` action** — explicitly stop a spawned/invoked actor.
 - **Dynamic `sendTo` targets** — `to=` resolved from `(context, event)`.
-- **Machine / state `meta`** — per-node metadata surfaced via `state.meta` / `getMeta()`.
+- **Machine / state `meta`** — ✅ on 0.7.0 branch: per-node metadata surfaced via read-only `state.meta`.
 - **Partial event descriptors / wildcard** — `on: {"UPDATE.*": ...}` style matching.
 
 **Differentiators worth owning (gaps in the Python field):**
-- **Mermaid / Graphviz diagram export** — `transitions` has `GraphMachine`; we have none. High value
-  given native XState JSON in → diagram out.
-- **`hasTag` / `can` / `matches` snapshot ergonomics** — round out `MachineSnapshot` query methods.
+- **Mermaid / Graphviz diagram export** — Mermaid export is ✅ on 0.7.0 branch via `to_mermaid(machine)`; Graphviz remains deferred.
+- **`hasTag` / `can` / `matches` snapshot ergonomics** — `has_tag` / `hasTag`, `can`, and `matches` are present.
 - **Observer pattern** — `python-statemachine`'s `add_observer`; we have `subscribe`, consider a
   multi-callback observer protocol with entry/exit hooks.
 
@@ -202,12 +204,10 @@ ruff check src/ tests/
 
 ### Never reintroduce Js2Py as a hard dependency
 
-`Js2Py` cannot build on Python 3.11+ and is a security anti-pattern for a library.
-It has been moved to the optional `scxml` extra, lazy-imported inside `_eval_scxml_cond()`.
-**Do not `import js2py` at module level anywhere in `xstate/`.**
-
-The long-term plan (0.2.0) is to replace the remaining Js2Py usage in `scxml.py` with
-a pure-Python SCXML condition evaluator.
+`Js2Py` cannot build on modern Python and is a security anti-pattern for a
+library. The SCXML importer now uses a small pure-Python Boolean evaluator.
+**Do not reintroduce `js2py` or a general JavaScript evaluator anywhere in
+`xstate/`.**
 
 ### Algorithm changes require SCXML test verification
 

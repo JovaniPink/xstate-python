@@ -11,7 +11,7 @@ run-to-completion execution core.
 - License: MIT
 - Python: 3.13+
 - Runtime dependencies: none
-- Current status: alpha, version `0.5.0`
+- Current status: alpha, version `0.6.0`
 
 The central bet is simple: charts designed in Stately or shared with a
 JavaScript frontend should load directly as Python `dict` / JSON data, with
@@ -67,6 +67,11 @@ Working:
   `from_callback`, `from_observable`, and `to_promise`.
 - XState v5 alignment: `guard`, `output`, `always`, `MachineSnapshot`,
   `state.matches(...)`, `state.can(...)`, and `setup(...).create_machine(...)`.
+- XState snapshot queries: `tags`, `meta`, `state.has_tag(...)`,
+  `state.hasTag(...)`, `state_in(...)`, and `stateIn(...)` are present on the
+  0.7.0 branch.
+- Dependency-free Mermaid diagram export via `to_mermaid(machine)` is present
+  on the 0.7.0 branch.
 - Handler adaptation through `HandlerArgs`, with legacy callable forms still
   supported at the public `Machine(config, ...)` boundary.
 - Public snapshot immutability: configuration is a `frozenset`, actions are a
@@ -77,8 +82,7 @@ Working:
 Known gaps:
 
 - Full SCXML conformance still has known `more-parallel` failures.
-- Persistence / snapshot serialization is not implemented.
-- Composable guard helpers beyond the current `setup(...)` API are future work.
+- Graph/test helper APIs beyond Mermaid export are future work.
 - SCXML condition support is intentionally not a general JavaScript evaluator.
 
 ## Important Constraints

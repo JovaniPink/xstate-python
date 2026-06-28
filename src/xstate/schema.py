@@ -48,6 +48,8 @@ class InvokeConfig(TypedDict, total=False):
 class StateNodeConfig(TypedDict, total=False):
     id: str
     type: StateNodeType
+    tags: str | list[str]
+    meta: Any
     initial: str
     states: dict[str, StateNodeConfig]
     on: dict[str | None, TransitionConfig | str | list[TransitionConfig | str]]

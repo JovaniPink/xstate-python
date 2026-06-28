@@ -23,6 +23,8 @@ release-readiness work.
 | Actor model | No | No | Yes, XState v5-style actors | Partial | No | No |
 | Invoke/services | No | Yes | Yes, `invoke` + promise/callback/observable actors | Yes | No | No |
 | Setup-style named implementations | No | No | Yes, `setup(...).create_machine(...)` | Partial | No | No |
+| Snapshot tags/meta | No | Yes, metadata-style helpers | Yes, active tags/meta on snapshots | Partial | Yes | No |
+| Diagram export | Yes, GraphMachine | Yes | Yes, Mermaid text export | Partial | Yes | No |
 | Runtime dependencies | Varies | Varies | **None for core** | Varies | Varies | Small |
 | Docs quality | Good | Excellent | Improving | Good | Excellent | Good |
 | License | MIT | MIT | MIT | MIT | LGPL-3.0 | MIT |
@@ -58,6 +60,10 @@ structure with a JavaScript/XState frontend or a Stately-authored design.
   `from_callback`, `from_observable`, `to_promise`, `send_parent`, `send_to`,
   and `invoke` reconciliation.
 - Snapshot serialization and restoration helpers for persistence flows.
+- Active snapshot `tags`, `meta`, `has_tag`/`hasTag`, and
+  `state_in`/`stateIn` guard helpers on the 0.7.0 branch.
+- Dependency-free Mermaid diagram export via `to_mermaid(machine)` on the
+  0.7.0 branch.
 - SCXML XML import with a safe Boolean cond subset: `true`, `false`, `!`, `&&`,
   `||`, and parentheses.
 
@@ -68,7 +74,7 @@ structure with a JavaScript/XState frontend or a Stately-authored design.
 | PyPI release | 0.6.0 packaging metadata and release workflow are ready; publish via GitHub Release. |
 | SCXML conformance | Current full SCXML run is `45 passed`, `8 failed`; remaining failures are the known `more-parallel` cases. |
 | Full ECMAScript cond support | Intentionally not implemented; unsupported SCXML expressions raise `InvalidConfigError`. |
-| Graph/test utilities | No equivalent of XState graph traversal helpers yet. |
+| Graph/test utilities | Mermaid export exists on the 0.7.0 branch; no graph traversal/test-path helpers yet. |
 | Inspector protocol | No `@statelyai/inspect` compatibility yet. |
 
 ## Strategic Position

@@ -71,6 +71,8 @@ class StateNodeConfigParser:
                 Literal["atomic", "compound", "parallel", "final", "history"],
                 node_type,
             ),
+            tags=self._build_tags(config.get("tags"), self._path(path, "tags")),
+            meta=config.get("meta"),
         )
         self.machine._register(node)
 
@@ -433,6 +435,24 @@ class StateNodeConfigParser:
             ]
         raise InvalidConfigError(
             f"{self._path(path, 'target')} must be a string or list."
+        )
+
+    def _build_tags(self, raw_tags: Any, path: str) -> frozenset[str]:
+        if raw_tags is None:
+            return frozenset()
+        if isinstance(raw_tags, str):
+            return frozenset({raw_tags})
+        if isinstance(raw_tags, (list, tuple, set, frozenset)):
+            tags: list[str] = []
+            for index, tag in enumerate(raw_tags):
+                if not isinstance(tag, str):
+                    raise InvalidConfigError(
+                        f"{path}[{index}] must be a string, got {type(tag)!r}."
+                    )
+                tags.append(tag)
+            return frozenset(tags)
+        raise InvalidConfigError(
+            f"{path} must be a string or list of strings, got {type(raw_tags)!r}."
         )
 
     def _resolve_target(self, source: StateNode, target: Any, path: str) -> StateNode:

@@ -29,6 +29,8 @@ bridge between XState's JSON ecosystem and Python backends.
 | Setup API | `setup(...).create_machine(...)` exists for stricter named implementations |
 | Context policy | Default deep-copy adapter plus immutable dataclass adapter |
 | Snapshots | `MachineSnapshot = State`; immutable public containers |
+| Snapshot queries | Active `tags`, `meta`, `has_tag`/`hasTag`, and `state_in`/`stateIn` guard helpers are present on the 0.7.0 branch |
+| Diagrams | Dependency-free Mermaid `stateDiagram-v2` export is present on the 0.7.0 branch |
 | Sync runtime | `Interpreter` with RTC queue, subscriptions, delayed transitions, and lock-serialized timer sends |
 | Async runtime | `AsyncInterpreter` with async start/send/stop, awaitable actions, and event-loop timers |
 | Actor model | `create_actor`, `ActorSystem`, spawn, parent/child tree, `send_parent`, `send_to` |
@@ -45,7 +47,11 @@ bridge between XState's JSON ecosystem and Python backends.
 - Delayed transitions via `after`, numeric or named delays.
 - Machine snapshots with `status`, `output`, `error`, `matches(...)`, and
   `can(event)`.
+- Active state tags and metadata via immutable `state.tags` and `state.meta`,
+  plus `has_tag(...)` / `hasTag(...)`.
+- Reusable current-state guards via `state_in(...)` / `stateIn(...)`.
 - Snapshot serialization and restoration helpers for actor persistence flows.
+- Mermaid diagram export via `to_mermaid(machine)`.
 - XState v5 naming alignment: `guard`, `output`, `always`, `actors`,
   `MachineSnapshot`, `create_actor`, and `setup`.
 - Primary suite passes in current Python 3.13/3.14 CI.
@@ -73,7 +79,7 @@ JavaScript and wanting the same machine shape in Python services.
 | High | Fix the remaining SCXML `more-parallel` conformance cases |
 | Medium | Document snapshot persistence and restore helpers |
 | Medium | Inspector protocol compatibility |
-| Medium | More XState v5 utilities: composable guards, `provide`, graph/test helpers |
+| Medium | More XState v5 utilities: `provide`, action helpers, graph/test helpers |
 | Low | Django/FastAPI examples after the runtime API settles |
 
 ## Success Metrics

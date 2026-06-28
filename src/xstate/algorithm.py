@@ -551,9 +551,11 @@ def condition_match(
         inner = cond.fn if isinstance(cond, HandlerAdapter) else cond
         if isinstance(inner, _ComposableGuard):
             guards = getattr(transition.source.machine, "guards", {}) or {}
-            if not inner._call(context, event, guards):
+            if not inner._call(context, event, guards, state=configuration):
                 return False
-        elif not bool(invoke_handler(cond, context, event, params=params)):
+        elif not bool(
+            invoke_handler(cond, context, event, params=params, state=configuration)
+        ):
             return False
 
     in_spec = getattr(transition, "in_state", None)
