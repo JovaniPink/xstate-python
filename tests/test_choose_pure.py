@@ -278,9 +278,7 @@ def test_choose_unknown_guard_raises():
                 "a": {
                     "on": {
                         "GO": {
-                            "actions": [
-                                choose([{"guard": "missing", "actions": []}])
-                            ]
+                            "actions": [choose([{"guard": "missing", "actions": []}])]
                         }
                     }
                 },

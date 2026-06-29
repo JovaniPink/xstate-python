@@ -5,7 +5,6 @@ in the given state. It reuses the same matching as a transition `in` guard and
 composes with and_/or_/not_.
 """
 
-
 from xstate import Machine, and_, create_actor, not_, or_, stateIn
 
 # ---------------------------------------------------------------------------

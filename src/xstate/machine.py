@@ -142,7 +142,7 @@ class Machine:
                 result.append(
                     self._bind_action(
                         action,
-                        self.actions[action.type],  # type: ignore[index]
+                        self.actions[action.type],
                         context,
                         event,
                     )

@@ -818,9 +818,7 @@ def execute_content(
     elif action.type == CHOOSE_TYPE:
         guards_registry = action.data.get("_guards", {})
         for branch in action.data.get("branches", []):
-            if _eval_action_guard(
-                branch.get("guard"), context, event, guards_registry
-            ):
+            if _eval_action_guard(branch.get("guard"), context, event, guards_registry):
                 for sub in branch.get("actions", []):
                     context = execute_content(
                         sub, actions, internal_queue, context, event
@@ -834,9 +832,7 @@ def execute_content(
             specs = result if isinstance(result, list) else [result]
             for spec in specs:
                 sub = build_action(spec, registry)
-                context = execute_content(
-                    sub, actions, internal_queue, context, event
-                )
+                context = execute_content(sub, actions, internal_queue, context, event)
     else:
         actions.append(action)
     return context

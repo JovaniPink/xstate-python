@@ -80,9 +80,7 @@ class State:
         current configuration; querying it is the idiomatic way to ask "is the
         machine loading / busy / editable" without enumerating state values.
         """
-        return frozenset(
-            tag for node in self.configuration for tag in node.tags
-        )
+        return frozenset(tag for node in self.configuration for tag in node.tags)
 
     def has_tag(self, tag: str) -> bool:
         """Return True if any active state node declares *tag* (v5 ``hasTag``)."""
