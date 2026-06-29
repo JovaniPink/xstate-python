@@ -92,6 +92,20 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
   `setup(guards=..., actions=..., delays=..., actors=...).create_machine(config)`
 - **Snapshot serialization** (0.6.0, `from xstate import serialize_snapshot, deserialize_snapshot`)
   — persist and restore State; `create_actor(machine, snapshot=...)` for round-trip replay
+- **State tags** (0.7.0) — declare `tags: ["loading"]` (or a single string) on any state node;
+  query the snapshot with `state.has_tag("loading")` / `state.hasTag(...)` or read the aggregated
+  `state.tags` frozenset. Tags union across the whole active configuration (compound ancestors +
+  parallel regions) and are recomputed from the machine definition, so snapshots stay tag-free
+- **`stateIn` guard** (0.7.0, `from xstate import stateIn`) — first-class guard over the current
+  configuration: `stateIn("#id")`, `stateIn("parent.child")`, or `stateIn({parent: child})`.
+  Composes with `and_`/`or_`/`not_` and can be registered as a named guard; it reuses the same
+  matcher as the internal transition `in` guard (`algorithm._matches_in_state`)
+- **`choose` / `pure` actions** (0.7.0, `from xstate import choose, pure`) — higher-order actions
+  that expand into sub-actions at execution time. `choose([{guard, actions}, ...])` runs the first
+  branch whose guard passes (a guardless branch is the default); `pure(fn)` runs the action(s)
+  returned by `fn(context, event)` (or none). Both are resolved inside `algorithm.execute_content`,
+  so nested `assign`/`raise_`/`send`/side-effects flow through the engine in order. `choose` branch
+  guards see `(context, event)` but not the configuration, so `stateIn` isn't supported inside them
 
 Handler-signature note: guards/assigners are invoked arity-aware by
 `algorithm._invoke`, which supports four calling conventions: `()`, `(context)`,

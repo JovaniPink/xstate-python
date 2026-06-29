@@ -5,7 +5,14 @@ from collections.abc import Iterable, Mapping
 from collections.abc import Set as AbstractSet
 from typing import Any
 
-from xstate.action import ASSIGN_TYPE, RAISE_TYPE, Action
+from xstate.action import (
+    ASSIGN_TYPE,
+    CHOOSE_TYPE,
+    PURE_TYPE,
+    RAISE_TYPE,
+    Action,
+    build_action,
+)
 from xstate.event import Event
 from xstate.exceptions import UnregisteredImplementationError
 from xstate.handlers import GuardReference, invoke_handler
@@ -551,7 +558,7 @@ def condition_match(
         inner = cond.fn if isinstance(cond, HandlerAdapter) else cond
         if isinstance(inner, _ComposableGuard):
             guards = getattr(transition.source.machine, "guards", {}) or {}
-            if not inner._call(context, event, guards):
+            if not inner._call(context, event, guards, configuration):
                 return False
         elif not bool(invoke_handler(cond, context, event, params=params)):
             return False
@@ -765,6 +772,38 @@ def execute_transition_content(
     return context
 
 
+def _eval_action_guard(
+    guard: Any,
+    context: Any,
+    event: Event | None,
+    guards_registry: dict | None,
+) -> bool:
+    """Evaluate a ``choose`` branch guard against (context, event).
+
+    Accepts ``None`` (always true), a callable, a registered guard name, or a
+    composable guard.  Configuration-dependent guards (``stateIn``) are not
+    supported here, so they evaluate against an empty configuration.
+    """
+    if guard is None:
+        return True
+    registry = guards_registry or {}
+    resolved = guard
+    if isinstance(resolved, str):
+        resolved = registry.get(resolved)
+        if resolved is None:
+            raise UnregisteredImplementationError(
+                f"choose branch references guard '{guard}' but it is not "
+                "implemented. Pass it via Machine(config, guards={...})."
+            )
+    from xstate.guards import _ComposableGuard
+    from xstate.handlers import HandlerAdapter
+
+    inner = resolved.fn if isinstance(resolved, HandlerAdapter) else resolved
+    if isinstance(inner, _ComposableGuard):
+        return bool(inner._call(context, event, registry, None))
+    return bool(invoke_handler(resolved, context, event))
+
+
 def execute_content(
     action: Action,
     actions: list[Action],
@@ -776,6 +815,28 @@ def execute_content(
         internal_queue.append(Event(action.data.get("event", "")))
     elif action.type == ASSIGN_TYPE:
         context = _apply_assignment(action, context, event)
+    elif action.type == CHOOSE_TYPE:
+        guards_registry = action.data.get("_guards", {})
+        for branch in action.data.get("branches", []):
+            if _eval_action_guard(
+                branch.get("guard"), context, event, guards_registry
+            ):
+                for sub in branch.get("actions", []):
+                    context = execute_content(
+                        sub, actions, internal_queue, context, event
+                    )
+                break
+    elif action.type == PURE_TYPE:
+        fn = action.data.get("fn")
+        registry = action.data.get("_actions", {})
+        result = invoke_handler(fn, context, event)
+        if result is not None:
+            specs = result if isinstance(result, list) else [result]
+            for spec in specs:
+                sub = build_action(spec, registry)
+                context = execute_content(
+                    sub, actions, internal_queue, context, event
+                )
     else:
         actions.append(action)
     return context

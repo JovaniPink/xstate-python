@@ -3,7 +3,13 @@ from __future__ import annotations
 import warnings
 from typing import Any, Literal, cast
 
-from xstate.action import ASSIGN_TYPE, Action, build_action
+from xstate.action import (
+    ASSIGN_TYPE,
+    CHOOSE_TYPE,
+    PURE_TYPE,
+    Action,
+    build_action,
+)
 from xstate.exceptions import InvalidConfigError
 from xstate.handlers import GuardReference, adapt_handler
 from xstate.state_node import StateNode
@@ -105,9 +111,27 @@ class StateNodeConfigParser:
                 path=self._path(path, "target"),
             )
 
+        node.tags = self._build_tags(config.get("tags"), self._path(path, "tags"))
+
         node.donedata = self._build_output(node, path)
         self._build_configured_transitions(node, path)
         self._build_initial_transition(node, path)
+
+    def _build_tags(self, tags_config: Any, path: str) -> tuple[str, ...]:
+        if tags_config is None:
+            return ()
+        if isinstance(tags_config, str):
+            return (tags_config,)
+        if isinstance(tags_config, (list, tuple)):
+            if not all(isinstance(t, str) for t in tags_config):
+                raise InvalidConfigError(
+                    f"{path}: every tag must be a string, got {tags_config!r}."
+                )
+            return tuple(tags_config)
+        raise InvalidConfigError(
+            f"{path}: 'tags' must be a string or a list of strings, "
+            f"got {type(tags_config)!r}."
+        )
 
     def _build_output(self, node: StateNode, path: str) -> Any:
         if node.type != "final":
@@ -408,6 +432,12 @@ class StateNodeConfigParser:
                     for key, value in assignment.items()
                 }
             action.data["_context_adapter"] = self.machine.context_adapter
+        elif action.type == CHOOSE_TYPE:
+            self._adapt_choose(action, path)
+        elif action.type == PURE_TYPE:
+            # Returned actions are built lazily at execution time; stash the
+            # registry so string names / inline callables can be resolved then.
+            action.data["_actions"] = self.machine.actions
         elif callable(action.type):
             action.type = adapt_handler(
                 action.type,
@@ -416,6 +446,31 @@ class StateNodeConfigParser:
                 path=path,
             )
         return action
+
+    def _adapt_choose(self, action: Action, path: str) -> None:
+        raw_branches = action.data.get("branches") or []
+        branches: list[dict[str, Any]] = []
+        for index, raw_branch in enumerate(raw_branches):
+            branch_path = self._path(path, index)
+            if not isinstance(raw_branch, dict):
+                raise InvalidConfigError(
+                    f"{branch_path}: each choose branch must be a dict with "
+                    f"'actions' (and optional 'guard'), got {type(raw_branch)!r}."
+                )
+            guard = raw_branch.get("guard", raw_branch.get("cond"))
+            if callable(guard):
+                guard = adapt_handler(
+                    guard,
+                    kind="guard",
+                    strict=self.machine.strict,
+                    path=self._path(branch_path, "guard"),
+                )
+            sub_actions = self._build_actions(
+                raw_branch.get("actions"), self._path(branch_path, "actions")
+            )
+            branches.append({"guard": guard, "actions": sub_actions})
+        action.data["branches"] = branches
+        action.data["_guards"] = self.machine.guards
 
     def _resolve_targets(
         self, source: StateNode, target_spec: Any, path: str

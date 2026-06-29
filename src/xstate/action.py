@@ -10,6 +10,8 @@ SEND_TYPE = "xstate.send"
 CANCEL_TYPE = "xstate.cancel"
 SEND_PARENT_TYPE = "xstate.send_parent"
 SEND_TO_TYPE = "xstate.send_to"
+CHOOSE_TYPE = "xstate.choose"
+PURE_TYPE = "xstate.pure"
 
 # Action types handled by the interpreter, not the algorithm — passed through
 # _get_actions without resolution so the interpreter can act on them.
@@ -22,6 +24,8 @@ __all__ = [
     "CANCEL_TYPE",
     "SEND_PARENT_TYPE",
     "SEND_TO_TYPE",
+    "CHOOSE_TYPE",
+    "PURE_TYPE",
     "INTERPRETER_TYPES",
     "Action",
     "build_action",
@@ -31,6 +35,8 @@ __all__ = [
     "send_parent",
     "send_to",
     "cancel",
+    "choose",
+    "pure",
 ]
 
 
@@ -227,3 +233,47 @@ def cancel(send_id: str) -> dict[str, str]:
         cancel("t1")
     """
     return {"type": CANCEL_TYPE, "sendid": send_id}
+
+
+def choose(branches: list[dict[str, Any]]) -> dict[str, Any]:
+    """Run the actions of the first branch whose ``guard`` passes (v5 ``choose``).
+
+    *branches* is a list of dicts, each with:
+
+    - ``"actions"`` — an action spec or list of specs to run if the branch wins;
+    - ``"guard"`` (optional) — a callable ``(context, event)``, a registered
+      guard name, or a composable guard (``and_``/``or_``/``not_``).  A branch
+      with no guard always matches, so it acts as a default/``else`` branch.
+
+    Only the first matching branch runs; the rest are skipped.  Guards see the
+    current ``context`` and ``event`` but not the configuration, so ``stateIn``
+    is not supported inside a ``choose`` branch.
+
+    Example::
+
+        from xstate import choose, assign
+
+        choose([
+            {"guard": lambda c, e: c["count"] > 10, "actions": assign({"big": True})},
+            {"guard": "isMedium", "actions": [assign({"medium": True}), "notify"]},
+            {"actions": assign({"small": True})},  # default branch
+        ])
+    """
+    return {"type": CHOOSE_TYPE, "branches": branches}
+
+
+def pure(fn: Callable[..., Any]) -> dict[str, Any]:
+    """Build actions dynamically from ``fn(context, event)`` (v5 ``pure``).
+
+    ``fn`` returns an action spec, a list of specs, or ``None`` (no actions).
+    It must be **pure** — it computes *which* actions to run but performs no
+    side effects itself; the returned actions are then executed in order.
+
+    Example::
+
+        from xstate import pure, send_to
+
+        # Broadcast PING to every actor id listed in context.
+        pure(lambda ctx, ev: [send_to(a, "PING") for a in ctx["actors"]])
+    """
+    return {"type": PURE_TYPE, "fn": fn}
