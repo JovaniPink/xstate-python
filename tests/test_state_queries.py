@@ -138,3 +138,42 @@ def test_state_in_composes_with_other_guards():
     state = machine.transition(state, "GO_B2")
 
     assert machine.transition(state, "GO").value == {"a": "a2", "b": "b2"}
+
+
+def test_state_in_direct_call_with_context_having_state_attr_does_not_crash():
+    """A user context that happens to carry a `state` attribute must not be
+    mistaken for a HandlerArgs (regression for the old `hasattr` detection)."""
+
+    class UserContext:
+        # A perfectly ordinary user context that owns a `state` field.
+        state = "running"
+
+    guard = state_in("#ready")
+    # Previously raised AttributeError on `context.context`; now returns False
+    # because no active configuration was supplied.
+    assert guard(UserContext()) is False
+
+
+def test_state_in_direct_call_with_handler_args():
+    from xstate.handlers import HandlerArgs
+
+    machine = _parallel_machine_with_guard(lambda context, event: True)
+    state = machine.transition(machine.initial_state, "GO_B2")
+
+    guard = state_in("#ready")
+    args = HandlerArgs(context={}, event=None, state=state.configuration)
+    assert guard(args) is True
+
+    args_miss = HandlerArgs(
+        context={}, event=None, state=machine.initial_state.configuration
+    )
+    assert guard(args_miss) is False
+
+
+def test_state_in_direct_call_with_state_snapshot():
+    machine = _parallel_machine_with_guard(lambda context, event: True)
+    state = machine.transition(machine.initial_state, "GO_B2")
+
+    guard = state_in("#ready")
+    assert guard(state) is True
+    assert guard(machine.initial_state) is False

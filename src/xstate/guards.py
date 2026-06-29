@@ -166,12 +166,28 @@ class _StateInGuard(_ComposableGuard):
         return _matches_in_state(self._state_value, state)
 
     def __call__(self, context: Any = None, event: Any = None) -> bool:
-        if hasattr(context, "state"):
+        # Detect the call shape explicitly. `hasattr(context, "state")` is
+        # unsafe: a user's own context object may legitimately carry a `state`
+        # attribute, which would route it down the HandlerArgs path and raise
+        # AttributeError on `context.context`. Use isinstance instead, and also
+        # accept a State/MachineSnapshot so guards can be evaluated directly
+        # against a snapshot.
+        from xstate.handlers import HandlerArgs
+        from xstate.state import State
+
+        if isinstance(context, HandlerArgs):
             return self._call(
                 context.context,
                 context.event,
                 {},
                 state=context.state,
+            )
+        if isinstance(context, State):
+            return self._call(
+                context.context,
+                None,
+                {},
+                state=context.configuration,
             )
         return self._call(context, event, {})
 
