@@ -1,16 +1,16 @@
-"""Composable guard combinators (0.6.0) + ``stateIn`` guard (0.7.0).
+"""Composable guard helpers.
 
 ``and_``, ``or_``, and ``not_`` compose guards from smaller pieces without
-writing wrapper lambdas.  Sub-guards can be callables, strings that reference
+writing wrapper lambdas. Sub-guards can be callables, strings that reference
 other named guards in the machine's ``guards`` registry, or other composable
-guards (including :func:`stateIn`).
+guards including :func:`state_in` / :func:`stateIn`.
 
-``stateIn`` is a guard over the *current configuration* — it passes when the
-machine is in the given state — and composes with the combinators above.
+``state_in`` / ``stateIn`` checks the current active state configuration and
+uses the same matching syntax as a transition ``in`` guard.
 
 Usage::
 
-    from xstate import Machine, and_, not_, or_, stateIn
+    from xstate import Machine, and_, stateIn
 
     machine = Machine(config, guards={
         "isLoggedIn": lambda ctx, evt: ctx.get("logged_in"),
@@ -20,11 +20,11 @@ Usage::
 
 Or via the ``setup()`` builder (recommended)::
 
-    from xstate import setup, and_, stateIn
+    from xstate import setup, and_, state_in
 
     machine = setup(guards={
         "isLoggedIn": lambda ctx, evt: ctx.get("logged_in"),
-        "canGo": and_("isLoggedIn", stateIn("ready")),
+        "canGo": and_("isLoggedIn", state_in("ready")),
     }).create_machine(config)
 
 String sub-guard names are resolved lazily from the machine's ``guards``
@@ -33,16 +33,14 @@ registry when the guard is evaluated by :func:`~xstate.algorithm.condition_match
 
 from __future__ import annotations
 
+import inspect
 from typing import Any
+
+__all__ = ["and_", "or_", "not_", "state_in", "stateIn"]
 
 
 class _ComposableGuard:
-    """Base class for ``and_``, ``or_``, ``not_``, and ``stateIn`` guards.
-
-    Instances are callable (``guard(context, event)``) and can be registered
-    directly in the machine's ``guards`` dict.  Evaluation threads the active
-    ``configuration`` through so nested ``stateIn`` sub-guards can see it.
-    """
+    """Base class for ``and_``, ``or_``, ``not_``, and ``stateIn`` guards."""
 
     def _eval(
         self,
@@ -50,7 +48,7 @@ class _ComposableGuard:
         context: Any,
         event: Any,
         registry: dict,
-        configuration: Any = None,
+        state: Any | None = None,
     ) -> bool:
         if isinstance(guard, str):
             fn = registry.get(guard)
@@ -60,24 +58,27 @@ class _ComposableGuard:
                     "Make sure it is registered in the machine's guards dict."
                 )
             guard = fn
-        if isinstance(guard, _ComposableGuard):
-            return guard._call(context, event, registry, configuration)
-        from xstate.handlers import invoke_handler
 
-        return bool(invoke_handler(guard, context, event))
+        from xstate.handlers import HandlerAdapter, invoke_handler
+
+        inner = guard.fn if isinstance(guard, HandlerAdapter) else guard
+        if isinstance(inner, _ComposableGuard):
+            return inner._call(context, event, registry, state=state)
+
+        return bool(invoke_handler(guard, context, event, state=state))
 
     def _call(
         self,
         context: Any,
         event: Any,
         registry: dict,
-        configuration: Any = None,
+        state: Any | None = None,
     ) -> bool:
         raise NotImplementedError
 
     def __call__(self, context: Any = None, event: Any = None) -> bool:
-        """Direct call (no registry/configuration — for standalone use)."""
-        return self._call(context, event, {}, None)
+        """Direct call without a registry or active configuration."""
+        return self._call(context, event, {})
 
 
 class _AndGuard(_ComposableGuard):
@@ -87,10 +88,14 @@ class _AndGuard(_ComposableGuard):
         self._guards = guards
 
     def _call(
-        self, context: Any, event: Any, registry: dict, configuration: Any = None
+        self,
+        context: Any,
+        event: Any,
+        registry: dict,
+        state: Any | None = None,
     ) -> bool:
         return all(
-            self._eval(g, context, event, registry, configuration) for g in self._guards
+            self._eval(g, context, event, registry, state=state) for g in self._guards
         )
 
 
@@ -101,10 +106,14 @@ class _OrGuard(_ComposableGuard):
         self._guards = guards
 
     def _call(
-        self, context: Any, event: Any, registry: dict, configuration: Any = None
+        self,
+        context: Any,
+        event: Any,
+        registry: dict,
+        state: Any | None = None,
     ) -> bool:
         return any(
-            self._eval(g, context, event, registry, configuration) for g in self._guards
+            self._eval(g, context, event, registry, state=state) for g in self._guards
         )
 
 
@@ -115,31 +124,70 @@ class _NotGuard(_ComposableGuard):
         self._guard = guard
 
     def _call(
-        self, context: Any, event: Any, registry: dict, configuration: Any = None
+        self,
+        context: Any,
+        event: Any,
+        registry: dict,
+        state: Any | None = None,
     ) -> bool:
-        return not self._eval(self._guard, context, event, registry, configuration)
+        return not self._eval(
+            self._guard,
+            context,
+            event,
+            registry,
+            state=state,
+        )
 
 
 class _StateInGuard(_ComposableGuard):
-    """Guard that passes when the machine is in the given state (v5 ``stateIn``).
+    """Guard that passes when the active state configuration matches a spec."""
 
-    The *spec* uses the same syntax as a transition ``in`` guard: ``"#id"`` for
-    an explicit id, a dotted ``"parent.child"`` path, or a ``{parent: child}``
-    dict.  Evaluation needs the active configuration; when called without one
-    (e.g. directly, outside a transition) it returns ``False``.
-    """
+    __signature__ = inspect.Signature(
+        [
+            inspect.Parameter(
+                "args",
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            )
+        ]
+    )
 
-    def __init__(self, spec: Any):
-        self._spec = spec
+    def __init__(self, state_value: Any):
+        self._state_value = state_value
 
     def _call(
-        self, context: Any, event: Any, registry: dict, configuration: Any = None
+        self,
+        context: Any,
+        event: Any,
+        registry: dict,
+        state: Any | None = None,
     ) -> bool:
-        if configuration is None:
+        if state is None:
             return False
         from xstate.algorithm import _matches_in_state
 
-        return _matches_in_state(self._spec, configuration)
+        return _matches_in_state(self._state_value, state)
+
+    def __call__(self, context: Any = None, event: Any = None) -> bool:
+        # Detect call shape explicitly. A user's context object may legitimately
+        # carry a `state` attribute, so `hasattr(context, "state")` is unsafe.
+        from xstate.handlers import HandlerArgs
+        from xstate.state import State
+
+        if isinstance(context, HandlerArgs):
+            return self._call(
+                context.context,
+                context.event,
+                {},
+                state=context.state,
+            )
+        if isinstance(context, State):
+            return self._call(
+                context.context,
+                None,
+                {},
+                state=context.configuration,
+            )
+        return self._call(context, event, {})
 
 
 def and_(*guards: Any) -> _AndGuard:
@@ -157,10 +205,11 @@ def not_(guard: Any) -> _NotGuard:
     return _NotGuard(guard)
 
 
-def stateIn(spec: Any) -> _StateInGuard:
-    """Return a guard that passes when the machine is currently in *spec*.
+def state_in(state_value: Any) -> _StateInGuard:
+    """Return a guard that passes when the current state matches *state_value*."""
+    return _StateInGuard(state_value)
 
-    *spec* is ``"#id"``, a dotted ``"parent.child"`` path, or a ``{parent: child}``
-    dict — the same shape accepted by a transition ``in`` guard.
-    """
-    return _StateInGuard(spec)
+
+def stateIn(state_value: Any) -> _StateInGuard:
+    """XState-compatible alias for :func:`state_in`."""
+    return state_in(state_value)

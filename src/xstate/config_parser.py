@@ -77,6 +77,8 @@ class StateNodeConfigParser:
                 Literal["atomic", "compound", "parallel", "final", "history"],
                 node_type,
             ),
+            tags=self._build_tags(config.get("tags"), self._path(path, "tags")),
+            meta=config.get("meta"),
         )
         self.machine._register(node)
 
@@ -117,19 +119,23 @@ class StateNodeConfigParser:
         self._build_configured_transitions(node, path)
         self._build_initial_transition(node, path)
 
-    def _build_tags(self, tags_config: Any, path: str) -> tuple[str, ...]:
+    def _build_tags(self, tags_config: Any, path: str) -> frozenset[str]:
         if tags_config is None:
-            return ()
+            return frozenset()
         if isinstance(tags_config, str):
-            return (tags_config,)
-        if isinstance(tags_config, (list, tuple)):
-            if not all(isinstance(t, str) for t in tags_config):
-                raise InvalidConfigError(
-                    f"{path}: every tag must be a string, got {tags_config!r}."
-                )
-            return tuple(tags_config)
+            return frozenset({tags_config})
+        if isinstance(tags_config, (list, tuple, set, frozenset)):
+            tags: list[str] = []
+            for index, tag in enumerate(tags_config):
+                if not isinstance(tag, str):
+                    raise InvalidConfigError(
+                        f"{path}[{index}]: every tag must be a string, "
+                        f"got {type(tag)!r}."
+                    )
+                tags.append(tag)
+            return frozenset(tags)
         raise InvalidConfigError(
-            f"{path}: 'tags' must be a string or a list of strings, "
+            f"{path}: tags must be a string or a list of strings, "
             f"got {type(tags_config)!r}."
         )
 

@@ -481,7 +481,7 @@ def _matches_in_state(in_spec, configuration: AbstractSet[StateNode]) -> bool:
     ``in_spec`` is the value of an XState ``in`` transition guard:
     - str ``"#id"``   — true if a state with that id is active
     - str ``"a.b"``   — true if the state keyed "b" whose parent is keyed "a" is active
-    - dict ``{k: v}`` — true if all k/v pairs are satisfied (each a one-level path)
+    - dict ``{k: v}`` — true if all nested state-value paths are satisfied
     """
     if isinstance(in_spec, str):
         if in_spec.startswith("#"):
@@ -513,10 +513,23 @@ def _matches_in_state(in_spec, configuration: AbstractSet[StateNode]) -> bool:
         return _path_active(parts)
     if isinstance(in_spec, dict):
         return all(
-            _matches_in_state(f"{parent_key}.{child_key}", configuration)
-            for parent_key, child_key in in_spec.items()
+            _matches_in_state(path, configuration) for path in _state_paths(in_spec)
         )
     return True
+
+
+def _state_paths(state_value: dict) -> list[str]:
+    paths: list[str] = []
+
+    def walk(prefix: list[str], value) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                walk([*prefix, str(key)], child)
+            return
+        paths.append(".".join([*prefix, str(value)]))
+
+    walk([], state_value)
+    return paths
 
 
 def condition_match(
@@ -558,9 +571,11 @@ def condition_match(
         inner = cond.fn if isinstance(cond, HandlerAdapter) else cond
         if isinstance(inner, _ComposableGuard):
             guards = getattr(transition.source.machine, "guards", {}) or {}
-            if not inner._call(context, event, guards, configuration):
+            if not inner._call(context, event, guards, state=configuration):
                 return False
-        elif not bool(invoke_handler(cond, context, event, params=params)):
+        elif not bool(
+            invoke_handler(cond, context, event, params=params, state=configuration)
+        ):
             return False
 
     in_spec = getattr(transition, "in_state", None)
