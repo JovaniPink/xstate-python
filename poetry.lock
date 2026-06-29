@@ -424,7 +424,6 @@ files = [
 
 [package.dependencies]
 pytest = ">=8.4,<10"
-typing-extensions = {version = ">=4.12", markers = "python_version < \"3.13\""}
 
 [package.extras]
 docs = ["sphinx (>=5.3)", "sphinx-rtd-theme (>=1)", "sphinx-tabs (>=3.5)"]
@@ -494,5 +493,5 @@ scxml = []
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.11"
-content-hash = "e7092c6659068ff4692084a9380a057b037e5261949edfe7a98958d6467eafb8"
+python-versions = ">=3.13"
+content-hash = "97b01673ecda312018969255bcf6d529f50f5bf32cc37deaa1563ccd40e15318"

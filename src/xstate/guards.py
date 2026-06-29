@@ -90,8 +90,7 @@ class _AndGuard(_ComposableGuard):
         self, context: Any, event: Any, registry: dict, configuration: Any = None
     ) -> bool:
         return all(
-            self._eval(g, context, event, registry, configuration)
-            for g in self._guards
+            self._eval(g, context, event, registry, configuration) for g in self._guards
         )
 
 
@@ -105,8 +104,7 @@ class _OrGuard(_ComposableGuard):
         self, context: Any, event: Any, registry: dict, configuration: Any = None
     ) -> bool:
         return any(
-            self._eval(g, context, event, registry, configuration)
-            for g in self._guards
+            self._eval(g, context, event, registry, configuration) for g in self._guards
         )
 
 

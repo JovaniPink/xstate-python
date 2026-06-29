@@ -8,9 +8,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/JovaniPink/xstate-python/actions"><img alt="Primary tests" src="https://img.shields.io/badge/primary%20tests-284%20passing-brightgreen"></a>
+  <a href="https://github.com/JovaniPink/xstate-python/actions/workflows/pull_request.yaml"><img alt="Tests and code quality" src="https://github.com/JovaniPink/xstate-python/actions/workflows/pull_request.yaml/badge.svg"></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.13%2B-blue">
-  <img alt="Status" src="https://img.shields.io/badge/status-alpha%20(0.5.0)-orange">
+  <img alt="Status" src="https://img.shields.io/badge/status-alpha%20(0.6.0)-orange">
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green"></a>
 </p>
 
@@ -50,8 +50,8 @@ functions, delay values, and actor logic.
 
 ## Installation
 
-The package metadata is ready for `xstate`, but this branch is still pre-release.
-For now, install from source:
+The `0.6.0` package metadata is ready for release. Until the GitHub release
+publishes to PyPI, install from source:
 
 ```bash
 git clone https://github.com/JovaniPink/xstate-python.git
@@ -388,11 +388,11 @@ poetry run ruff check src/ tests/
 
 | Area | Current state |
 |---|---|
-| PyPI release | Packaging metadata is modernized; release still pending |
-| XState v5 setup | `setup(...).create_machine(...)` exists; composable guard helpers remain future work |
+| PyPI release | `0.6.0` release-readiness is complete; publish via GitHub Release |
+| XState v5 setup | `setup(...).create_machine(...)` and composable guards are present |
 | Async | `AsyncInterpreter`, async actors, `from_observable`, and `to_promise` are present |
 | SCXML | XML import works; safe Boolean cond subset works; `more-parallel` conformance remains open |
-| Persistence | Snapshot serialization is not implemented yet |
+| Persistence | Snapshot serialization and restore helpers are present |
 
 ## Related Projects
 

@@ -44,9 +44,7 @@ def test_tags_as_single_string():
 
 
 def test_no_tags_is_empty_frozenset():
-    machine = Machine(
-        {"id": "m", "initial": "idle", "states": {"idle": {}}}
-    )
+    machine = Machine({"id": "m", "initial": "idle", "states": {"idle": {}}})
     assert machine.initial_state.tags == frozenset()
 
 

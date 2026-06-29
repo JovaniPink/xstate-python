@@ -1,18 +1,10 @@
 from __future__ import annotations
 
-import sys
 import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from types import MappingProxyType
-
-if sys.version_info >= (3, 12):
-    from typing import override
-else:
-
-    def override(fn):  # type: ignore[misc]
-        return fn
-
+from typing import override
 
 import pytest
 

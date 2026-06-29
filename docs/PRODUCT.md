@@ -2,8 +2,7 @@
 
 Research snapshot: June 2026. External ecosystem numbers are approximate and
 should be refreshed before publication or fundraising use. Repo capability notes
-reflect the current stacked branch state after typed-core and Python 3.13
-runtime-safety work.
+reflect the current `master` branch after the 0.6.0 release-readiness work.
 
 ## Product Thesis
 
@@ -22,7 +21,7 @@ bridge between XState's JSON ecosystem and Python backends.
 
 | Area | Status |
 |---|---|
-| Packaging | Project metadata is modernized for Python 3.13+, PyPI release still pending |
+| Packaging | Project metadata is modernized for Python 3.13+ and ready for the 0.6.0 PyPI release |
 | Core transition API | `Machine(config).transition(state, event)` |
 | XState JSON | Native Python dict / JSON-compatible config boundary |
 | Parser architecture | Typed schema + normalization/parser layer |
@@ -46,9 +45,10 @@ bridge between XState's JSON ecosystem and Python backends.
 - Delayed transitions via `after`, numeric or named delays.
 - Machine snapshots with `status`, `output`, `error`, `matches(...)`, and
   `can(event)`.
+- Snapshot serialization and restoration helpers for actor persistence flows.
 - XState v5 naming alignment: `guard`, `output`, `always`, `actors`,
   `MachineSnapshot`, `create_actor`, and `setup`.
-- Primary suite result: `284 passed`.
+- Primary suite passes in current Python 3.13/3.14 CI.
 - SCXML `cond-js` subset result: `4 passed`.
 - Full SCXML result: `45 passed`, `8 failed` in known `more-parallel` cases.
 
@@ -68,10 +68,10 @@ JavaScript and wanting the same machine shape in Python services.
 
 | Priority | Work |
 |---|---|
-| High | Publish to PyPI as `xstate` |
+| High | Publish 0.6.0 to PyPI as `xstate` |
 | High | Document the public API by concept: machines, guards/actions, context, interpreter, actors, async, SCXML |
 | High | Fix the remaining SCXML `more-parallel` conformance cases |
-| Medium | Snapshot persistence and restore helpers |
+| Medium | Document snapshot persistence and restore helpers |
 | Medium | Inspector protocol compatibility |
 | Medium | More XState v5 utilities: composable guards, `provide`, graph/test helpers |
 | Low | Django/FastAPI examples after the runtime API settles |
@@ -80,8 +80,8 @@ JavaScript and wanting the same machine shape in Python services.
 
 | Metric | Near-term target |
 |---|---|
-| PyPI release | `pip install xstate` works |
-| Primary test count | 300+ focused tests |
+| PyPI release | `pip install xstate` works after the 0.6.0 GitHub Release |
+| Primary test count | Maintain 300+ focused tests |
 | SCXML pass rate | Resolve known `more-parallel` group |
 | Docs | README plus concept docs for the main public APIs |
 | Examples | JSON, sync, async, actor, and integration examples |
