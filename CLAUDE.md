@@ -96,6 +96,10 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
   query the snapshot with `state.has_tag("loading")` / `state.hasTag(...)` or read the aggregated
   `state.tags` frozenset. Tags union across the whole active configuration (compound ancestors +
   parallel regions) and are recomputed from the machine definition, so snapshots stay tag-free
+- **`stateIn` guard** (0.7.0, `from xstate import stateIn`) — first-class guard over the current
+  configuration: `stateIn("#id")`, `stateIn("parent.child")`, or `stateIn({parent: child})`.
+  Composes with `and_`/`or_`/`not_` and can be registered as a named guard; it reuses the same
+  matcher as the internal transition `in` guard (`algorithm._matches_in_state`)
 
 Handler-signature note: guards/assigners are invoked arity-aware by
 `algorithm._invoke`, which supports four calling conventions: `()`, `(context)`,
