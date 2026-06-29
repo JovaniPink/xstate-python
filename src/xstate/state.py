@@ -21,8 +21,8 @@ class State:
     context: Any
     actions: tuple[Callable[..., Any] | Action, ...]
     history_value: Mapping[str, frozenset[StateNode]]
-    tags: frozenset[str]
-    meta: Mapping[str, Any]
+    _tags: frozenset[str]
+    _meta: Mapping[str, Any]
     status: Literal["active", "done", "error"]
     output: Any | None
     error: Any | None
@@ -50,10 +50,10 @@ class State:
                 for state_id, states in (history_value or {}).items()
             }
         )
-        self.tags = frozenset(
+        self._tags = frozenset(
             tag for state_node in self.configuration for tag in state_node.tags
         )
-        self.meta = MappingProxyType(
+        self._meta = MappingProxyType(
             {
                 state_node.id: _freeze_meta(state_node.meta)
                 for state_node in sorted(
@@ -87,6 +87,28 @@ class State:
             self.status = "active"
             self.output = None
 
+    @property
+    def tags(self) -> frozenset[str]:
+        """Union of the ``tags`` declared on every active state node.
+
+        XState v5 surfaces ``snapshot.tags`` as the set of tags across the
+        current configuration; querying it is the idiomatic way to ask "is the
+        machine loading / busy / editable" without enumerating state values.
+        """
+        return self._tags
+
+    @property
+    def meta(self) -> Mapping[str, Any]:
+        """Read-only metadata for active state nodes, keyed by state id."""
+        return self._meta
+
+    def has_tag(self, tag: str) -> bool:
+        """Return True if any active state node declares *tag* (v5 ``hasTag``)."""
+        return tag in self._tags
+
+    # XState v5 spells this ``hasTag``; expose both for JS-parity ergonomics.
+    hasTag = has_tag
+
     def can(self, event: Any) -> bool:
         """Return True if any enabled transition exists for *event* right now.
 
@@ -115,14 +137,6 @@ class State:
         if isinstance(value, dict):
             return _matches_dict(self.value, value)
         return False
-
-    def has_tag(self, tag: str) -> bool:
-        """Return True if any active state node has *tag*."""
-        return tag in self.tags
-
-    def hasTag(self, tag: str) -> bool:
-        """XState-compatible alias for :meth:`has_tag`."""
-        return self.has_tag(tag)
 
     def __repr__(self) -> str:
         return (

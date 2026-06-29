@@ -1,27 +1,30 @@
 """Composable guard helpers.
 
 ``and_``, ``or_``, and ``not_`` compose guards from smaller pieces without
-writing wrapper lambdas.  Sub-guards can be callables or strings that reference
-other named guards in the machine's ``guards`` registry.
-``state_in`` / ``stateIn`` checks the current active state configuration.
+writing wrapper lambdas. Sub-guards can be callables, strings that reference
+other named guards in the machine's ``guards`` registry, or other composable
+guards including :func:`state_in` / :func:`stateIn`.
+
+``state_in`` / ``stateIn`` checks the current active state configuration and
+uses the same matching syntax as a transition ``in`` guard.
 
 Usage::
 
-    from xstate import Machine, and_, not_, or_
+    from xstate import Machine, and_, stateIn
 
     machine = Machine(config, guards={
         "isLoggedIn": lambda ctx, evt: ctx.get("logged_in"),
         "hasPermission": lambda ctx, evt: ctx.get("permission"),
-        "canGo": and_("isLoggedIn", "hasPermission"),
+        "canGo": and_("isLoggedIn", "hasPermission", stateIn("#ready")),
     })
 
 Or via the ``setup()`` builder (recommended)::
 
-    from xstate import setup, and_
+    from xstate import setup, and_, state_in
 
     machine = setup(guards={
         "isLoggedIn": lambda ctx, evt: ctx.get("logged_in"),
-        "canGo": and_("isLoggedIn", lambda ctx, evt: ctx.get("value") > 0),
+        "canGo": and_("isLoggedIn", state_in("ready")),
     }).create_machine(config)
 
 String sub-guard names are resolved lazily from the machine's ``guards``
@@ -37,11 +40,7 @@ __all__ = ["and_", "or_", "not_", "state_in", "stateIn"]
 
 
 class _ComposableGuard:
-    """Base class for ``and_``, ``or_``, and ``not_`` guard combinators.
-
-    Instances are callable (``guard(context, event)``) and can be registered
-    directly in the machine's ``guards`` dict.
-    """
+    """Base class for ``and_``, ``or_``, ``not_``, and ``stateIn`` guards."""
 
     def _eval(
         self,
@@ -59,6 +58,7 @@ class _ComposableGuard:
                     "Make sure it is registered in the machine's guards dict."
                 )
             guard = fn
+
         from xstate.handlers import HandlerAdapter, invoke_handler
 
         inner = guard.fn if isinstance(guard, HandlerAdapter) else guard
@@ -77,7 +77,7 @@ class _ComposableGuard:
         raise NotImplementedError
 
     def __call__(self, context: Any = None, event: Any = None) -> bool:
-        """Direct call (no registry — string sub-guards must not be used)."""
+        """Direct call without a registry or active configuration."""
         return self._call(context, event, {})
 
 
@@ -168,12 +168,8 @@ class _StateInGuard(_ComposableGuard):
         return _matches_in_state(self._state_value, state)
 
     def __call__(self, context: Any = None, event: Any = None) -> bool:
-        # Detect the call shape explicitly. `hasattr(context, "state")` is
-        # unsafe: a user's own context object may legitimately carry a `state`
-        # attribute, which would route it down the HandlerArgs path and raise
-        # AttributeError on `context.context`. Use isinstance instead, and also
-        # accept a State/MachineSnapshot so guards can be evaluated directly
-        # against a snapshot.
+        # Detect call shape explicitly. A user's context object may legitimately
+        # carry a `state` attribute, so `hasattr(context, "state")` is unsafe.
         from xstate.handlers import HandlerArgs
         from xstate.state import State
 

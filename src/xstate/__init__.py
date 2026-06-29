@@ -1,4 +1,13 @@
-from xstate.action import assign, cancel, raise_, send, send_parent, send_to  # noqa
+from xstate.action import (  # noqa
+    assign,
+    cancel,
+    choose,
+    pure,
+    raise_,
+    send,
+    send_parent,
+    send_to,
+)
 from xstate.actor import (  # noqa
     Actor,
     ActorSystem,
@@ -59,6 +68,9 @@ __all__ = [
     "send_to",
     "cancel",
     "raise_",
+    # Higher-order actions (0.7.0)
+    "choose",
+    "pure",
     # Context adapters
     "ContextAdapter",
     "DeepCopyContextAdapter",
@@ -79,6 +91,8 @@ __all__ = [
     "and_",
     "or_",
     "not_",
+    "state_in",
+    # stateIn guard (0.7.0)
     "state_in",
     "stateIn",
     # Snapshot serialization (0.6.0)
