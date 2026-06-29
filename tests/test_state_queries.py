@@ -73,6 +73,31 @@ def test_state_meta_exposes_active_state_metadata_read_only():
         state.meta["doc.published"] = {"label": "Published"}  # type: ignore[index]
 
 
+def test_state_meta_freezes_nested_metadata_values():
+    machine = Machine(
+        {
+            "id": "doc",
+            "meta": {
+                "title": "Document workflow",
+                "labels": ["public", "reviewed"],
+                "nested": {"owner": "docs"},
+            },
+            "initial": "editing",
+            "states": {"editing": {}},
+        }
+    )
+
+    state = machine.initial_state
+
+    assert state.meta["doc"]["labels"] == ("public", "reviewed")
+    with pytest.raises(TypeError):
+        state.meta["doc"]["nested"]["owner"] = "changed"
+    with pytest.raises(TypeError):
+        state.meta["doc"]["labels"][0] = "changed"
+
+    assert machine.initial_state.meta["doc"]["nested"]["owner"] == "docs"
+
+
 def test_invalid_tags_are_path_aware():
     with pytest.raises(InvalidConfigError, match=r"states\.a\.tags\[0\]"):
         Machine(
@@ -177,3 +202,64 @@ def test_state_in_direct_call_with_state_snapshot():
     guard = state_in("#ready")
     assert guard(state) is True
     assert guard(machine.initial_state) is False
+
+
+def test_state_in_matches_nested_dict_state_values():
+    machine = Machine(
+        {
+            "id": "nested",
+            "initial": "a",
+            "states": {
+                "a": {
+                    "initial": "b",
+                    "states": {
+                        "b": {
+                            "initial": "c",
+                            "states": {"c": {}, "d": {}},
+                        }
+                    },
+                }
+            },
+        }
+    )
+
+    state = machine.initial_state
+
+    assert state.value == {"a": {"b": "c"}}
+    assert state_in({"a": {"b": "c"}})(state)
+    assert not state_in({"a": {"b": "d"}})(state)
+
+
+def test_named_composable_guard_preserves_registry_and_state():
+    machine = Machine(
+        {
+            "id": "cross",
+            "type": "parallel",
+            "states": {
+                "a": {
+                    "initial": "a1",
+                    "states": {
+                        "a1": {"on": {"GO": {"target": "a2", "guard": "outer"}}},
+                        "a2": {},
+                    },
+                },
+                "b": {
+                    "initial": "b1",
+                    "states": {
+                        "b1": {"on": {"GO_B2": "b2"}},
+                        "b2": {"id": "ready"},
+                    },
+                },
+            },
+        },
+        guards={
+            "inner": state_in("#ready"),
+            "outer": and_("inner"),
+        },
+    )
+
+    state = machine.initial_state
+    assert machine.transition(state, "GO").value == {"a": "a1", "b": "b1"}
+
+    state = machine.transition(state, "GO_B2")
+    assert machine.transition(state, "GO").value == {"a": "a2", "b": "b2"}

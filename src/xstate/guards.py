@@ -59,9 +59,11 @@ class _ComposableGuard:
                     "Make sure it is registered in the machine's guards dict."
                 )
             guard = fn
-        if isinstance(guard, _ComposableGuard):
-            return guard._call(context, event, registry, state=state)
-        from xstate.handlers import invoke_handler
+        from xstate.handlers import HandlerAdapter, invoke_handler
+
+        inner = guard.fn if isinstance(guard, HandlerAdapter) else guard
+        if isinstance(inner, _ComposableGuard):
+            return inner._call(context, event, registry, state=state)
 
         return bool(invoke_handler(guard, context, event, state=state))
 

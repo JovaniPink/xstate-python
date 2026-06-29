@@ -55,7 +55,7 @@ class State:
         )
         self.meta = MappingProxyType(
             {
-                state_node.id: state_node.meta
+                state_node.id: _freeze_meta(state_node.meta)
                 for state_node in sorted(
                     self.configuration,
                     key=lambda node: node.order,
@@ -142,6 +142,18 @@ def _matches_dict(state_value: Any, pattern: Any) -> bool:
             for k, v in pattern.items()
         )
     )
+
+
+def _freeze_meta(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return MappingProxyType(
+            {key: _freeze_meta(child) for key, child in value.items()}
+        )
+    if isinstance(value, list | tuple):
+        return tuple(_freeze_meta(child) for child in value)
+    if isinstance(value, set | frozenset):
+        return frozenset(_freeze_meta(child) for child in value)
+    return value
 
 
 # XState v5 public alias.
