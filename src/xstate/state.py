@@ -21,6 +21,8 @@ class State:
     context: Any
     actions: tuple[Callable[..., Any] | Action, ...]
     history_value: Mapping[str, frozenset[StateNode]]
+    _tags: frozenset[str]
+    _meta: Mapping[str, Any]
     status: Literal["active", "done", "error"]
     output: Any | None
     error: Any | None
@@ -46,6 +48,19 @@ class State:
             {
                 state_id: frozenset(states)
                 for state_id, states in (history_value or {}).items()
+            }
+        )
+        self._tags = frozenset(
+            tag for state_node in self.configuration for tag in state_node.tags
+        )
+        self._meta = MappingProxyType(
+            {
+                state_node.id: _freeze_meta(state_node.meta)
+                for state_node in sorted(
+                    self.configuration,
+                    key=lambda node: node.order,
+                )
+                if state_node.meta is not None
             }
         )
         self.error = None
@@ -80,11 +95,16 @@ class State:
         current configuration; querying it is the idiomatic way to ask "is the
         machine loading / busy / editable" without enumerating state values.
         """
-        return frozenset(tag for node in self.configuration for tag in node.tags)
+        return self._tags
+
+    @property
+    def meta(self) -> Mapping[str, Any]:
+        """Read-only metadata for active state nodes, keyed by state id."""
+        return self._meta
 
     def has_tag(self, tag: str) -> bool:
         """Return True if any active state node declares *tag* (v5 ``hasTag``)."""
-        return any(tag in node.tags for node in self.configuration)
+        return tag in self._tags
 
     # XState v5 spells this ``hasTag``; expose both for JS-parity ergonomics.
     hasTag = has_tag
@@ -136,6 +156,18 @@ def _matches_dict(state_value: Any, pattern: Any) -> bool:
             for k, v in pattern.items()
         )
     )
+
+
+def _freeze_meta(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return MappingProxyType(
+            {key: _freeze_meta(child) for key, child in value.items()}
+        )
+    if isinstance(value, list | tuple):
+        return tuple(_freeze_meta(child) for child in value)
+    if isinstance(value, set | frozenset):
+        return frozenset(_freeze_meta(child) for child in value)
+    return value
 
 
 # XState v5 public alias.

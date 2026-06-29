@@ -298,9 +298,47 @@ containers are immutable at the boundary: `configuration` is a `frozenset`,
 `actions` is a `tuple`, and `history_value` is read-only. For immutable
 dataclass contexts, use `dataclass_context()` / `DataclassContextAdapter`.
 
+Snapshots also expose XState-style query data:
+
+```python
+state = machine.initial_state
+
+state.has_tag("loading")  # Pythonic
+state.hasTag("loading")   # XState-compatible alias
+state.tags                # frozenset of active state tags
+state.meta                # read-only mapping of active state ids to metadata
+```
+
+Use `state_in(...)` / `stateIn(...)` when a reusable guard should depend on the
+current active state configuration:
+
+```python
+from xstate import Machine, state_in
+
+machine = Machine(
+    {
+        "id": "workflow",
+        "initial": "editing",
+        "states": {
+            "editing": {"on": {"SUBMIT": "review"}},
+            "review": {
+                "on": {
+                    "APPROVE": {
+                        "target": "published",
+                        "guard": state_in("review"),
+                    }
+                }
+            },
+            "published": {"type": "final", "tags": ["done"]},
+        },
+    }
+)
+```
+
 ## Core Statechart Features
 
 - Hierarchical and parallel states
+- State tags, metadata, `matches(...)`, `can(...)`, and `has_tag(...)`
 - Entry, exit, and transition actions
 - Named and inline guards
 - Context and `assign`
@@ -310,6 +348,20 @@ dataclass contexts, use `dataclass_context()` / `DataclassContextAdapter`.
 - Delayed transitions via `after`
 - SCXML XML import
 - Actor invocation with `invoke`, `onDone`, and `onError`
+
+## Diagrams
+
+`to_mermaid(machine)` exports a dependency-free Mermaid `stateDiagram-v2` string:
+
+```python
+from xstate import to_mermaid
+
+print(to_mermaid(machine))
+```
+
+This is intentionally lightweight: it covers state hierarchy, initial states,
+transition arrows, and targetless-transition comments without adding Graphviz or
+browser-rendering dependencies.
 
 ## Examples
 
@@ -348,6 +400,9 @@ from xstate import (
     send_to,
     cancel,
     raise_,
+    state_in,
+    stateIn,
+    to_mermaid,
     dataclass_context,
 )
 from xstate.scheduler import SimulatedClock, ThreadClock
@@ -390,6 +445,8 @@ poetry run ruff check src/ tests/
 |---|---|
 | PyPI release | `0.6.0` release-readiness is complete; publish via GitHub Release |
 | XState v5 setup | `setup(...).create_machine(...)` and composable guards are present |
+| Snapshot queries | `tags`, `meta`, `has_tag`/`hasTag`, and `state_in`/`stateIn` are present on the 0.7.0 branch |
+| Diagrams | Dependency-free Mermaid export is present on the 0.7.0 branch |
 | Async | `AsyncInterpreter`, async actors, `from_observable`, and `to_promise` are present |
 | SCXML | XML import works; safe Boolean cond subset works; `more-parallel` conformance remains open |
 | Persistence | Snapshot serialization and restore helpers are present |

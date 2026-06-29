@@ -30,13 +30,14 @@ class StateNode:
     transitions: list[Transition] = field(default_factory=list)
     entry: list[Action] = field(default_factory=list)
     exit: list[Action] = field(default_factory=list)
+    tags: frozenset[str] = field(default_factory=frozenset)
+    meta: Any | None = None
     donedata: Any | None = None
     history: Literal["shallow", "deep"] | None = None
     transition: Transition | None = None
     after: list[tuple[Any, str]] = field(default_factory=list)
     invoke: list[dict[str, Any]] = field(default_factory=list)
     initial_transition: Transition | None = None
-    tags: tuple[str, ...] = field(default_factory=tuple)
 
     @property
     def history_states(self) -> list[StateNode]:

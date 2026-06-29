@@ -30,10 +30,11 @@ from xstate.exceptions import (  # noqa
     UnregisteredImplementationError,
     XStateError,
 )
-from xstate.guards import and_, not_, or_, stateIn  # noqa
+from xstate.guards import and_, not_, or_, state_in, stateIn  # noqa
 from xstate.handlers import HandlerArgs  # noqa
 from xstate.interpreter import Interpreter, interpret  # noqa
 from xstate.machine import Machine  # noqa
+from xstate.mermaid import to_mermaid  # noqa
 from xstate.scheduler import Clock, SimulatedClock, ThreadClock  # noqa
 from xstate.setup_api import MachineSetup, setup  # noqa
 from xstate.snapshot import deserialize_snapshot, serialize_snapshot  # noqa
@@ -90,9 +91,13 @@ __all__ = [
     "and_",
     "or_",
     "not_",
+    "state_in",
     # stateIn guard (0.7.0)
+    "state_in",
     "stateIn",
     # Snapshot serialization (0.6.0)
     "serialize_snapshot",
     "deserialize_snapshot",
+    # Diagrams (0.7.0)
+    "to_mermaid",
 ]

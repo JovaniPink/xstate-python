@@ -25,6 +25,7 @@ class HandlerArgs:
     context: Any
     event: Event | None
     params: Any | None = None
+    state: Any | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,16 +150,27 @@ class HandlerAdapter:
         event: Event | None,
         *,
         params: Any = _UNSET,
+        state: Any | None = None,
     ) -> Any:
         call_params = self.default_params if params is _UNSET else params
-        args = HandlerArgs(context=context, event=event, params=call_params)
+        args = HandlerArgs(
+            context=context,
+            event=event,
+            params=call_params,
+            state=state,
+        )
 
         if self._mode == "args":
             return self.fn(args)
         if self._mode == "args_params":
             return self.fn(args, call_params)
         if self._mode == "keyword":
-            return self.fn(context=context, event=event, params=call_params)
+            return self.fn(
+                context=context,
+                event=event,
+                params=call_params,
+                state=state,
+            )
         if self._mode == "legacy_keyword":
             kwargs: dict[str, Any] = {}
             kw_names = {
@@ -170,6 +182,8 @@ class HandlerAdapter:
                 kwargs["event"] = event
             if "params" in kw_names:
                 kwargs["params"] = call_params
+            if "state" in kw_names:
+                kwargs["state"] = state
             return self.fn(**kwargs)
         if self._mode == "legacy_zero":
             return self.fn()
@@ -203,10 +217,11 @@ def invoke_handler(
     event: Event | None,
     *,
     params: Any = _UNSET,
+    state: Any | None = None,
 ) -> Any:
     if isinstance(fn, HandlerAdapter):
-        return fn(context, event, params=params)
+        return fn(context, event, params=params, state=state)
 
     # Compatibility shim for truly opaque callables. New machines should pass
     # through HandlerAdapter at parse/setup time so this is not the hot path.
-    return HandlerAdapter(fn)(context, event, params=params)
+    return HandlerAdapter(fn)(context, event, params=params, state=state)
