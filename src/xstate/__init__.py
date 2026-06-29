@@ -21,7 +21,7 @@ from xstate.exceptions import (  # noqa
     UnregisteredImplementationError,
     XStateError,
 )
-from xstate.guards import and_, not_, or_  # noqa
+from xstate.guards import and_, not_, or_, stateIn  # noqa
 from xstate.handlers import HandlerArgs  # noqa
 from xstate.interpreter import Interpreter, interpret  # noqa
 from xstate.machine import Machine  # noqa
@@ -78,6 +78,8 @@ __all__ = [
     "and_",
     "or_",
     "not_",
+    # stateIn guard (0.7.0)
+    "stateIn",
     # Snapshot serialization (0.6.0)
     "serialize_snapshot",
     "deserialize_snapshot",
