@@ -77,7 +77,7 @@ scxml_ci_groups = {
 
 test_files = [
     pytest.param(
-        str(test_dir / test_group / f"{test_name}.scxml"),
+        test_dir / test_group / f"{test_name}.scxml",
         test_dir / test_group / f"{test_name}.json",
         id=f"{test_group}/{test_name}",
         marks=pytest.mark.scxml_ci if test_group in scxml_ci_groups else (),
@@ -85,6 +85,13 @@ test_files = [
     for test_group, test_names in test_groups.items()
     for test_name in test_names
 ]
+
+
+@pytest.mark.scxml_ci
+def test_scxml_to_machine_accepts_path_source():
+    machine = scxml_to_machine(test_dir / "basic" / "basic0.scxml")
+
+    assert machine.initial_state.matches("a")
 
 
 @pytest.mark.parametrize("scxml_source,scxml_test_source", test_files)

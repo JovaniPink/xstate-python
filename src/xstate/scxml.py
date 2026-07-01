@@ -1,3 +1,4 @@
+import os
 import xml.etree.ElementTree as ET
 
 from xstate.exceptions import InvalidConfigError
@@ -240,7 +241,8 @@ def convert(element: ET.Element, parent: ET.Element | None = None) -> dict:
 elements: dict = {"scxml": convert_scxml, "state": convert_state}
 
 
-def scxml_to_machine(source: str) -> Machine:
+def scxml_to_machine(source: str | os.PathLike[str]) -> Machine:
+    """Load an SCXML document from a filesystem path."""
     tree = ET.parse(source)
     root = tree.getroot()
     result = convert(root)
