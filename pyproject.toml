@@ -105,6 +105,9 @@ minversion = "8.4"
 addopts = "-ra -q"
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "scxml_ci: stable SCXML conformance subset run in GitHub Actions",
+]
 # `async def test_*` are collected and run without a per-test decorator.
 asyncio_mode = "auto"
 

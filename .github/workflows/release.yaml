@@ -22,6 +22,8 @@ jobs:
         run: poetry check --lock
       - name: Run tests
         run: poetry run pytest tests/ --ignore=tests/test_scxml.py
+      - name: Run SCXML smoke suite
+        run: poetry run python -m pytest tests/test_scxml.py -m scxml_ci
       - name: Check formatting
         run: poetry run ruff format --check src/ tests/
       - name: Run lint
