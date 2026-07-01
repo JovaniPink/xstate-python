@@ -11,7 +11,7 @@ run-to-completion execution core.
 - License: MIT
 - Python: 3.13+
 - Runtime dependencies: none
-- Current status: alpha, version `0.7.0`
+- Current status: alpha, version `0.7.0` (release-ready; PyPI publish pending)
 
 The central bet is simple: charts designed in Stately or shared with a
 JavaScript frontend should load directly as Python `dict` / JSON data, with
@@ -33,12 +33,15 @@ src/xstate/
   action.py             Action constructors and interpreter-owned action types
   event.py              Event wrapper and conversion helpers
   exceptions.py         Custom exception classes
+  guards.py             Composable guards and state_in/stateIn helpers
   handlers.py           HandlerArgs and HandlerAdapter callable adaptation
   context.py            ContextAdapter policies, including dataclass contexts
   interpreter.py        Synchronous runtime, queue, subscriptions, timers
   async_interpreter.py  Asyncio runtime and awaitable action execution
   actor.py              Actor system, create_actor, invoke reconciliation
+  snapshot.py           Snapshot serialization and restoration helpers
   scheduler.py          Clock abstractions
+  mermaid.py            Dependency-free Mermaid diagram export
   scxml.py              SCXML XML to Machine config converter
   setup_api.py          setup(...).create_machine(...) strict API
 ```
@@ -66,10 +69,13 @@ Working:
   actions, event-loop timers, and per-event completion for concurrent sends.
 - Actor model: `create_actor`, `ActorSystem`, `spawn`, `from_promise`,
   `from_callback`, `from_observable`, and `to_promise`.
+- Snapshot serialization and restoration helpers for persistence and replay.
 - XState v5 alignment: `guard`, `output`, `always`, `MachineSnapshot`,
   `state.matches(...)`, `state.can(...)`, and `setup(...).create_machine(...)`.
 - XState snapshot queries: `tags`, `meta`, `state.has_tag(...)`,
   `state.hasTag(...)`, `state_in(...)`, and `stateIn(...)`.
+- Context policies through `ContextAdapter`, the default deep-copy adapter, and
+  `dataclass_context()` for immutable dataclass contexts.
 - Dependency-free Mermaid diagram export via `to_mermaid(machine)`.
 - Handler adaptation through `HandlerArgs`, with legacy callable forms still
   supported at the public `Machine(config, ...)` boundary.
@@ -81,7 +87,9 @@ Working:
 Known gaps:
 
 - Full SCXML conformance still has known `more-parallel` failures.
-- Graph/test helper APIs beyond Mermaid export are future work.
+- Publishing `0.7.0` to PyPI is still a release task after the merged
+  release-readiness work.
+- Graphviz export and graph/test helper APIs beyond Mermaid are future work.
 - SCXML condition support is intentionally not a general JavaScript evaluator.
 
 ## Important Constraints
