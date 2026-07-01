@@ -10,7 +10,7 @@
 <p align="center">
   <a href="https://github.com/JovaniPink/xstate-python/actions/workflows/pull_request.yaml"><img alt="Tests and code quality" src="https://github.com/JovaniPink/xstate-python/actions/workflows/pull_request.yaml/badge.svg"></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.13%2B-blue">
-  <img alt="Status" src="https://img.shields.io/badge/status-alpha%20(0.6.0)-orange">
+  <img alt="Status" src="https://img.shields.io/badge/status-alpha%20(0.7.0)-orange">
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green"></a>
 </p>
 
@@ -50,7 +50,7 @@ functions, delay values, and actor logic.
 
 ## Installation
 
-The `0.6.0` package metadata is ready for release. Until the GitHub release
+The `0.7.0` package metadata is ready for release. Until the GitHub release
 publishes to PyPI, install from source:
 
 ```bash
@@ -342,6 +342,7 @@ machine = Machine(
 - Entry, exit, and transition actions
 - Named and inline guards
 - Context and `assign`
+- Higher-order actions with `choose(...)` and `pure(...)`
 - Eventless transitions via `always`
 - Final states and `onDone`
 - Shallow and deep history states
@@ -400,6 +401,8 @@ from xstate import (
     send_to,
     cancel,
     raise_,
+    choose,
+    pure,
     state_in,
     stateIn,
     to_mermaid,
@@ -443,10 +446,10 @@ poetry run ruff check src/ tests/
 
 | Area | Current state |
 |---|---|
-| PyPI release | `0.6.0` release-readiness is complete; publish via GitHub Release |
+| PyPI release | `0.7.0` release-readiness is complete; publish via GitHub Release |
 | XState v5 setup | `setup(...).create_machine(...)` and composable guards are present |
-| Snapshot queries | `tags`, `meta`, `has_tag`/`hasTag`, and `state_in`/`stateIn` are present on the 0.7.0 branch |
-| Diagrams | Dependency-free Mermaid export is present on the 0.7.0 branch |
+| Snapshot queries | `tags`, `meta`, `has_tag`/`hasTag`, and `state_in`/`stateIn` are present |
+| Diagrams | Dependency-free Mermaid export is present |
 | Async | `AsyncInterpreter`, async actors, `from_observable`, and `to_promise` are present |
 | SCXML | XML import works; safe Boolean cond subset works; `more-parallel` conformance remains open |
 | Persistence | Snapshot serialization and restore helpers are present |

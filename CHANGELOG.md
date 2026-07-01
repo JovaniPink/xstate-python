@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented here.
 
+## 0.7.0 - 2026-07-01
+
+### Added
+
+- Added active snapshot tags and metadata: `state.tags`, read-only
+  `state.meta`, `state.has_tag(...)`, and the XState-compatible
+  `state.hasTag(...)` alias.
+- Added reusable current-state guard helpers via `state_in(...)` and
+  `stateIn(...)`.
+- Added higher-order action helpers: `choose(...)` for guarded action branch
+  selection and `pure(...)` for dynamically computed action lists.
+- Added dependency-free Mermaid `stateDiagram-v2` export with
+  `to_mermaid(machine)`.
+
 ## 0.6.0 - 2026-06-28
 
 ### Added

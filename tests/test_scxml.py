@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from pprint import PrettyPrinter
 
 import pytest
@@ -7,7 +8,7 @@ from xstate.scxml import scxml_to_machine
 
 pp = PrettyPrinter(indent=2)
 
-test_dir = "test-framework/test"
+test_dir = Path(__file__).resolve().parents[1] / "test-framework" / "test"
 
 test_groups: dict[str, list[str]] = {
     "actionSend": [
@@ -62,10 +63,24 @@ test_groups: dict[str, list[str]] = {
     ],
 }
 
+scxml_ci_groups = {
+    "actionSend",
+    "basic",
+    "cond-js",
+    "default-initial-state",
+    "documentOrder",
+    "hierarchy",
+    "hierarchy+documentOrder",
+    "parallel",
+    "parallel+interrupt",
+}
+
 test_files = [
-    (
-        f"{test_dir}/{test_group}/{test_name}.scxml",
-        f"{test_dir}/{test_group}/{test_name}.json",
+    pytest.param(
+        str(test_dir / test_group / f"{test_name}.scxml"),
+        test_dir / test_group / f"{test_name}.json",
+        id=f"{test_group}/{test_name}",
+        marks=pytest.mark.scxml_ci if test_group in scxml_ci_groups else (),
     )
     for test_group, test_names in test_groups.items()
     for test_name in test_names
@@ -79,7 +94,7 @@ def test_scxml(scxml_source, scxml_test_source):
     try:
         state = machine.initial_state
 
-        with open(scxml_test_source) as scxml_test_file:
+        with scxml_test_source.open(encoding="utf-8") as scxml_test_file:
             scxml_test = json.load(scxml_test_file)
 
             for event_test in scxml_test.get("events"):
