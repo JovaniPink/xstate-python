@@ -77,7 +77,7 @@ scxml_ci_groups = {
 
 test_files = [
     pytest.param(
-        test_dir / test_group / f"{test_name}.scxml",
+        str(test_dir / test_group / f"{test_name}.scxml"),
         test_dir / test_group / f"{test_name}.json",
         id=f"{test_group}/{test_name}",
         marks=pytest.mark.scxml_ci if test_group in scxml_ci_groups else (),
