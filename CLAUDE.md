@@ -37,7 +37,7 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
 
 ---
 
-## Current state (0.6.0 release-ready, 0.7.0 branch in progress)
+## Current state (0.7.0 release-ready)
 
 **Working:**
 - Hierarchical (compound) states
@@ -93,9 +93,9 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
   `setup(guards=..., actions=..., delays=..., actors=...).create_machine(config)`
 - **Snapshot serialization** (0.6.0, `from xstate import serialize_snapshot, deserialize_snapshot`)
   — persist and restore State; `create_actor(machine, snapshot=...)` for round-trip replay
-- **Snapshot queries** (0.7.0 branch) — active `tags`, read-only `meta`,
+- **Snapshot queries** (0.7.0) — active `tags`, read-only `meta`,
   `state.has_tag(...)`, `state.hasTag(...)`, and `state_in(...)` / `stateIn(...)`
-- **Mermaid export** (0.7.0 branch, `from xstate import to_mermaid`) —
+- **Mermaid export** (0.7.0, `from xstate import to_mermaid`) —
   dependency-free `stateDiagram-v2` text generation
 - **State tags** (0.7.0) — declare `tags: ["loading"]` (or a single string) on any state node;
   query the snapshot with `state.has_tag("loading")` / `state.hasTag(...)` or read the aggregated
@@ -129,7 +129,7 @@ boundary.
 | 0.4.0 | v5 config alignment | Rename `cond`→`guard`, `data`→`output`, `always:`, single-object handler signatures, MachineSnapshot |
 | 0.5.0 | Actor model | `create_actor`, actor system, `from_promise`/`from_callback`, asyncio |
 | 0.6.0 | Setup & parity | `setup()`, composable guards (`and_`/`or_`/`not_`), snapshot serialization |
-| 0.7.0 | Next parity | State `tags` + `hasTag()`, `stateIn` guard, Mermaid diagrams; next: `choose`/`pure` actions, Graphviz diagrams, TypedDict config schemas |
+| 0.7.0 | Next parity | State `tags` + `hasTag()`, `stateIn` guard, `choose`/`pure` actions, Mermaid diagrams |
 | 0.8.0+ | Internal refactor | `StateNodeConfigParser` factory, opt-in immutable `context_factory`, `ParamSpec` handler typing |
 
 The differentiating niche: **XState / Stately.ai JSON compatibility** — neither `transitions`
@@ -167,19 +167,19 @@ Targets drawn from XState v5 (https://stately.ai/docs/xstate) and the Python sta
 landscape (`transitions`, `python-statemachine`, `Sismic`). Ranked by parity value × differentiation.
 
 **XState v5 parity gaps:**
-- **State `tags`** — ✅ on 0.7.0 branch: `tags: ["loading"]` in config; `state.has_tag("loading")` and `state.hasTag("loading")` on `MachineSnapshot`.
-- **`choose` action** — conditional action selection (run the first branch whose guard passes).
-- **`pure` action** — a function returning a list of actions to run, with no side effects of its own.
-- **`stateIn` guard** — ✅ on 0.7.0 branch: user-facing guard over the current configuration, exposed as `state_in(...)` and `stateIn(...)`.
+- **State `tags`** — ✅ in 0.7.0: `tags: ["loading"]` in config; `state.has_tag("loading")` and `state.hasTag("loading")` on `MachineSnapshot`.
+- **`choose` action** — ✅ in 0.7.0: conditional action selection that runs the first branch whose guard passes.
+- **`pure` action** — ✅ in 0.7.0: a function returning a list of actions to run, with no side effects of its own.
+- **`stateIn` guard** — ✅ in 0.7.0: user-facing guard over the current configuration, exposed as `state_in(...)` and `stateIn(...)`.
 - **`enqueueActions`** — batch/queue actions imperatively inside an action body.
 - **Transition `reenter: true`** — re-enter the source state on a self-transition (vs. internal).
 - **`stopChild` action** — explicitly stop a spawned/invoked actor.
 - **Dynamic `sendTo` targets** — `to=` resolved from `(context, event)`.
-- **Machine / state `meta`** — ✅ on 0.7.0 branch: per-node metadata surfaced via read-only `state.meta`.
+- **Machine / state `meta`** — ✅ in 0.7.0: per-node metadata surfaced via read-only `state.meta`.
 - **Partial event descriptors / wildcard** — `on: {"UPDATE.*": ...}` style matching.
 
 **Differentiators worth owning (gaps in the Python field):**
-- **Mermaid / Graphviz diagram export** — Mermaid export is ✅ on 0.7.0 branch via `to_mermaid(machine)`; Graphviz remains deferred.
+- **Mermaid / Graphviz diagram export** — Mermaid export is ✅ in 0.7.0 via `to_mermaid(machine)`; Graphviz remains deferred.
 - **`hasTag` / `can` / `matches` snapshot ergonomics** — `has_tag` / `hasTag`, `can`, and `matches` are present.
 - **Observer pattern** — `python-statemachine`'s `add_observer`; we have `subscribe`, consider a
   multi-callback observer protocol with entry/exit hooks.

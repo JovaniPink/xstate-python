@@ -1,14 +1,14 @@
 # Python State Machine Library Comparison
 
 Research snapshot: June 2026. Competitor figures are intentionally approximate;
-the xstate-python column reflects the current `master` branch after the 0.6.0
+the xstate-python column reflects the current `master` branch after the 0.7.0
 release-readiness work.
 
 ## Feature Matrix
 
 | Feature | **transitions** | **python-statemachine** | **xstate-python** | **xstate-statemachine** | **Sismic** | **Automat** |
 |---|---|---|---|---|---|---|
-| Status | Mature / active | Mature / active | Alpha / 0.6.0 release-ready | Small active project | Mature niche | Mature focused FSM |
+| Status | Mature / active | Mature / active | Alpha / 0.7.0 release-ready | Small active project | Mature niche | Mature focused FSM |
 | Python support | Broad legacy support | Modern Python | **3.13+** | Modern Python | Modern Python | Modern Python |
 | XState JSON | No | No | **Yes, native** | Yes | No | No |
 | SCXML algorithm | No | Yes | **Yes, partial conformance** | Partial | Yes | No |
@@ -49,6 +49,7 @@ structure with a JavaScript/XState frontend or a Stately-authored design.
   actor actions.
 - Guards as named implementations, inline callables, or strict `setup`
   handlers.
+- Higher-order `choose(...)` and `pure(...)` action helpers.
 - Context updates through `assign`, with deep-copy default isolation and an
   immutable dataclass adapter.
 - Eventless transitions, final states, `onDone`, shallow/deep history, and
@@ -61,9 +62,8 @@ structure with a JavaScript/XState frontend or a Stately-authored design.
   and `invoke` reconciliation.
 - Snapshot serialization and restoration helpers for persistence flows.
 - Active snapshot `tags`, `meta`, `has_tag`/`hasTag`, and
-  `state_in`/`stateIn` guard helpers on the 0.7.0 branch.
-- Dependency-free Mermaid diagram export via `to_mermaid(machine)` on the
-  0.7.0 branch.
+  `state_in`/`stateIn` guard helpers.
+- Dependency-free Mermaid diagram export via `to_mermaid(machine)`.
 - SCXML XML import with a safe Boolean cond subset: `true`, `false`, `!`, `&&`,
   `||`, and parentheses.
 
@@ -71,10 +71,10 @@ structure with a JavaScript/XState frontend or a Stately-authored design.
 
 | Gap | Notes |
 |---|---|
-| PyPI release | 0.6.0 packaging metadata and release workflow are ready; publish via GitHub Release. |
+| PyPI release | 0.7.0 packaging metadata and release workflow are ready; publish via GitHub Release. |
 | SCXML conformance | Current full SCXML run is `45 passed`, `8 failed`; remaining failures are the known `more-parallel` cases. |
 | Full ECMAScript cond support | Intentionally not implemented; unsupported SCXML expressions raise `InvalidConfigError`. |
-| Graph/test utilities | Mermaid export exists on the 0.7.0 branch; no graph traversal/test-path helpers yet. |
+| Graph/test utilities | Mermaid export exists; no graph traversal/test-path helpers yet. |
 | Inspector protocol | No `@statelyai/inspect` compatibility yet. |
 
 ## Strategic Position

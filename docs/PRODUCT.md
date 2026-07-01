@@ -2,7 +2,7 @@
 
 Research snapshot: June 2026. External ecosystem numbers are approximate and
 should be refreshed before publication or fundraising use. Repo capability notes
-reflect the current `master` branch after the 0.6.0 release-readiness work.
+reflect the current `master` branch after the 0.7.0 release-readiness work.
 
 ## Product Thesis
 
@@ -21,7 +21,7 @@ bridge between XState's JSON ecosystem and Python backends.
 
 | Area | Status |
 |---|---|
-| Packaging | Project metadata is modernized for Python 3.13+ and ready for the 0.6.0 PyPI release |
+| Packaging | Project metadata is modernized for Python 3.13+ and ready for the 0.7.0 PyPI release |
 | Core transition API | `Machine(config).transition(state, event)` |
 | XState JSON | Native Python dict / JSON-compatible config boundary |
 | Parser architecture | Typed schema + normalization/parser layer |
@@ -29,8 +29,8 @@ bridge between XState's JSON ecosystem and Python backends.
 | Setup API | `setup(...).create_machine(...)` exists for stricter named implementations |
 | Context policy | Default deep-copy adapter plus immutable dataclass adapter |
 | Snapshots | `MachineSnapshot = State`; immutable public containers |
-| Snapshot queries | Active `tags`, `meta`, `has_tag`/`hasTag`, and `state_in`/`stateIn` guard helpers are present on the 0.7.0 branch |
-| Diagrams | Dependency-free Mermaid `stateDiagram-v2` export is present on the 0.7.0 branch |
+| Snapshot queries | Active `tags`, `meta`, `has_tag`/`hasTag`, and `state_in`/`stateIn` guard helpers are present |
+| Diagrams | Dependency-free Mermaid `stateDiagram-v2` export is present |
 | Sync runtime | `Interpreter` with RTC queue, subscriptions, delayed transitions, and lock-serialized timer sends |
 | Async runtime | `AsyncInterpreter` with async start/send/stop, awaitable actions, and event-loop timers |
 | Actor model | `create_actor`, `ActorSystem`, spawn, parent/child tree, `send_parent`, `send_to` |
@@ -42,6 +42,7 @@ bridge between XState's JSON ecosystem and Python backends.
 
 - Hierarchical, parallel, final, and history states.
 - Entry/exit/transition actions and `assign`.
+- Higher-order action helpers with `choose(...)` and `pure(...)`.
 - Guards via `guard` or legacy `cond`.
 - Eventless transitions via `always` or legacy empty-event syntax.
 - Delayed transitions via `after`, numeric or named delays.
@@ -74,7 +75,7 @@ JavaScript and wanting the same machine shape in Python services.
 
 | Priority | Work |
 |---|---|
-| High | Publish 0.6.0 to PyPI as `xstate` |
+| High | Publish 0.7.0 to PyPI as `xstate` |
 | High | Document the public API by concept: machines, guards/actions, context, interpreter, actors, async, SCXML |
 | High | Fix the remaining SCXML `more-parallel` conformance cases |
 | Medium | Document snapshot persistence and restore helpers |
@@ -86,7 +87,7 @@ JavaScript and wanting the same machine shape in Python services.
 
 | Metric | Near-term target |
 |---|---|
-| PyPI release | `pip install xstate` works after the 0.6.0 GitHub Release |
+| PyPI release | `pip install xstate` works after the 0.7.0 GitHub Release |
 | Primary test count | Maintain 300+ focused tests |
 | SCXML pass rate | Resolve known `more-parallel` group |
 | Docs | README plus concept docs for the main public APIs |

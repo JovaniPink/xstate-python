@@ -11,7 +11,7 @@ run-to-completion execution core.
 - License: MIT
 - Python: 3.13+
 - Runtime dependencies: none
-- Current status: alpha, version `0.6.0`
+- Current status: alpha, version `0.7.0`
 
 The central bet is simple: charts designed in Stately or shared with a
 JavaScript frontend should load directly as Python `dict` / JSON data, with
@@ -54,6 +54,7 @@ Working:
 - Hierarchical, compound, parallel, final, and history states.
 - Entry, exit, transition actions, `assign`, `raise_`, `send`, `cancel`,
   `send_parent`, and `send_to`.
+- Higher-order action helpers with `choose(...)` and `pure(...)`.
 - Guards with canonical XState v5 `guard`; legacy `cond` remains compatible and
   emits deprecation warnings where appropriate.
 - `always`, `onDone`, `after`, delayed sends, named delays, and invoke
@@ -68,10 +69,8 @@ Working:
 - XState v5 alignment: `guard`, `output`, `always`, `MachineSnapshot`,
   `state.matches(...)`, `state.can(...)`, and `setup(...).create_machine(...)`.
 - XState snapshot queries: `tags`, `meta`, `state.has_tag(...)`,
-  `state.hasTag(...)`, `state_in(...)`, and `stateIn(...)` are present on the
-  0.7.0 branch.
-- Dependency-free Mermaid diagram export via `to_mermaid(machine)` is present
-  on the 0.7.0 branch.
+  `state.hasTag(...)`, `state_in(...)`, and `stateIn(...)`.
+- Dependency-free Mermaid diagram export via `to_mermaid(machine)`.
 - Handler adaptation through `HandlerArgs`, with legacy callable forms still
   supported at the public `Machine(config, ...)` boundary.
 - Public snapshot immutability: configuration is a `frozenset`, actions are a
