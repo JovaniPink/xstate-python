@@ -34,6 +34,12 @@ src/xstate/
   scheduler.py      Clock abstractions
   scxml.py          SCXML XML → Machine config converter with safe Boolean conds
   setup_api.py      setup(...).create_machine(...) strict API
+  machine.py        Core Machine class and transition entry point
+  interpreter.py    Synchronous runtime, queue, subscriptions, timers
+  async_interpreter.py  Asyncio runtime and awaitable action execution
+  config_parser.py  Parser for StateNode configurations
+  schema.py         TypedDict schemas for Machine, StateNode, Transition, and Invoke configs
+  exceptions.py     Custom exception classes
 ```
 
 `algorithm.py` is the heart of the library. It implements the W3C SCXML algorithm:
