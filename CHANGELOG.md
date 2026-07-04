@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented here.
 
-## 0.7.0 - 2026-07-01
+## 0.7.0 - 2026-07-02
 
 ### Added
 
@@ -15,6 +15,14 @@ All notable changes to this project will be documented here.
   selection and `pure(...)` for dynamically computed action lists.
 - Added dependency-free Mermaid `stateDiagram-v2` export with
   `to_mermaid(machine)`.
+
+### Changed
+
+- Hardened the GitHub Release publish workflow so the release tag must match the
+  package version, point at `origin/master`, and have a configured PyPI token
+  before upload.
+- Updated PyPI-facing installation docs to use `pip install xstate` for the
+  released package.
 
 ## 0.6.0 - 2026-06-28
 

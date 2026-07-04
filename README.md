@@ -50,8 +50,13 @@ functions, delay values, and actor logic.
 
 ## Installation
 
-The `0.7.0` package metadata is ready for release. Until the GitHub release
-publishes to PyPI, install from source:
+Install the released package from PyPI:
+
+```bash
+pip install xstate
+```
+
+For an unreleased checkout, install from source:
 
 ```bash
 git clone https://github.com/JovaniPink/xstate-python.git

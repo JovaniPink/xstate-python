@@ -11,7 +11,7 @@ run-to-completion execution core.
 - License: MIT
 - Python: 3.13+
 - Runtime dependencies: none
-- Current status: alpha, version `0.7.0` (release-ready; PyPI publish pending)
+- Current status: alpha, version `0.7.0`
 
 The central bet is simple: charts designed in Stately or shared with a
 JavaScript frontend should load directly as Python `dict` / JSON data, with
@@ -87,8 +87,6 @@ Working:
 Known gaps:
 
 - Full SCXML conformance still has known `more-parallel` failures.
-- Publishing `0.7.0` to PyPI is still a release task after the merged
-  release-readiness work.
 - Graphviz export and graph/test helper APIs beyond Mermaid are future work.
 - SCXML condition support is intentionally not a general JavaScript evaluator.
 

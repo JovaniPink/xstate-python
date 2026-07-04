@@ -16,30 +16,27 @@ the niche of native XState JSON compatibility.
 ```
 src/xstate/
   __init__.py       Public API: `from xstate import Machine`
-  machine.py        Machine class — entry point and pure transition API
+  machine.py        Core Machine class and transition entry point
   config_parser.py  Two-pass XState config parser and normalizer
-  schema.py         TypedDict boundary for raw XState config data
+  schema.py         TypedDict schemas for Machine, StateNode, Transition, and Invoke configs
   state_node.py     Resolved state hierarchy model
+  transition.py     Resolved transition model
   state.py          Public State / MachineSnapshot snapshots
   algorithm.py      SCXML execution engine (microstep/macrostep, entry/exit sets)
   action.py         Action constructors and higher-order action helpers
-  transition.py     Resolved transition model
-  context.py        ContextAdapter policies, including dataclass contexts
   event.py          Event wrapper and conversion helpers
+  exceptions.py     Custom exception classes
   handlers.py       HandlerArgs and HandlerAdapter callable adaptation
   guards.py         Composable guards and state_in/stateIn helpers
-  snapshot.py       Snapshot serialization and restoration helpers
-  mermaid.py        Dependency-free Mermaid diagram export
-  actor.py          Actor model, create_actor, ActorSystem, actor logic helpers
-  scheduler.py      Clock abstractions
-  scxml.py          SCXML XML → Machine config converter with safe Boolean conds
-  setup_api.py      setup(...).create_machine(...) strict API
-  machine.py        Core Machine class and transition entry point
+  context.py        ContextAdapter policies, including dataclass contexts
   interpreter.py    Synchronous runtime, queue, subscriptions, timers
   async_interpreter.py  Asyncio runtime and awaitable action execution
-  config_parser.py  Parser for StateNode configurations
-  schema.py         TypedDict schemas for Machine, StateNode, Transition, and Invoke configs
-  exceptions.py     Custom exception classes
+  actor.py          Actor model, create_actor, ActorSystem, actor logic helpers
+  snapshot.py       Snapshot serialization and restoration helpers
+  scheduler.py      Clock abstractions
+  mermaid.py        Dependency-free Mermaid diagram export
+  scxml.py          SCXML XML → Machine config converter with safe Boolean conds
+  setup_api.py      setup(...).create_machine(...) strict API
 ```
 
 `algorithm.py` is the heart of the library. It implements the W3C SCXML algorithm:
@@ -49,7 +46,7 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
 
 ---
 
-## Current state (0.7.0 release-ready on master)
+## Current state (0.7.0 on master)
 
 **Working:**
 - Hierarchical (compound) states
@@ -228,7 +225,7 @@ poetry run python -m pytest tests/test_scxml.py -k cond-js
 poetry run mypy src/xstate/
 
 # Format + lint
-poetry run ruff format src/ tests/
+poetry run ruff format --check src/ tests/
 poetry run ruff check src/ tests/
 ```
 
