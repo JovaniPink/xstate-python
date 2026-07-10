@@ -447,6 +447,20 @@ poetry run ruff format --check src/ tests/
 poetry run ruff check src/ tests/
 ```
 
+### Release preflight
+
+Before creating the GitHub Release for `0.7.0`, run the local preflight from
+the target commit:
+
+```bash
+poetry run python scripts/release_preflight.py v0.7.0
+```
+
+The preflight verifies the expected tag against `pyproject.toml`, checks that
+`HEAD` matches `origin/master`, runs the release quality gates, and builds the
+distribution without publishing. Pass `--target-ref` or `--master-ref` if the
+release target needs to be checked against different refs.
+
 ## Roadmap
 
 | Area | Current state |
