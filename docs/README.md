@@ -8,8 +8,12 @@ match the runtime boundary you need:
   XState JSON, events, actions, guards, delays, `setup()`, and pure transitions.
 - [Runtime choices](./concepts/runtimes.md): `Machine.transition`, the sync and
   async interpreters, actors, subscriptions, clocks, and run-to-completion.
+- [Actors](./concepts/actors.md): actor lifecycle, invocation, actor logic,
+  trees, and messaging.
+- [Snapshot persistence](./concepts/persistence.md): checkpoint format,
+  restoration, compatibility, and operational limits.
 - [Runnable examples](./examples/README.md): complete programs exercised by the
   test suite.
 
-Additional guides for actors, persistence, and SCXML import are being added as
-part of the current documentation milestone.
+An SCXML import guide is being added as part of the current documentation
+milestone.
