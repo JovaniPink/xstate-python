@@ -1,7 +1,8 @@
 # Examples
 
-These examples are meant to be readable first and realistic second. Run them
-from the repository root with `PYTHONPATH=src`:
+This is the repository's canonical example collection. Each program is covered
+by the subprocess smoke suite and can be run independently from the repository
+root with `PYTHONPATH=src`:
 
 ```bash
 PYTHONPATH=src python3 docs/examples/traffic_intersection.py

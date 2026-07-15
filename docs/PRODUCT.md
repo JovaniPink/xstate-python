@@ -2,7 +2,8 @@
 
 Research snapshot: June 2026. External ecosystem numbers are approximate and
 should be refreshed before publication or fundraising use. Repo capability notes
-reflect the current `master` branch after the 0.7.0 release-readiness work.
+reflect the current `master` branch after the 0.7.0 correctness and adoption
+milestone.
 
 ## Product Thesis
 
@@ -59,6 +60,10 @@ bridge between XState's JSON ecosystem and Python backends.
 - SCXML `cond-js` subset result: `4 passed`.
 - Configured SCXML result: `54 passed`, `0 failed`, including all enabled
   `more-parallel` cases.
+- Concept guides cover machine configuration, runtime choices, actors,
+  persistence, and SCXML import.
+- Five canonical runnable programs are exercised in isolated subprocesses on
+  supported CI Python versions.
 
 ## Competitive Position
 
@@ -72,17 +77,24 @@ bridge between XState's JSON ecosystem and Python backends.
 The strongest adoption story is a team already using XState or Stately in
 JavaScript and wanting the same machine shape in Python services.
 
+## Completed Milestones
+
+| Milestone | Result |
+|---|---|
+| Parallel transition domains | All 13 configured `more-parallel` cases pass; the configured SCXML suite is `54 passed`, `0 failed` |
+| Concept documentation | Machines, implementations, sync/async runtimes, actors, persistence, and SCXML import are documented |
+| Runnable examples | `docs/examples/` is canonical and every runner has subprocess smoke coverage |
+| Persistence adoption | Snapshot compatibility and timer/child-actor restoration limits are documented with a JSON resume example |
+
 ## Roadmap
 
 | Priority | Work |
 |---|---|
 | High | Publish 0.7.0 to PyPI as `xstate` |
-| High | Document the public API by concept: machines, guards/actions, context, interpreter, actors, async, SCXML |
 | High | Expand SCXML coverage beyond the configured subset without adding JavaScript evaluation |
-| Medium | Document snapshot persistence and restore helpers |
 | Medium | Inspector protocol compatibility |
 | Medium | More XState v5 utilities: `provide`, action helpers, graph/test helpers |
-| Low | Django/FastAPI examples after the runtime API settles |
+| Low | Add framework integrations such as Django and FastAPI after the runtime API settles |
 
 ## Success Metrics
 
@@ -90,9 +102,9 @@ JavaScript and wanting the same machine shape in Python services.
 |---|---|
 | PyPI release | `pip install xstate` works after the 0.7.0 GitHub Release |
 | Primary test count | Maintain 300+ focused tests |
-| SCXML pass rate | Keep the configured suite green while expanding supported coverage |
-| Docs | README plus concept docs for the main public APIs |
-| Examples | JSON, sync, async, actor, and integration examples |
+| SCXML pass rate | Keep the configured 54-case suite green while expanding supported coverage |
+| Docs | Keep every public runtime boundary represented by a maintained concept guide |
+| Examples | Keep JSON, sync, async, actor, persistence, and SCXML runners green in CI; add framework integrations next |
 
 ## Maintenance Notes
 
