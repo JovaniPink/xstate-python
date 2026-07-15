@@ -144,9 +144,29 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         (
             "Check formatting",
-            ("poetry", "run", "ruff", "format", "--check", "src/", "tests/"),
+            (
+                "poetry",
+                "run",
+                "ruff",
+                "format",
+                "--check",
+                "src/",
+                "tests/",
+                "docs/examples/",
+            ),
         ),
-        ("Run lint", ("poetry", "run", "ruff", "check", "src/", "tests/")),
+        (
+            "Run lint",
+            (
+                "poetry",
+                "run",
+                "ruff",
+                "check",
+                "src/",
+                "tests/",
+                "docs/examples/",
+            ),
+        ),
         ("Run type checks", ("poetry", "run", "mypy", "src/xstate/")),
         ("Build distribution", ("poetry", "build")),
     )
