@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
         "fetch_with_retry.py",
         "async_workflow.py",
         "snapshot_resume.py",
+        "scxml_toggle.py",
     ],
 )
 def test_documented_example_runs(example: str) -> None:

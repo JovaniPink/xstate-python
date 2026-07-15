@@ -379,6 +379,7 @@ Runnable examples live in [`docs/examples/`](./docs/examples):
 | [`fetch_with_retry.py`](./docs/examples/fetch_with_retry.py) | `invoke`, `from_promise`, retries with `after`, context assignment, and guarded transitions |
 | [`async_workflow.py`](./docs/examples/async_workflow.py) | `AsyncInterpreter`, awaitable actions, subscriptions, and per-event completion |
 | [`snapshot_resume.py`](./docs/examples/snapshot_resume.py) | Snapshot serialization, JSON persistence, restoration, and continued actor processing |
+| [`scxml_toggle.scxml`](./docs/examples/scxml_toggle.scxml) + [`scxml_toggle.py`](./docs/examples/scxml_toggle.py) | Path-based SCXML import, safe Boolean conditions, raise actions, and pure transitions |
 
 Run them from the repo root:
 
@@ -387,6 +388,7 @@ PYTHONPATH=src python3 docs/examples/traffic_intersection.py
 PYTHONPATH=src python3 docs/examples/fetch_with_retry.py
 PYTHONPATH=src python3 docs/examples/async_workflow.py
 PYTHONPATH=src python3 docs/examples/snapshot_resume.py
+PYTHONPATH=src python3 docs/examples/scxml_toggle.py
 ```
 
 ## Documentation
@@ -395,7 +397,9 @@ Concept guides and the runnable-example index live in [`docs/`](./docs). Start
 with [machines and implementations](./docs/concepts/machines-and-implementations.md)
 or [runtime choices](./docs/concepts/runtimes.md), then continue with
 [actors](./docs/concepts/actors.md) and
-[snapshot persistence](./docs/concepts/persistence.md).
+[snapshot persistence](./docs/concepts/persistence.md). The
+[SCXML import guide](./docs/concepts/scxml.md) covers the supported XML and safe
+condition subset.
 
 ## Public API
 
@@ -432,7 +436,8 @@ from xstate.scheduler import SimulatedClock, ThreadClock
 
 The algorithm core follows the W3C SCXML execution model. XML import is exposed
 through `xstate.scxml.scxml_to_machine(...)` and verified against the SCXML test
-framework:
+framework. See the [SCXML import guide](./docs/concepts/scxml.md) for supported
+elements, safe conditions, and current limits.
 
 ```bash
 git submodule update --init
