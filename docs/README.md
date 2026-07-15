@@ -12,8 +12,7 @@ match the runtime boundary you need:
   trees, and messaging.
 - [Snapshot persistence](./concepts/persistence.md): checkpoint format,
   restoration, compatibility, and operational limits.
+- [SCXML import](./concepts/scxml.md): path-based loading, converted elements,
+  parallel execution, safe conditions, and current limits.
 - [Runnable examples](./examples/README.md): complete programs exercised by the
   test suite.
-
-An SCXML import guide is being added as part of the current documentation
-milestone.

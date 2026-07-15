@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scxml xmlns="http://www.w3.org/2005/07/scxml" initial="off">
+  <state id="off">
+    <onentry>
+      <raise event="entered.off"/>
+    </onentry>
+    <transition event="TOGGLE" cond="true &amp;&amp; !false" target="on"/>
+  </state>
+  <state id="on">
+    <transition event="TOGGLE" cond="true || false" target="off">
+      <raise event="toggled.off"/>
+    </transition>
+    <onexit>
+      <raise event="exited.on"/>
+    </onexit>
+  </state>
+</scxml>

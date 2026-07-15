@@ -8,6 +8,7 @@ PYTHONPATH=src python3 docs/examples/traffic_intersection.py
 PYTHONPATH=src python3 docs/examples/fetch_with_retry.py
 PYTHONPATH=src python3 docs/examples/async_workflow.py
 PYTHONPATH=src python3 docs/examples/snapshot_resume.py
+PYTHONPATH=src python3 docs/examples/scxml_toggle.py
 ```
 
 ## Traffic Intersection
@@ -96,3 +97,13 @@ File: [`snapshot_resume.py`](./snapshot_resume.py)
 This example serializes a running machine actor to JSON, stops the original,
 restores the checkpoint against the same machine, and continues processing on a
 new actor without losing state value or context.
+
+## SCXML Toggle
+
+Files: [`scxml_toggle.scxml`](./scxml_toggle.scxml) and
+[`scxml_toggle.py`](./scxml_toggle.py)
+
+This self-contained pair imports a local SCXML document, exercises safe Boolean
+conditions and raise executable content, and toggles in both directions through
+the pure `Machine.transition(...)` API. It does not require the conformance test
+submodule.
