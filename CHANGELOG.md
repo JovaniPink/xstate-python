@@ -24,6 +24,12 @@ All notable changes to this project will be documented here.
 - Updated PyPI-facing installation docs to use `pip install xstate` for the
   released package.
 
+### Fixed
+
+- Corrected SCXML transition-domain resolution so external transitions inside
+  parallel states re-enter every affected region and resolve conflicts in
+  document order.
+
 ## 0.6.0 - 2026-06-28
 
 ### Added

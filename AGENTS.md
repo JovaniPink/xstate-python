@@ -86,7 +86,9 @@ Working:
 
 Known gaps:
 
-- Full SCXML conformance still has known `more-parallel` failures.
+- The configured 54-case SCXML suite passes, including the enabled
+  `more-parallel` cases, but broader W3C datamodel and executable-content
+  conformance is not claimed.
 - Graphviz export and graph/test helper APIs beyond Mermaid are future work.
 - SCXML condition support is intentionally not a general JavaScript evaluator.
 

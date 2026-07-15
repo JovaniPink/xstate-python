@@ -225,8 +225,11 @@ def get_transition_domain(
 
 
 def find_lcca(state_list: list[StateNode]) -> StateNode | None:
+    """Return the least common compound ancestor for SCXML transition domains."""
     for anc in get_proper_ancestors(state_list[0], state2=None):
-        if all(is_descendent(s, state2=anc) for s in state_list[1:]):
+        if is_compound_state(anc) and all(
+            is_descendent(s, state2=anc) for s in state_list[1:]
+        ):
             return anc
     return None
 

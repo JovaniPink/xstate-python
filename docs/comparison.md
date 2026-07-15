@@ -13,7 +13,7 @@ release-readiness work.
 | XState JSON | No | No | **Yes, native** | Yes | No | No |
 | SCXML algorithm | No | Yes | **Yes, partial conformance** | Partial | Yes | No |
 | Hierarchical states | Yes, extension | Yes | Yes | Yes | Yes | No |
-| Parallel states | Yes, extension | Yes | Yes, with known SCXML `more-parallel` gaps | Yes | Yes | No |
+| Parallel states | Yes, extension | Yes | Yes; configured `more-parallel` cases pass | Yes | Yes | No |
 | Guards/actions | Yes | Yes | Yes, named or inline | Yes | Yes | Limited |
 | Context/extended state | No native XState-style context | Yes | Yes, with `assign` and snapshot isolation | Yes | Yes | No |
 | Eventless transitions | No | Yes | Yes, `always` and legacy empty-event form | Yes | Yes | No |
@@ -72,7 +72,7 @@ structure with a JavaScript/XState frontend or a Stately-authored design.
 | Gap | Notes |
 |---|---|
 | PyPI release | 0.7.0 packaging metadata and release workflow are ready; publish via GitHub Release. |
-| SCXML conformance | Current full SCXML run is `45 passed`, `8 failed`; remaining failures are the known `more-parallel` cases. |
+| SCXML conformance | Configured SCXML suite is `54 passed`, `0 failed`; broader W3C coverage is not yet claimed. |
 | Full ECMAScript cond support | Intentionally not implemented; unsupported SCXML expressions raise `InvalidConfigError`. |
 | Graph/test utilities | Mermaid export exists; no graph traversal/test-path helpers yet. |
 | Inspector protocol | No `@statelyai/inspect` compatibility yet. |
