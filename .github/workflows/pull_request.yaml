@@ -61,8 +61,8 @@ jobs:
       - name: Install dependencies
         run: poetry install
       - name: Check formatting
-        run: poetry run ruff format --check src/ tests/
+        run: poetry run ruff format --check src/ tests/ docs/examples/
       - name: Run lint
-        run: poetry run ruff check src/ tests/
+        run: poetry run ruff check src/ tests/ docs/examples/
       - name: Run type checks
         run: poetry run mypy src/xstate/

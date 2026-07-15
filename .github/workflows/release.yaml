@@ -76,9 +76,9 @@ jobs:
       - name: Run SCXML smoke suite
         run: poetry run python -m pytest tests/test_scxml.py -m scxml_ci
       - name: Check formatting
-        run: poetry run ruff format --check src/ tests/
+        run: poetry run ruff format --check src/ tests/ docs/examples/
       - name: Run lint
-        run: poetry run ruff check src/ tests/
+        run: poetry run ruff check src/ tests/ docs/examples/
       - name: Run type checks
         run: poetry run mypy src/xstate/
       - name: Publish to PyPI
