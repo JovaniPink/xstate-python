@@ -488,8 +488,10 @@ release target needs to be checked against different refs.
 | Snapshot queries | `tags`, `meta`, `has_tag`/`hasTag`, and `state_in`/`stateIn` are present |
 | Diagrams | Dependency-free Mermaid export is present |
 | Async | `AsyncInterpreter`, async actors, `from_observable`, and `to_promise` are present |
-| SCXML | Configured 54-case suite passes; broader W3C datamodel and executable-content coverage remains open |
+| SCXML | Configured 54-case suite passes, including all 13 enabled `more-parallel` cases; broader W3C coverage remains open |
 | Persistence | Snapshot serialization and restore helpers are present |
+| Documentation | Concept guides cover machines, runtimes, actors, persistence, and SCXML import |
+| Examples | `docs/examples/` is the canonical, subprocess-tested example collection |
 
 ## Related Projects
 

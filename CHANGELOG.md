@@ -15,6 +15,10 @@ All notable changes to this project will be documented here.
   selection and `pure(...)` for dynamically computed action lists.
 - Added dependency-free Mermaid `stateDiagram-v2` export with
   `to_mermaid(machine)`.
+- Added concept guides for machine configuration, runtime choices, actors,
+  snapshot persistence, and SCXML import.
+- Added tested async workflow, snapshot resume, and SCXML import examples, with
+  subprocess smoke coverage for every canonical program in `docs/examples/`.
 
 ### Changed
 
@@ -23,6 +27,8 @@ All notable changes to this project will be documented here.
   before upload.
 - Updated PyPI-facing installation docs to use `pip install xstate` for the
   released package.
+- Consolidated runnable examples under `docs/examples/` and removed the legacy
+  untested top-level scripts.
 
 ### Fixed
 
