@@ -48,9 +48,8 @@ git submodule update --init
 poetry run python -m pytest tests/test_scxml.py
 ```
 
-The current known full-SCXML gap is the `more-parallel` conformance group.
-Do not treat those existing failures as caused by unrelated docs or tooling
-changes.
+The configured SCXML suite must pass in full. It is a focused subset and does
+not yet claim broad W3C datamodel or executable-content conformance.
 
 ## Pull Requests
 

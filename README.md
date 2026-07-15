@@ -427,9 +427,10 @@ git submodule update --init
 poetry run python -m pytest tests/test_scxml.py
 ```
 
-Current branch result: `45 passed`, `8 failed`; the remaining failures are the
-known `more-parallel` conformance cases. The `cond-js` subset passes with the
-safe Boolean evaluator.
+Current configured-suite result: `54 passed`, `0 failed`, including all enabled
+`more-parallel` cases. This is a focused SCXML subset rather than a claim of full
+W3C conformance; broader datamodel and executable-content coverage remains
+future work. The `cond-js` subset passes with the safe Boolean evaluator.
 
 ## Developing
 
@@ -470,7 +471,7 @@ release target needs to be checked against different refs.
 | Snapshot queries | `tags`, `meta`, `has_tag`/`hasTag`, and `state_in`/`stateIn` are present |
 | Diagrams | Dependency-free Mermaid export is present |
 | Async | `AsyncInterpreter`, async actors, `from_observable`, and `to_promise` are present |
-| SCXML | XML import works; safe Boolean cond subset works; `more-parallel` conformance remains open |
+| SCXML | Configured 54-case suite passes; broader W3C datamodel and executable-content coverage remains open |
 | Persistence | Snapshot serialization and restore helpers are present |
 
 ## Related Projects

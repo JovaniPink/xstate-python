@@ -73,6 +73,7 @@ scxml_ci_groups = {
     "hierarchy+documentOrder",
     "parallel",
     "parallel+interrupt",
+    "more-parallel",
 }
 
 test_files = [

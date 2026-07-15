@@ -36,7 +36,7 @@ bridge between XState's JSON ecosystem and Python backends.
 | Actor model | `create_actor`, `ActorSystem`, spawn, parent/child tree, `send_parent`, `send_to` |
 | Actor logic | `from_promise`, `from_callback`, `from_observable`, `to_promise` |
 | Invoke | Child actor lifetime reconciliation with `done.invoke.*` and `error.platform.*` events |
-| SCXML XML import | Present; safe Boolean cond subset; known `more-parallel` failures remain |
+| SCXML XML import | Present; safe Boolean cond subset; configured 54-case suite passes |
 
 ## What Works Today
 
@@ -57,7 +57,8 @@ bridge between XState's JSON ecosystem and Python backends.
   `MachineSnapshot`, `create_actor`, and `setup`.
 - Primary suite passes in current Python 3.13/3.14 CI.
 - SCXML `cond-js` subset result: `4 passed`.
-- Full SCXML result: `45 passed`, `8 failed` in known `more-parallel` cases.
+- Configured SCXML result: `54 passed`, `0 failed`, including all enabled
+  `more-parallel` cases.
 
 ## Competitive Position
 
@@ -77,7 +78,7 @@ JavaScript and wanting the same machine shape in Python services.
 |---|---|
 | High | Publish 0.7.0 to PyPI as `xstate` |
 | High | Document the public API by concept: machines, guards/actions, context, interpreter, actors, async, SCXML |
-| High | Fix the remaining SCXML `more-parallel` conformance cases |
+| High | Expand SCXML coverage beyond the configured subset without adding JavaScript evaluation |
 | Medium | Document snapshot persistence and restore helpers |
 | Medium | Inspector protocol compatibility |
 | Medium | More XState v5 utilities: `provide`, action helpers, graph/test helpers |
@@ -89,7 +90,7 @@ JavaScript and wanting the same machine shape in Python services.
 |---|---|
 | PyPI release | `pip install xstate` works after the 0.7.0 GitHub Release |
 | Primary test count | Maintain 300+ focused tests |
-| SCXML pass rate | Resolve known `more-parallel` group |
+| SCXML pass rate | Keep the configured suite green while expanding supported coverage |
 | Docs | README plus concept docs for the main public APIs |
 | Examples | JSON, sync, async, actor, and integration examples |
 
