@@ -7,6 +7,7 @@ from the repository root with `PYTHONPATH=src`:
 PYTHONPATH=src python3 docs/examples/traffic_intersection.py
 PYTHONPATH=src python3 docs/examples/fetch_with_retry.py
 PYTHONPATH=src python3 docs/examples/async_workflow.py
+PYTHONPATH=src python3 docs/examples/snapshot_resume.py
 ```
 
 ## Traffic Intersection
@@ -87,3 +88,11 @@ This compact asyncio example runs an awaitable action through
 `interpret_async(machine)`. It shows awaitable lifecycle methods, synchronous
 snapshot subscriptions, event payload access through `HandlerArgs`, and the
 guarantee that `await send(...)` completes after that event's async actions.
+
+## Snapshot Resume
+
+File: [`snapshot_resume.py`](./snapshot_resume.py)
+
+This example serializes a running machine actor to JSON, stops the original,
+restores the checkpoint against the same machine, and continues processing on a
+new actor without losing state value or context.

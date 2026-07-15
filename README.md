@@ -378,6 +378,7 @@ Runnable examples live in [`docs/examples/`](./docs/examples):
 | [`traffic_intersection.json`](./docs/examples/traffic_intersection.json) + [`traffic_intersection.py`](./docs/examples/traffic_intersection.py) | XState JSON loading, parallel regions, nested states, named delays, guards, entry actions, and deterministic clocks |
 | [`fetch_with_retry.py`](./docs/examples/fetch_with_retry.py) | `invoke`, `from_promise`, retries with `after`, context assignment, and guarded transitions |
 | [`async_workflow.py`](./docs/examples/async_workflow.py) | `AsyncInterpreter`, awaitable actions, subscriptions, and per-event completion |
+| [`snapshot_resume.py`](./docs/examples/snapshot_resume.py) | Snapshot serialization, JSON persistence, restoration, and continued actor processing |
 
 Run them from the repo root:
 
@@ -385,13 +386,16 @@ Run them from the repo root:
 PYTHONPATH=src python3 docs/examples/traffic_intersection.py
 PYTHONPATH=src python3 docs/examples/fetch_with_retry.py
 PYTHONPATH=src python3 docs/examples/async_workflow.py
+PYTHONPATH=src python3 docs/examples/snapshot_resume.py
 ```
 
 ## Documentation
 
 Concept guides and the runnable-example index live in [`docs/`](./docs). Start
 with [machines and implementations](./docs/concepts/machines-and-implementations.md)
-or [runtime choices](./docs/concepts/runtimes.md).
+or [runtime choices](./docs/concepts/runtimes.md), then continue with
+[actors](./docs/concepts/actors.md) and
+[snapshot persistence](./docs/concepts/persistence.md).
 
 ## Public API
 

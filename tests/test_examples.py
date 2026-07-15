@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
         "traffic_intersection.py",
         "fetch_with_retry.py",
         "async_workflow.py",
+        "snapshot_resume.py",
     ],
 )
 def test_documented_example_runs(example: str) -> None:
