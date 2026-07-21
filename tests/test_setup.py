@@ -35,7 +35,7 @@ def test_create_machine_returns_machine():
 def test_setup_guards_registered():
     machine = setup(
         guards={
-            "isReady": lambda c, e: True,
+            "isReady": lambda args: True,
         }
     ).create_machine(
         {
@@ -57,7 +57,7 @@ def test_setup_actions_registered():
 
     machine = setup(
         actions={
-            "recordCall": lambda: calls.append(True),
+            "recordCall": lambda args: calls.append(True),
         }
     ).create_machine(
         {
@@ -99,7 +99,7 @@ def test_setup_delays_registered():
 def test_multiple_create_machine_from_one_setup():
     ms = setup(
         guards={
-            "isReady": lambda c, e: True,
+            "isReady": lambda args: True,
         }
     )
     m1 = ms.create_machine(
@@ -133,7 +133,7 @@ def test_multiple_create_machine_from_one_setup():
 def test_create_machine_overrides_setup_guards():
     machine = setup(
         guards={
-            "isReady": lambda c, e: False,
+            "isReady": lambda args: False,
         }
     ).create_machine(
         {
@@ -145,7 +145,7 @@ def test_create_machine_overrides_setup_guards():
             },
         },
         guards={
-            "isReady": lambda c, e: True,
+            "isReady": lambda args: True,
         },
     )
     actor = create_actor(machine).start()
@@ -156,8 +156,8 @@ def test_create_machine_overrides_setup_guards():
 def test_setup_with_composable_guard():
     machine = setup(
         guards={
-            "isLoggedIn": lambda c, e: c.get("logged_in", False),
-            "isAdmin": lambda c, e: c.get("admin", False),
+            "isLoggedIn": lambda args: args.context.get("logged_in", False),
+            "isAdmin": lambda args: args.context.get("admin", False),
             "canEdit": and_("isLoggedIn", "isAdmin"),
         }
     ).create_machine(

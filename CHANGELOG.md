@@ -32,6 +32,12 @@ All notable changes to this project will be documented here.
 - Hardened SCXML import with canonical `guard` handlers, document-global ID and
   required-attribute validation, XML whitespace-aware targets, and full MyPy
   coverage.
+- Added a release artifact gate that installs the built wheel in an isolated
+  environment and checks package metadata, typing markers, imports, and a live
+  actor transition before publication.
+- Promoted unhandled test warnings to failures, raised the minimum coverage
+  threshold from 50% to 90%, and modernized canonical guards and examples to
+  the `HandlerArgs` and `guard` conventions.
 
 ### Fixed
 

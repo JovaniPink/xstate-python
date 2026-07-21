@@ -46,7 +46,7 @@
               "on": {
                 "PED_REQUEST": {
                   "target": "walk",
-                  "cond": "crossingIsClear"
+                  "guard": "crossingIsClear"
                 }
               }
             },

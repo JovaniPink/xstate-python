@@ -61,8 +61,14 @@ jobs:
       - name: Install dependencies
         run: poetry install
       - name: Check formatting
-        run: poetry run ruff format --check src/ tests/ docs/examples/
+        run: poetry run ruff format --check src/ tests/ scripts/ docs/examples/
       - name: Run lint
-        run: poetry run ruff check src/ tests/ docs/examples/
+        run: poetry run ruff check src/ tests/ scripts/ docs/examples/
       - name: Run type checks
         run: poetry run mypy src/xstate/
+      - name: Check package metadata
+        run: poetry check --lock
+      - name: Build and validate distribution
+        run: |
+          poetry build
+          poetry run python scripts/validate_distribution.py

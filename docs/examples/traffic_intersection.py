@@ -33,7 +33,7 @@ waiting — ideal for tests and reproducible demos.
 import json
 import os
 
-from xstate import Machine, interpret
+from xstate import HandlerArgs, Machine, interpret
 from xstate.scheduler import SimulatedClock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -55,19 +55,24 @@ DELAYS = {
 }
 
 
-def crossing_is_clear(context, event):
+def crossing_is_clear(_args: HandlerArgs) -> bool:
     """Guard for `PED_REQUEST`: allow the walk signal only when it is safe.
 
-    Guards receive ``(context, event)``. A real controller would consult sensor
-    data on ``event.data``; here we always allow it.
+    A real controller would consult sensor data through ``HandlerArgs.event``;
+    here we always allow it.
     """
     return True
 
 
-ACTIONS = {
-    "allRed": lambda: print("   [action] all signals -> RED (emergency)"),
-    "startWalkSignal": lambda: print("   [action] WALK signal illuminated"),
-}
+def report_all_red(_args: HandlerArgs) -> None:
+    print("   [action] all signals -> RED (emergency)")
+
+
+def start_walk_signal(_args: HandlerArgs) -> None:
+    print("   [action] WALK signal illuminated")
+
+
+ACTIONS = {"allRed": report_all_red, "startWalkSignal": start_walk_signal}
 
 
 def build_machine() -> Machine:

@@ -10,20 +10,29 @@ uses the same matching syntax as a transition ``in`` guard.
 
 Usage::
 
-    from xstate import Machine, and_, stateIn
+    from xstate import HandlerArgs, Machine, and_, stateIn
+
+    def is_logged_in(args: HandlerArgs) -> bool:
+        return bool(args.context.get("logged_in"))
+
+    def has_permission(args: HandlerArgs) -> bool:
+        return bool(args.context.get("permission"))
 
     machine = Machine(config, guards={
-        "isLoggedIn": lambda ctx, evt: ctx.get("logged_in"),
-        "hasPermission": lambda ctx, evt: ctx.get("permission"),
+        "isLoggedIn": is_logged_in,
+        "hasPermission": has_permission,
         "canGo": and_("isLoggedIn", "hasPermission", stateIn("#ready")),
     })
 
 Or via the ``setup()`` builder (recommended)::
 
-    from xstate import setup, and_, state_in
+    from xstate import HandlerArgs, and_, setup, state_in
+
+    def is_logged_in(args: HandlerArgs) -> bool:
+        return bool(args.context.get("logged_in"))
 
     machine = setup(guards={
-        "isLoggedIn": lambda ctx, evt: ctx.get("logged_in"),
+        "isLoggedIn": is_logged_in,
         "canGo": and_("isLoggedIn", state_in("ready")),
     }).create_machine(config)
 
@@ -41,6 +50,15 @@ __all__ = ["and_", "or_", "not_", "state_in", "stateIn"]
 
 class _ComposableGuard:
     """Base class for ``and_``, ``or_``, ``not_``, and ``stateIn`` guards."""
+
+    __signature__ = inspect.Signature(
+        [
+            inspect.Parameter(
+                "args",
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            )
+        ]
+    )
 
     def _eval(
         self,
@@ -78,6 +96,15 @@ class _ComposableGuard:
 
     def __call__(self, context: Any = None, event: Any = None) -> bool:
         """Direct call without a registry or active configuration."""
+        from xstate.handlers import HandlerArgs
+
+        if isinstance(context, HandlerArgs):
+            return self._call(
+                context.context,
+                context.event,
+                {},
+                state=context.state,
+            )
         return self._call(context, event, {})
 
 
