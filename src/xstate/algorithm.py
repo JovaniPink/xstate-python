@@ -359,8 +359,7 @@ def enter_states(
         history_value=history_value,
     )
 
-    # TODO: sort
-    for s in list(states_to_enter):
+    for s in sorted(states_to_enter, key=lambda state: state.order):
         configuration.add(s)
         states_to_invoke.add(s)
 
@@ -368,7 +367,6 @@ def enter_states(
         #     initializeDataModel(datamodel.s,doc.s)
         #     s.isFirstEntry = false
 
-        # TODO: sort
         for action in s.entry:
             context = execute_content(
                 action,
@@ -417,8 +415,14 @@ def exit_states(
     context: dict | None = None,
     event: Event | None = None,
 ):
-    states_to_exit = compute_exit_set(
-        enabled_transitions, configuration=configuration, history_value=history_value
+    states_to_exit = sorted(
+        compute_exit_set(
+            enabled_transitions,
+            configuration=configuration,
+            history_value=history_value,
+        ),
+        key=lambda state: state.order,
+        reverse=True,
     )
     for s in states_to_exit:
         states_to_invoke.discard(s)
