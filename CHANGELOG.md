@@ -35,6 +35,8 @@ All notable changes to this project will be documented here.
 - Corrected SCXML transition-domain resolution so external transitions inside
   parallel states re-enter every affected region and resolve conflicts in
   document order.
+- Made state entry actions run in document order and exit actions run in
+  reverse document order, including nested and parallel configurations.
 
 ## 0.6.0 - 2026-06-28
 
