@@ -29,6 +29,9 @@ All notable changes to this project will be documented here.
   released package.
 - Consolidated runnable examples under `docs/examples/` and removed the legacy
   untested top-level scripts.
+- Hardened SCXML import with canonical `guard` handlers, document-global ID and
+  required-attribute validation, XML whitespace-aware targets, and full MyPy
+  coverage.
 
 ### Fixed
 

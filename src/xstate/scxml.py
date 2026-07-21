@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import os
 import xml.etree.ElementTree as ET
+from collections.abc import Callable
+from typing import Any, NoReturn, cast
 
 from xstate.exceptions import InvalidConfigError
+from xstate.handlers import HandlerArgs
 from xstate.machine import Machine
-
-ns = {"scxml": "http://www.w3.org/2005/07/scxml"}
+from xstate.schema import ActionSpec, MachineConfig, StateNodeConfig, TransitionConfig
 
 __all__ = ["scxml_to_machine"]
+
+_STATE_TAGS = frozenset({"state", "parallel"})
 
 
 class _BooleanCondParser:
@@ -70,7 +74,7 @@ class _BooleanCondParser:
             return True
         return False
 
-    def _unsupported(self) -> None:
+    def _unsupported(self) -> NoReturn:
         raise InvalidConfigError(
             "Unsupported SCXML JavaScript cond expression "
             f"{self.source!r}. Supported subset: true, false, !, &&, ||, "
@@ -113,140 +117,160 @@ class _BooleanCondParser:
         return tokens
 
 
-def _eval_scxml_cond(event_cond_str: str):
-    """Compile a safe subset of SCXML JavaScript ``cond`` into a callable."""
-    result = _BooleanCondParser(event_cond_str).parse()
+def _eval_scxml_cond(source: str) -> Callable[[HandlerArgs | None], bool]:
+    """Compile the safe SCXML Boolean subset into a canonical guard."""
+    result = _BooleanCondParser(source).parse()
 
-    def cond() -> bool:
+    def guard(_args: HandlerArgs | None = None) -> bool:
         return result
 
-    return cond
-
-
-def get_all_state_els(element: ET.Element) -> list[ET.Element]:
-    return [e for e in element if get_tag(e) == "state" or get_tag(e) == "parallel"]
-
-
-def convert_scxml(element: ET.Element, parent: ET.Element | None) -> dict:
-    all_state_els = get_all_state_els(element)
-
-    initial_state_key = element.attrib.get(
-        "initial",
-        convert_state(all_state_els[0], parent=element).get("key"),
-    )
-
-    return {
-        "id": "machine",
-        "initial": initial_state_key,
-        "states": accumulate_states(element, parent),
-    }
+    return guard
 
 
 def get_tag(element: ET.Element) -> str:
-    _, _, tag = element.tag.rpartition("}")
-    return tag
+    return element.tag.rpartition("}")[2]
 
 
-def accumulate_states(element: ET.Element, parent: ET.Element | None) -> dict:
-    all_state_els = [
-        e for e in element if get_tag(e) == "state" or get_tag(e) == "parallel"
-    ]
-    states = [convert_state(state_el, element) for state_el in all_state_els]
-
-    states_dict = {}
-
-    for state in states:
-        states_dict[state.get("key")] = state
-
-    return states_dict
+def _children(element: ET.Element, tags: frozenset[str]) -> list[ET.Element]:
+    return [child for child in element if get_tag(child) in tags]
 
 
-def convert_state(element: ET.Element, parent: ET.Element | None) -> dict:
-    id = element.attrib.get("id")
-    transition_els = element.findall("scxml:transition", namespaces=ns)
-    transitions = [convert_transition(el, element) for el in transition_els]
+def get_all_state_els(element: ET.Element) -> list[ET.Element]:
+    return _children(element, _STATE_TAGS)
 
-    state_els = element.findall("scxml:state", namespaces=ns)
 
-    states = accumulate_states(element, parent)
+def _required_attribute(element: ET.Element, name: str) -> str:
+    value = element.attrib.get(name)
+    if value is None or not value.strip():
+        raise InvalidConfigError(
+            f"SCXML <{get_tag(element)}> requires a non-empty {name!r} attribute."
+        )
+    return value
 
-    onexit_el = element.find("scxml:onexit", namespaces=ns)
-    onexit = (
-        convert_onexit(onexit_el, parent=element) if onexit_el is not None else None
-    )
-    onentry_el = element.find("scxml:onentry", namespaces=ns)
-    onentry = (
-        convert_onentry(onentry_el, parent=element) if onentry_el is not None else None
-    )
 
-    result: dict = {
-        "type": "parallel" if get_tag(element) == "parallel" else None,
-        "id": f"{id}",
-        "key": id,
-        "exit": onexit,
-        "entry": onentry,
-        "states": states,
-        "initial": state_els[0].attrib.get("id") if state_els else None,
-    }
+def accumulate_states(element: ET.Element) -> dict[str, StateNodeConfig]:
+    states: dict[str, StateNodeConfig] = {}
+    for state_element in get_all_state_els(element):
+        state_id = _required_attribute(state_element, "id")
+        if state_id in states:
+            raise InvalidConfigError(
+                f"Duplicate SCXML state id {state_id!r} under "
+                f"<{get_tag(element)}> element."
+            )
+        states[state_id] = convert_state(state_element)
+    return states
 
-    if len(transitions) > 0:
-        transitions_dict: dict[str | None, list] = {}
 
-        for t in transitions:
-            transitions_dict[t.get("event")] = transitions_dict.get(t.get("event"), [])
-            transitions_dict[t.get("event")].append(t)
+def _validate_state_ids(element: ET.Element) -> None:
+    seen: set[str] = set()
+    for state_element in element.iter():
+        if get_tag(state_element) not in _STATE_TAGS:
+            continue
+        state_id = _required_attribute(state_element, "id")
+        if state_id in seen:
+            raise InvalidConfigError(f"Duplicate SCXML state id {state_id!r}.")
+        seen.add(state_id)
 
-        result["on"] = transitions_dict
+
+def convert_scxml(element: ET.Element) -> MachineConfig:
+    _validate_state_ids(element)
+    states = accumulate_states(element)
+    if not states:
+        raise InvalidConfigError(
+            "SCXML document must contain at least one <state> or <parallel>."
+        )
+    initial = element.attrib.get("initial") or next(iter(states))
+    return {"id": "machine", "initial": initial, "states": states}
+
+
+def convert_state(element: ET.Element) -> StateNodeConfig:
+    state_id = _required_attribute(element, "id")
+    child_elements = get_all_state_els(element)
+    states = accumulate_states(element)
+
+    result: StateNodeConfig = {"id": state_id}
+    if get_tag(element) == "parallel":
+        result["type"] = "parallel"
+    if states:
+        result["states"] = states
+        if get_tag(element) != "parallel":
+            result["initial"] = element.attrib.get("initial") or _required_attribute(
+                child_elements[0], "id"
+            )
+
+    transition_map: dict[
+        str | None,
+        TransitionConfig | str | list[TransitionConfig | str],
+    ] = {}
+    for transition_element in _children(element, frozenset({"transition"})):
+        transition = convert_transition(transition_element)
+        event = transition_element.attrib.get("event")
+        bucket = transition_map.setdefault(event, [])
+        if not isinstance(bucket, list):
+            raise AssertionError("SCXML transition bucket must be a list")
+        bucket.append(transition)
+    if transition_map:
+        result["on"] = transition_map
+
+    entry_element = next(iter(_children(element, frozenset({"onentry"}))), None)
+    if entry_element is not None:
+        entry = convert_executable_content(entry_element)
+        if entry:
+            result["entry"] = entry
+
+    exit_element = next(iter(_children(element, frozenset({"onexit"}))), None)
+    if exit_element is not None:
+        exit_actions = convert_executable_content(exit_element)
+        if exit_actions:
+            result["exit"] = exit_actions
 
     return result
 
 
-def convert_transition(element: ET.Element, parent: ET.Element) -> dict:
-    event_type = element.attrib.get("event")
-    target_attr = element.attrib.get("target")
-    event_targets = target_attr.split(" ") if target_attr else []
-    event_cond_str = element.attrib.get("cond")
+def convert_transition(element: ET.Element) -> TransitionConfig:
+    result: TransitionConfig = {}
+    target = element.attrib.get("target")
+    if target is not None:
+        result["target"] = [f"#{target_id}" for target_id in target.split()]
 
-    event_cond = _eval_scxml_cond(event_cond_str) if event_cond_str else None
+    condition = element.attrib.get("cond")
+    if condition is not None:
+        result["guard"] = _eval_scxml_cond(condition)
 
-    raise_els = element.findall("scxml:raise", namespaces=ns)
-    actions = [convert_raise(raise_el, element) for raise_el in raise_els]
+    actions = convert_executable_content(element)
+    if actions:
+        result["actions"] = actions
+    return result
 
+
+def convert_raise(element: ET.Element) -> dict[str, str]:
     return {
-        "event": event_type,
-        "target": ["#%s" % t for t in event_targets],
-        "actions": actions,
-        "cond": event_cond,
+        "type": "xstate:raise",
+        "event": _required_attribute(element, "event"),
     }
 
 
-def convert_raise(element: ET.Element, parent: ET.Element) -> dict:
-    return {"type": "xstate:raise", "event": element.attrib.get("event")}
+def convert_executable_content(element: ET.Element) -> list[ActionSpec]:
+    return [
+        convert_raise(raise_element)
+        for raise_element in _children(element, frozenset({"raise"}))
+    ]
 
 
-def convert_onexit(element: ET.Element, parent: ET.Element) -> list:
-    raise_els = element.findall("scxml:raise", namespaces=ns)
-    return [convert_raise(raise_el, element) for raise_el in raise_els]
-
-
-def convert_onentry(element: ET.Element, parent: ET.Element) -> list:
-    raise_els = element.findall("scxml:raise", namespaces=ns)
-    return [convert_raise(raise_el, element) for raise_el in raise_els]
-
-
-def convert(element: ET.Element, parent: ET.Element | None = None) -> dict:
-    _, _, element_tag = element.tag.rpartition("}")  # strip namespace
-    result = elements.get(element_tag, lambda *_: f"Invalid tag: {element_tag}")
-    return result(element, parent)
-
-
-elements: dict = {"scxml": convert_scxml, "state": convert_state}
+def convert(element: ET.Element) -> MachineConfig:
+    if get_tag(element) != "scxml":
+        raise InvalidConfigError(
+            f"Expected an <scxml> document root, got <{get_tag(element)}> instead."
+        )
+    return convert_scxml(element)
 
 
 def scxml_to_machine(source: str | os.PathLike[str]) -> Machine:
-    """Load an SCXML document from a filesystem path."""
-    tree = ET.parse(source)
-    root = tree.getroot()
-    result = convert(root)
-    machine = Machine(result)
-    return machine
+    """Load a focused SCXML subset from a filesystem path."""
+    try:
+        root = ET.parse(source).getroot()
+    except ET.ParseError as exc:
+        raise InvalidConfigError(
+            f"Invalid SCXML XML in {os.fspath(source)!r}: {exc}"
+        ) from exc
+    return Machine(cast(dict[str, Any], convert(root)))

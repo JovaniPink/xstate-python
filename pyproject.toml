@@ -88,11 +88,6 @@ warn_unused_ignores = true
 no_implicit_optional = true
 no_implicit_reexport = true
 
-# scxml.py uses dynamic eval and ET internals — skip.
-[[tool.mypy.overrides]]
-module = "xstate.scxml"
-ignore_errors = true
-
 # algorithm.py implements W3C SCXML; internal control-flow helpers still use
 # loose signatures while the parsed config boundary is now typed separately.
 [[tool.mypy.overrides]]

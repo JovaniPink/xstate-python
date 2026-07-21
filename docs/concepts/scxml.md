@@ -50,6 +50,11 @@ outside this import surface. Structural `<final>`, `<history>`, and explicit
 configuration supports equivalent statechart concepts. Do not depend on
 `<script>`, `<assign>`, `<send>`, or general ECMAScript evaluation during import.
 
+Malformed XML, an empty document, missing state IDs or raise events, and
+duplicate state IDs raise `InvalidConfigError` during import. State IDs are
+validated across the complete document because SCXML transition targets are
+document-global.
+
 ## Transition Execution
 
 The imported machine uses the regular run-to-completion algorithm. Exit
