@@ -10,7 +10,7 @@ Covers:
 
 import pytest
 
-from xstate import Machine, and_, create_actor, not_, or_, setup
+from xstate import HandlerArgs, Machine, and_, create_actor, not_, or_, setup
 
 # ---------------------------------------------------------------------------
 # Standalone semantics
@@ -58,6 +58,12 @@ def test_and_empty_is_true():
 def test_or_empty_is_false():
     g = or_()
     assert g(None, None) is False
+
+
+def test_composable_guard_accepts_handler_args():
+    guard = and_(lambda args: args.context["ready"])
+
+    assert guard(HandlerArgs(context={"ready": True}, event=None)) is True
 
 
 # ---------------------------------------------------------------------------
@@ -118,7 +124,7 @@ def test_not_guard_in_machine_blocks():
 # ---------------------------------------------------------------------------
 
 
-def test_and_resolves_string_subguards():
+def test_event_payload_does_not_replace_context_for_string_guards():
     machine = Machine(
         {
             "id": "m",
@@ -142,9 +148,7 @@ def test_and_resolves_string_subguards():
     )
     actor = create_actor(machine).start()
     actor.send({"type": "GO", "logged_in": True, "permission": True})
-    # The event payload isn't context, so we need context in state
-    # Use a machine with context instead
-    assert actor.get_snapshot().value in ("a", "b")
+    assert actor.get_snapshot().value == "a"
 
 
 def test_and_string_guards_with_context():
@@ -166,8 +170,8 @@ def test_and_string_guards_with_context():
             },
         },
         guards={
-            "isLoggedIn": lambda c, e: c.get("logged_in"),
-            "hasPermission": lambda c, e: c.get("permission"),
+            "isLoggedIn": lambda args: args.context.get("logged_in"),
+            "hasPermission": lambda args: args.context.get("permission"),
         },
     )
     actor = create_actor(machine).start()
@@ -194,8 +198,8 @@ def test_and_string_guards_blocked_by_missing_permission():
             },
         },
         guards={
-            "isLoggedIn": lambda c, e: c.get("logged_in"),
-            "hasPermission": lambda c, e: c.get("permission"),
+            "isLoggedIn": lambda args: args.context.get("logged_in"),
+            "hasPermission": lambda args: args.context.get("permission"),
         },
     )
     actor = create_actor(machine).start()
@@ -286,8 +290,8 @@ def test_nested_not_and():
 def test_setup_with_composable_guards():
     machine = setup(
         guards={
-            "isLoggedIn": lambda c, e: c.get("logged_in"),
-            "hasPermission": lambda c, e: c.get("permission"),
+            "isLoggedIn": lambda args: args.context.get("logged_in"),
+            "hasPermission": lambda args: args.context.get("permission"),
             "canAccess": and_("isLoggedIn", "hasPermission"),
         }
     ).create_machine(
@@ -309,8 +313,8 @@ def test_setup_with_composable_guards():
 def test_setup_composable_guard_blocks():
     machine = setup(
         guards={
-            "isLoggedIn": lambda c, e: c.get("logged_in"),
-            "hasPermission": lambda c, e: c.get("permission"),
+            "isLoggedIn": lambda args: args.context.get("logged_in"),
+            "hasPermission": lambda args: args.context.get("permission"),
             "canAccess": and_("isLoggedIn", "hasPermission"),
         }
     ).create_machine(

@@ -23,7 +23,7 @@ Run it::
     python docs/examples/fetch_with_retry.py
 """
 
-from xstate import Machine, assign, create_actor, from_promise
+from xstate import HandlerArgs, Machine, assign, create_actor, from_promise
 from xstate.scheduler import SimulatedClock
 
 # A flaky data source: fails the first two attempts, then succeeds. Stands in
@@ -41,9 +41,13 @@ def fetch_user(input):
     return {"id": input["user_id"], "name": "Ada Lovelace"}
 
 
-def can_retry(context, event):
+def can_retry(args: HandlerArgs) -> bool:
     """Guard: keep retrying until we hit the cap."""
-    return context["retries"] < context["max_retries"]
+    return args.context["retries"] < args.context["max_retries"]
+
+
+def retries_exhausted(args: HandlerArgs) -> bool:
+    return args.context["retries"] >= args.context["max_retries"]
 
 
 machine = Machine(
@@ -84,10 +88,10 @@ machine = Machine(
             },
             "retrying": {
                 "always": [
-                    {"target": "failure", "cond": "exhausted"},
+                    {"target": "failure", "guard": "exhausted"},
                 ],
                 # Back off, then try again — but only while canRetry holds.
-                "after": {"backoff": {"target": "loading", "cond": "canRetry"}},
+                "after": {"backoff": {"target": "loading", "guard": "canRetry"}},
             },
             "success": {"type": "final"},
             "failure": {"type": "final"},
@@ -95,7 +99,7 @@ machine = Machine(
     },
     guards={
         "canRetry": can_retry,
-        "exhausted": lambda c, e: c["retries"] >= c["max_retries"],
+        "exhausted": retries_exhausted,
     },
     delays={"backoff": 1000},
     actors={"fetchUser": from_promise(fetch_user)},

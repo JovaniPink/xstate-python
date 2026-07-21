@@ -152,6 +152,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "--check",
                 "src/",
                 "tests/",
+                "scripts/",
                 "docs/examples/",
             ),
         ),
@@ -164,11 +165,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "check",
                 "src/",
                 "tests/",
+                "scripts/",
                 "docs/examples/",
             ),
         ),
         ("Run type checks", ("poetry", "run", "mypy", "src/xstate/")),
         ("Build distribution", ("poetry", "build")),
+        (
+            "Validate built distribution",
+            ("poetry", "run", "python", "scripts/validate_distribution.py"),
+        ),
     )
     for label, command in steps:
         run(label, command)

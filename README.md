@@ -461,8 +461,13 @@ poetry run python -m pytest tests/ --ignore=tests/test_scxml.py
 poetry run mypy src/xstate/
 
 # Formatting and linting
-poetry run ruff format --check src/ tests/ docs/examples/
-poetry run ruff check src/ tests/ docs/examples/
+poetry run ruff format --check src/ tests/ scripts/ docs/examples/
+poetry run ruff check src/ tests/ scripts/ docs/examples/
+
+# Build and test the installed wheel
+poetry check --lock
+poetry build
+poetry run python scripts/validate_distribution.py
 ```
 
 ### Release preflight

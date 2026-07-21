@@ -76,12 +76,16 @@ jobs:
       - name: Run SCXML smoke suite
         run: poetry run python -m pytest tests/test_scxml.py -m scxml_ci
       - name: Check formatting
-        run: poetry run ruff format --check src/ tests/ docs/examples/
+        run: poetry run ruff format --check src/ tests/ scripts/ docs/examples/
       - name: Run lint
-        run: poetry run ruff check src/ tests/ docs/examples/
+        run: poetry run ruff check src/ tests/ scripts/ docs/examples/
       - name: Run type checks
         run: poetry run mypy src/xstate/
+      - name: Build distribution
+        run: poetry build
+      - name: Validate built distribution
+        run: poetry run python scripts/validate_distribution.py
       - name: Publish to PyPI
         env:
           POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_TOKEN }}
-        run: poetry publish --build
+        run: poetry publish

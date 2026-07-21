@@ -1,4 +1,9 @@
+from xstate import HandlerArgs
 from xstate.machine import Machine
+
+
+def no_op(_args: HandlerArgs) -> None:
+    pass
 
 
 def make_lights():
@@ -23,7 +28,8 @@ def make_lights():
                     "onDone": "green",
                 },
             },
-        }
+        },
+        actions={"enterGreen": no_op},
     )
 
 

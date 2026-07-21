@@ -225,8 +225,13 @@ poetry run python -m pytest tests/test_scxml.py -k cond-js
 poetry run mypy src/xstate/
 
 # Format + lint
-poetry run ruff format --check src/ tests/ docs/examples/
-poetry run ruff check src/ tests/ docs/examples/
+poetry run ruff format --check src/ tests/ scripts/ docs/examples/
+poetry run ruff check src/ tests/ scripts/ docs/examples/
+
+# Build + validate the installed wheel
+poetry check --lock
+poetry build
+poetry run python scripts/validate_distribution.py
 ```
 
 ---

@@ -37,8 +37,11 @@ Run type checking and linting:
 
 ```bash
 poetry run mypy src/xstate/
-poetry run ruff format --check src/ tests/ docs/examples/
-poetry run ruff check src/ tests/ docs/examples/
+poetry run ruff format --check src/ tests/ scripts/ docs/examples/
+poetry run ruff check src/ tests/ scripts/ docs/examples/
+poetry check --lock
+poetry build
+poetry run python scripts/validate_distribution.py
 ```
 
 SCXML changes need the SCXML test framework:
