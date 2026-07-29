@@ -484,6 +484,13 @@ The preflight verifies the expected tag against `pyproject.toml`, checks that
 distribution without publishing. Pass `--target-ref` or `--master-ref` if the
 release target needs to be checked against different refs.
 
+The GitHub **Release Preflight** workflow exposes the same dry run through
+`workflow_dispatch`. It checks out `master`, defaults to `v0.7.0`, and calls
+the same script without publishing. The GitHub Release publish workflow also
+delegates all validation to this script before `poetry publish`; workflow
+contract tests prevent either workflow from duplicating or drifting from the
+script-owned quality gates.
+
 ## Roadmap
 
 | Area | Current state |
