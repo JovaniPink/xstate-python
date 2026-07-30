@@ -25,6 +25,9 @@ All notable changes to this project will be documented here.
 - Hardened the GitHub Release publish workflow so the release tag must match the
   package version, point at `origin/master`, and have a configured PyPI token
   before upload.
+- Unified local and GitHub release validation through
+  `scripts/release_preflight.py`, with a manual `v0.7.0` dry-run workflow
+  against `master` and contract tests that prevent workflow gate drift.
 - Updated PyPI-facing installation docs to use `pip install xstate` for the
   released package.
 - Consolidated runnable examples under `docs/examples/` and removed the legacy
