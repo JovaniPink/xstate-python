@@ -470,6 +470,18 @@ poetry build
 poetry run python scripts/validate_distribution.py
 ```
 
+### Continuous integration
+
+Pull requests run the primary suite on Python 3.13 and 3.14, the stable SCXML
+smoke subset, and the complete formatting, lint, type, metadata, build, and
+installed-wheel checks. The test suite enforces the 90% coverage floor directly,
+so pull-request acceptance does not depend on an external coverage service.
+
+The workflows use the Node-runtime-v7 releases of checkout and setup-python.
+Release and manual preflight workflows use the same checkout and Python setup
+majors so validation and publication do not drift onto deprecated action
+runtimes.
+
 ### Release preflight
 
 Before creating the GitHub Release for `0.7.0`, run the local preflight from
