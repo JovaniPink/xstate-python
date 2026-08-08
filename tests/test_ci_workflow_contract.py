@@ -19,12 +19,9 @@ def test_all_python_workflows_use_current_action_runtime_majors() -> None:
     assert workflow_text.count("actions/setup-python@v7") == 5
 
 
-def test_coverage_upload_is_single_lane_oidc_and_fail_closed() -> None:
+def test_coverage_gate_does_not_depend_on_an_external_upload() -> None:
     workflow = read_workflow("pull_request.yaml")
 
-    assert "id-token: write" in workflow
-    assert "codecov/codecov-action@v7" in workflow
-    assert "if: matrix.python-version == '3.13'" in workflow
-    assert "fail_ci_if_error: true" in workflow
-    assert "files: ./coverage.xml" in workflow
-    assert "use_oidc: true" in workflow
+    assert "--cov --cov-report=xml" in workflow
+    assert "codecov/codecov-action" not in workflow
+    assert "id-token: write" not in workflow
