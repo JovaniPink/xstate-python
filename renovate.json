@@ -1,0 +1,15 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "dependencyDashboard": true,
+  "packageRules": [
+    {
+      "description": "Keep devcontainer bases immutable while allowing reviewed digest refreshes",
+      "matchDatasources": ["docker"],
+      "pinDigests": true
+    }
+  ]
+}

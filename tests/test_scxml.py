@@ -8,7 +8,7 @@ from xstate.scxml import scxml_to_machine
 
 pp = PrettyPrinter(indent=2)
 
-test_dir = Path(__file__).resolve().parents[1] / "test-framework" / "test"
+test_dir = Path(__file__).resolve().parent / "fixtures" / "scxml"
 
 test_groups: dict[str, list[str]] = {
     "actionSend": [
@@ -86,6 +86,22 @@ test_files = [
     for test_group, test_names in test_groups.items()
     for test_name in test_names
 ]
+
+
+@pytest.mark.scxml_ci
+def test_vendored_scxml_fixture_inventory_is_exact() -> None:
+    expected = {
+        test_dir / test_group / f"{test_name}{suffix}"
+        for test_group, test_names in test_groups.items()
+        for test_name in test_names
+        for suffix in (".json", ".scxml")
+    }
+    actual = set(test_dir.glob("*/*.json")) | set(test_dir.glob("*/*.scxml"))
+
+    assert actual == expected
+    provenance = (test_dir / "PROVENANCE.md").read_text(encoding="utf-8")
+    assert "b46a10a1c3a3b1ca5c5cb4bb44ddb5c785611f41" in provenance
+    assert (test_dir / "LICENSE.txt").is_file()
 
 
 @pytest.mark.scxml_ci

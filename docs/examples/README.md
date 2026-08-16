@@ -106,5 +106,5 @@ Files: [`scxml_toggle.scxml`](./scxml_toggle.scxml) and
 
 This self-contained pair imports a local SCXML document, exercises safe Boolean
 conditions and raise executable content, and toggles in both directions through
-the pure `Machine.transition(...)` API. It does not require the conformance test
-submodule.
+the pure `Machine.transition(...)` API. It is independent of the vendored
+conformance-test fixture subset.

@@ -1,0 +1,2 @@
+# Preserve third-party conformance fixtures byte-for-byte, including source whitespace.
+tests/fixtures/scxml/** -whitespace

@@ -214,8 +214,7 @@ poetry install
 # Run the test suite (primary target — no extras needed)
 poetry run python -m pytest tests/ --ignore=tests/test_scxml.py
 
-# Run SCXML tests (needs test-framework submodule)
-git submodule update --init
+# Run SCXML tests against the checked-in fixture subset
 poetry run python -m pytest tests/test_scxml.py
 
 # Focused SCXML boolean cond subset
@@ -248,7 +247,8 @@ library. The SCXML importer now uses a small pure-Python Boolean evaluator.
 ### Algorithm changes require SCXML test verification
 
 `xstate/algorithm.py` implements the W3C SCXML algorithm. Any change to it must be
-verified against the SCXML test framework (`test-framework/`). The reference is:
+verified against the repository-owned SCXML Test Framework fixture subset under
+`tests/fixtures/scxml/`. The reference is:
 https://www.w3.org/TR/scxml/#AlgorithmforSCXMLInterpretation
 
 Key functions and their SCXML algorithm counterparts:
