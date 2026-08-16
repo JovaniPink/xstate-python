@@ -111,18 +111,16 @@ An expression such as `count > 0` is rejected in the same way; defining
 
 ## Conformance Boundary
 
-The configured repository suite currently reports `54 passed`, `0 failed`,
-including all 13 enabled `more-parallel` cases. This is a focused subset, not a
-claim of complete W3C SCXML conformance. The broader datamodel and executable
-content surface remains future work, and the `more-parallel` `test10` and
-`test10b` fixtures remain outside the configured set because they require
-additional assignment support.
+The configured repository subset contains 54 passing conformance cases, including all 13 enabled
+`more-parallel` cases, plus a fixture inventory/provenance guard. This is a focused subset, not a
+claim of complete W3C SCXML conformance. The broader datamodel and executable content surface
+remains future work, and the `more-parallel` `test10` and `test10b` fixtures remain outside the
+configured set because they require additional assignment support.
 
 Run the self-contained [SCXML toggle example](../examples/scxml_toggle.py), or
-run the configured conformance suite after initializing its submodule:
+run the configured conformance suite against the checked-in fixture subset:
 
 ```bash
 PYTHONPATH=src python3 docs/examples/scxml_toggle.py
-git submodule update --init
 poetry run python -m pytest tests/test_scxml.py
 ```

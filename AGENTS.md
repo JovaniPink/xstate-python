@@ -141,8 +141,7 @@ poetry install
 # Primary suite
 poetry run python -m pytest tests/ --ignore=tests/test_scxml.py
 
-# SCXML tests
-git submodule update --init
+# SCXML tests use the checked-in fixture subset under tests/fixtures/scxml
 poetry run python -m pytest tests/test_scxml.py
 
 # Focused SCXML boolean cond subset

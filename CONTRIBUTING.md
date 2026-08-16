@@ -44,10 +44,9 @@ poetry build
 poetry run python scripts/validate_distribution.py
 ```
 
-SCXML changes need the SCXML test framework:
+SCXML changes use the checked-in, provenance-preserving fixture subset:
 
 ```bash
-git submodule update --init
 poetry run python -m pytest tests/test_scxml.py
 ```
 

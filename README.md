@@ -435,19 +435,20 @@ from xstate.scheduler import SimulatedClock, ThreadClock
 ## SCXML
 
 The algorithm core follows the W3C SCXML execution model. XML import is exposed
-through `xstate.scxml.scxml_to_machine(...)` and verified against the SCXML test
-framework. See the [SCXML import guide](./docs/concepts/scxml.md) for supported
-elements, safe conditions, and current limits.
+through `xstate.scxml.scxml_to_machine(...)` and verified against a focused,
+repository-owned fixture subset from the SCXML Test Framework. See the
+[SCXML import guide](./docs/concepts/scxml.md) for supported elements, safe
+conditions, and current limits. Fixture provenance and the Apache 2.0 license
+are retained under `tests/fixtures/scxml/`.
 
 ```bash
-git submodule update --init
 poetry run python -m pytest tests/test_scxml.py
 ```
 
-Current configured-suite result: `54 passed`, `0 failed`, including all enabled
-`more-parallel` cases. This is a focused SCXML subset rather than a claim of full
-W3C conformance; broader datamodel and executable-content coverage remains
-future work. The `cond-js` subset passes with the safe Boolean evaluator.
+The configured conformance subset contains 54 passing cases, including all enabled
+`more-parallel` cases, plus a fixture inventory/provenance guard. This is a focused SCXML
+subset rather than a claim of full W3C conformance; broader datamodel and executable-content
+coverage remains future work. The `cond-js` subset passes with the safe Boolean evaluator.
 
 ## Developing
 
