@@ -74,6 +74,56 @@ def test_imported_multi_target_transition_accepts_xml_whitespace(
     }
 
 
+def test_imported_assign_subset_preserves_parallel_entry_exit_order() -> None:
+    source = (
+        Path(__file__).resolve().parent
+        / "fixtures"
+        / "scxml"
+        / "more-parallel"
+        / "test10b.scxml"
+    )
+    machine = scxml_to_machine(source)
+
+    state = machine.initial_state
+    assert state.context == {"x": 2}
+
+    state = machine.transition(state, "t1")
+    assert state.value == {"p": {"a": {}, "b": {}}}
+    assert state.context == {"x": 4}
+
+    state = machine.transition(state, "t2")
+    assert state.matches("c")
+    assert state.context == {"x": 6}
+
+    state = machine.transition(state, "t3")
+    assert state.matches("d")
+    assert state.context == {"x": 6}
+
+
+def test_imported_integer_guard_does_not_treat_boolean_as_integer(
+    tmp_path: Path,
+) -> None:
+    source = write_scxml(
+        tmp_path,
+        """<scxml xmlns="http://www.w3.org/2005/07/scxml" datamodel="ecmascript">
+  <datamodel>
+    <data id="x" expr="0"/>
+  </datamodel>
+  <state id="waiting">
+    <transition event="GO" cond="x === 1" target="done"/>
+  </state>
+  <state id="done"/>
+</scxml>""",
+    )
+    machine = scxml_to_machine(source)
+    state = machine.initial_state
+    state.context["x"] = True
+
+    state = machine.transition(state, "GO")
+
+    assert state.matches("waiting")
+
+
 def test_import_defaults_to_first_state(tmp_path: Path) -> None:
     source = write_scxml(
         tmp_path,
@@ -145,4 +195,44 @@ def test_import_wraps_malformed_xml(tmp_path: Path) -> None:
     source = write_scxml(tmp_path, "<scxml><state id='open'></scxml>")
 
     with pytest.raises(InvalidConfigError, match="Invalid SCXML XML"):
+        scxml_to_machine(source)
+
+
+@pytest.mark.parametrize(
+    ("data_expression", "assign_location", "assign_expression", "condition", "message"),
+    [
+        ("1 + 1", "x", "x + 1", "true", "<data> expression"),
+        ("0", "x", "x + 2", "true", "<assign> expression"),
+        ("0", "x", "1 + x", "true", "<assign> expression"),
+        ("0", "x.count", "x.count + 1", "true", "<assign> location"),
+        ("0", "missing", "missing + 1", "true", "<assign> location"),
+        ("0", "x", "x + 1", "x == 1", "cond expression"),
+        ("0", "x", "x + 1", "x === 1 &amp;&amp; true", "cond expression"),
+        ("0", "x", "x + 1", "event === 1", "not declared"),
+    ],
+)
+def test_import_rejects_expressions_outside_assign_subset(
+    tmp_path: Path,
+    data_expression: str,
+    assign_location: str,
+    assign_expression: str,
+    condition: str,
+    message: str,
+) -> None:
+    source = write_scxml(
+        tmp_path,
+        f"""<scxml xmlns="http://www.w3.org/2005/07/scxml" datamodel="ecmascript">
+  <datamodel>
+    <data id="x" expr="{data_expression}"/>
+  </datamodel>
+  <state id="only">
+    <onentry>
+      <assign location="{assign_location}" expr="{assign_expression}"/>
+    </onentry>
+    <transition event="GO" cond="{condition}"/>
+  </state>
+</scxml>""",
+    )
+
+    with pytest.raises(InvalidConfigError, match=message):
         scxml_to_machine(source)

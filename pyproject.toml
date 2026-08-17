@@ -31,8 +31,8 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-# SCXML import is dependency-free on modern Python. JavaScript-style `cond`
-# support intentionally covers a small safe boolean subset in xstate.scxml.
+# SCXML import is dependency-free on modern Python. Expression support is
+# intentionally limited to the safe, fixture-proven subset in xstate.scxml.
 scxml = []
 
 [project.urls]

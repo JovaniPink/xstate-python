@@ -64,15 +64,15 @@ structure with a JavaScript/XState frontend or a Stately-authored design.
 - Active snapshot `tags`, `meta`, `has_tag`/`hasTag`, and
   `state_in`/`stateIn` guard helpers.
 - Dependency-free Mermaid diagram export via `to_mermaid(machine)`.
-- SCXML XML import with a safe Boolean cond subset: `true`, `false`, `!`, `&&`,
-  `||`, and parentheses.
+- SCXML XML import with safe Boolean conditions and the fixture-proven integer
+  data subset.
 
 ## Known Gaps
 
 | Gap | Notes |
 |---|---|
 | PyPI release | 0.7.0 packaging metadata and release workflow are ready; publish via GitHub Release. |
-| SCXML conformance | Configured SCXML suite is `54 passed`, `0 failed`; broader W3C coverage is not yet claimed. |
+| SCXML conformance | Configured SCXML suite is `56 passed`, `0 failed`; broader W3C coverage is not yet claimed. |
 | Full ECMAScript cond support | Intentionally not implemented; unsupported SCXML expressions raise `InvalidConfigError`. |
 | Graph/test utilities | Mermaid export exists; no graph traversal/test-path helpers yet. |
 | Inspector protocol | No `@statelyai/inspect` compatibility yet. |

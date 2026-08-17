@@ -184,6 +184,46 @@ def test_external_region_transition_reenters_parallel_siblings():
     service.stop()
 
 
+def test_atomic_self_transition_does_not_cycle_parallel_parent_or_sibling():
+    calls: list[str] = []
+    machine = Machine(
+        {
+            "id": "atomic-self",
+            "initial": "running",
+            "states": {
+                "running": {
+                    "type": "parallel",
+                    "entry": lambda: calls.append("enterParallel"),
+                    "exit": lambda: calls.append("exitParallel"),
+                    "states": {
+                        "a": {
+                            "id": "a",
+                            "entry": lambda: calls.append("enterA"),
+                            "exit": lambda: calls.append("exitA"),
+                            "on": {"RESET": "#a"},
+                        },
+                        "b": {
+                            "id": "b",
+                            "entry": lambda: calls.append("enterB"),
+                            "exit": lambda: calls.append("exitB"),
+                        },
+                    },
+                }
+            },
+        }
+    )
+    state = machine.initial_state
+    calls.clear()
+
+    state = machine.transition(state, "RESET")
+
+    assert state.value == {"running": {"a": {}, "b": {}}}
+    assert calls == []
+    for action in state.actions:
+        action()
+    assert calls == ["exitA", "enterA"]
+
+
 def _parallel_conflict_machine(first_region: str) -> Machine:
     a = {
         "initial": "a1",
