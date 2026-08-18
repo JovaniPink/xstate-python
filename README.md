@@ -65,8 +65,8 @@ poetry install
 ```
 
 The core library has no runtime dependencies. The `scxml` extra is intentionally
-dependency-free on Python 3.13+; SCXML Boolean `cond` support covers the safe
-subset `true`, `false`, `!`, `&&`, `||`, and parentheses.
+dependency-free on Python 3.13+; SCXML expression support is limited to safe
+Boolean conditions and the fixture-proven integer data subset.
 
 ## Quickstart
 
@@ -445,10 +445,12 @@ are retained under `tests/fixtures/scxml/`.
 poetry run python -m pytest tests/test_scxml.py
 ```
 
-The configured conformance subset contains 54 passing cases, including all enabled
+The configured conformance subset contains 56 passing cases, including all 15 enabled
 `more-parallel` cases, plus a fixture inventory/provenance guard. This is a focused SCXML
 subset rather than a claim of full W3C conformance; broader datamodel and executable-content
-coverage remains future work. The `cond-js` subset passes with the safe Boolean evaluator.
+coverage remains future work. The `cond-js` subset passes with the safe Boolean evaluator,
+and integer data expressions remain limited to literal initialization, same-variable `+ 1`
+assignment, and strict integer equality guards.
 
 ## Developing
 
@@ -513,7 +515,7 @@ script-owned quality gates.
 | Snapshot queries | `tags`, `meta`, `has_tag`/`hasTag`, and `state_in`/`stateIn` are present |
 | Diagrams | Dependency-free Mermaid export is present |
 | Async | `AsyncInterpreter`, async actors, `from_observable`, and `to_promise` are present |
-| SCXML | Configured 54-case suite passes, including all 13 enabled `more-parallel` cases; broader W3C coverage remains open |
+| SCXML | Configured 56-case suite passes, including all 15 enabled `more-parallel` cases; broader W3C coverage remains open |
 | Persistence | Snapshot serialization and restore helpers are present |
 | Documentation | Concept guides cover machines, runtimes, actors, persistence, and SCXML import |
 | Examples | `docs/examples/` is the canonical, subprocess-tested example collection |

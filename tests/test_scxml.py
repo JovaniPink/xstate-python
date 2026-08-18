@@ -58,8 +58,8 @@ test_groups: dict[str, list[str]] = {
         "test7",
         "test8",
         "test9",
-        # "test10", # TODO: needs assign()
-        # "test10b", # TODO: needs assign()
+        "test10",
+        "test10b",
     ],
 }
 

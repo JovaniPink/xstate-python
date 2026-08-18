@@ -203,17 +203,29 @@ def is_descendent(state: StateNode, state2: StateNode | None) -> bool:
 #     tstates = getEffectiveTargetStates(t)
 #     if not tstates:
 #         return null
+#     elif isAtomicState(t.source) and tstates == {t.source}:
+#         return t.source.parent
 #     elif t.type == "internal" and isCompoundState(t.source) \
 #          and tstates.every(lambda s: isDescendant(s,t.source)):
 #         return t.source
 #     else:
 #         return findLCCA([t.source].append(tstates))
+def _is_atomic_self_transition(
+    transition: Transition, target_states: AbstractSet[StateNode]
+) -> bool:
+    return is_atomic_state(transition.source) and target_states == {transition.source}
+
+
 def get_transition_domain(
     transition: Transition, history_value: ReadOnlyHistoryValue
 ) -> StateNode | None:
     tstates = get_effective_target_states(transition, history_value=history_value)
     if not tstates:
         return None
+    if _is_atomic_self_transition(transition, tstates):
+        # A self-transition on one atomic parallel branch exits and re-enters
+        # that branch without cycling the containing parallel state or siblings.
+        return transition.source.parent
     elif (
         transition.type == "internal"
         and is_compound_state(transition.source)
@@ -470,6 +482,10 @@ def compute_exit_set(
     states_to_exit: set[StateNode] = set()
     for t in enabled_transitions:
         if t.target:
+            tstates = get_effective_target_states(t, history_value=history_value)
+            if _is_atomic_self_transition(t, tstates):
+                states_to_exit.add(t.source)
+                continue
             domain = get_transition_domain(t, history_value=history_value)
             for s in configuration:
                 if is_descendent(s, state2=domain):

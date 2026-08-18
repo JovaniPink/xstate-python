@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import os
+import re
 import xml.etree.ElementTree as ET
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, NoReturn, cast
 
+from xstate.action import assign
 from xstate.exceptions import InvalidConfigError
 from xstate.handlers import HandlerArgs
 from xstate.machine import Machine
@@ -13,6 +15,10 @@ from xstate.schema import ActionSpec, MachineConfig, StateNodeConfig, Transition
 __all__ = ["scxml_to_machine"]
 
 _STATE_TAGS = frozenset({"state", "parallel"})
+_IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+_INTEGER_RE = re.compile(r"0|[1-9][0-9]*")
+_INCREMENT_RE = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)\s*\+\s*1")
+_INTEGER_EQUALITY_RE = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)\s*===\s*(0|[1-9][0-9]*)")
 
 
 class _BooleanCondParser:
@@ -78,7 +84,7 @@ class _BooleanCondParser:
         raise InvalidConfigError(
             "Unsupported SCXML JavaScript cond expression "
             f"{self.source!r}. Supported subset: true, false, !, &&, ||, "
-            "and parentheses."
+            "parentheses, or one declared integer comparison such as x === 2."
         )
 
     @staticmethod
@@ -117,14 +123,37 @@ class _BooleanCondParser:
         return tokens
 
 
-def _eval_scxml_cond(source: str) -> Callable[[HandlerArgs | None], bool]:
-    """Compile the safe SCXML Boolean subset into a canonical guard."""
+def _eval_scxml_cond(
+    source: str, data_ids: frozenset[str] = frozenset()
+) -> Callable[[HandlerArgs | None], bool]:
+    """Compile the safe SCXML condition subset into a canonical guard."""
+    comparison = _INTEGER_EQUALITY_RE.fullmatch(source.strip())
+    if comparison is not None:
+        data_id, expected = comparison.groups()
+        expected_value = int(expected)
+        if data_id not in data_ids:
+            raise InvalidConfigError(
+                "Unsupported SCXML JavaScript cond expression "
+                f"{source!r}. Data variable {data_id!r} is not declared."
+            )
+
+        def integer_guard(args: HandlerArgs | None = None) -> bool:
+            context = args.context if args is not None else {}
+            value = context.get(data_id) if isinstance(context, Mapping) else None
+            return (
+                isinstance(value, int)
+                and not isinstance(value, bool)
+                and value == expected_value
+            )
+
+        return integer_guard
+
     result = _BooleanCondParser(source).parse()
 
-    def guard(_args: HandlerArgs | None = None) -> bool:
+    def boolean_guard(_args: HandlerArgs | None = None) -> bool:
         return result
 
-    return guard
+    return boolean_guard
 
 
 def get_tag(element: ET.Element) -> str:
@@ -148,7 +177,9 @@ def _required_attribute(element: ET.Element, name: str) -> str:
     return value
 
 
-def accumulate_states(element: ET.Element) -> dict[str, StateNodeConfig]:
+def accumulate_states(
+    element: ET.Element, data_ids: frozenset[str]
+) -> dict[str, StateNodeConfig]:
     states: dict[str, StateNodeConfig] = {}
     for state_element in get_all_state_els(element):
         state_id = _required_attribute(state_element, "id")
@@ -157,7 +188,7 @@ def accumulate_states(element: ET.Element) -> dict[str, StateNodeConfig]:
                 f"Duplicate SCXML state id {state_id!r} under "
                 f"<{get_tag(element)}> element."
             )
-        states[state_id] = convert_state(state_element)
+        states[state_id] = convert_state(state_element, data_ids)
     return states
 
 
@@ -172,21 +203,60 @@ def _validate_state_ids(element: ET.Element) -> None:
         seen.add(state_id)
 
 
+def _convert_datamodel(element: ET.Element) -> dict[str, int]:
+    datamodels = _children(element, frozenset({"datamodel"}))
+    if not datamodels:
+        return {}
+    if len(datamodels) != 1 or element.attrib.get("datamodel") != "ecmascript":
+        raise InvalidConfigError(
+            "Unsupported SCXML datamodel. Supported subset: one top-level "
+            "ecmascript <datamodel> with integer-literal <data> entries."
+        )
+
+    context: dict[str, int] = {}
+    for data_element in datamodels[0]:
+        if get_tag(data_element) != "data":
+            raise InvalidConfigError(
+                f"Unsupported SCXML <datamodel> child <{get_tag(data_element)}>."
+            )
+        data_id = _required_attribute(data_element, "id")
+        if not _IDENTIFIER_RE.fullmatch(data_id) or data_id in {"true", "false"}:
+            raise InvalidConfigError(
+                f"Unsupported SCXML <data> id {data_id!r}. "
+                "Expected a simple non-reserved identifier."
+            )
+        if data_id in context:
+            raise InvalidConfigError(f"Duplicate SCXML data id {data_id!r}.")
+        expression = _required_attribute(data_element, "expr")
+        if not _INTEGER_RE.fullmatch(expression.strip()):
+            raise InvalidConfigError(
+                f"Unsupported SCXML <data> expression {expression!r}. "
+                "Supported subset: non-negative integer literals."
+            )
+        context[data_id] = int(expression)
+    return context
+
+
 def convert_scxml(element: ET.Element) -> MachineConfig:
     _validate_state_ids(element)
-    states = accumulate_states(element)
+    context = _convert_datamodel(element)
+    data_ids = frozenset(context)
+    states = accumulate_states(element, data_ids)
     if not states:
         raise InvalidConfigError(
             "SCXML document must contain at least one <state> or <parallel>."
         )
     initial = element.attrib.get("initial") or next(iter(states))
-    return {"id": "machine", "initial": initial, "states": states}
+    result: MachineConfig = {"id": "machine", "initial": initial, "states": states}
+    if context:
+        result["context"] = context
+    return result
 
 
-def convert_state(element: ET.Element) -> StateNodeConfig:
+def convert_state(element: ET.Element, data_ids: frozenset[str]) -> StateNodeConfig:
     state_id = _required_attribute(element, "id")
     child_elements = get_all_state_els(element)
-    states = accumulate_states(element)
+    states = accumulate_states(element, data_ids)
 
     result: StateNodeConfig = {"id": state_id}
     if get_tag(element) == "parallel":
@@ -203,7 +273,7 @@ def convert_state(element: ET.Element) -> StateNodeConfig:
         TransitionConfig | str | list[TransitionConfig | str],
     ] = {}
     for transition_element in _children(element, frozenset({"transition"})):
-        transition = convert_transition(transition_element)
+        transition = convert_transition(transition_element, data_ids)
         event = transition_element.attrib.get("event")
         bucket = transition_map.setdefault(event, [])
         if not isinstance(bucket, list):
@@ -214,20 +284,22 @@ def convert_state(element: ET.Element) -> StateNodeConfig:
 
     entry_element = next(iter(_children(element, frozenset({"onentry"}))), None)
     if entry_element is not None:
-        entry = convert_executable_content(entry_element)
+        entry = convert_executable_content(entry_element, data_ids)
         if entry:
             result["entry"] = entry
 
     exit_element = next(iter(_children(element, frozenset({"onexit"}))), None)
     if exit_element is not None:
-        exit_actions = convert_executable_content(exit_element)
+        exit_actions = convert_executable_content(exit_element, data_ids)
         if exit_actions:
             result["exit"] = exit_actions
 
     return result
 
 
-def convert_transition(element: ET.Element) -> TransitionConfig:
+def convert_transition(
+    element: ET.Element, data_ids: frozenset[str]
+) -> TransitionConfig:
     result: TransitionConfig = {}
     target = element.attrib.get("target")
     if target is not None:
@@ -235,9 +307,9 @@ def convert_transition(element: ET.Element) -> TransitionConfig:
 
     condition = element.attrib.get("cond")
     if condition is not None:
-        result["guard"] = _eval_scxml_cond(condition)
+        result["guard"] = _eval_scxml_cond(condition, data_ids)
 
-    actions = convert_executable_content(element)
+    actions = convert_executable_content(element, data_ids)
     if actions:
         result["actions"] = actions
     return result
@@ -250,11 +322,45 @@ def convert_raise(element: ET.Element) -> dict[str, str]:
     }
 
 
-def convert_executable_content(element: ET.Element) -> list[ActionSpec]:
-    return [
-        convert_raise(raise_element)
-        for raise_element in _children(element, frozenset({"raise"}))
-    ]
+def convert_assign(element: ET.Element, data_ids: frozenset[str]) -> ActionSpec:
+    location = _required_attribute(element, "location")
+    if not _IDENTIFIER_RE.fullmatch(location) or location not in data_ids:
+        raise InvalidConfigError(
+            f"Unsupported SCXML <assign> location {location!r}. "
+            "Expected a declared simple data identifier."
+        )
+    expression = _required_attribute(element, "expr")
+    match = _INCREMENT_RE.fullmatch(expression.strip())
+    if match is None or match.group(1) != location:
+        raise InvalidConfigError(
+            f"Unsupported SCXML <assign> expression {expression!r}. "
+            "Supported subset: incrementing the assigned variable by one, "
+            "for example x + 1."
+        )
+
+    def increment(args: HandlerArgs | None = None) -> int:
+        context = args.context if args is not None else {}
+        value = context.get(location) if isinstance(context, Mapping) else None
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise InvalidConfigError(
+                f"SCXML <assign> location {location!r} must contain an integer."
+            )
+        return value + 1
+
+    return cast(ActionSpec, assign({location: increment}))
+
+
+def convert_executable_content(
+    element: ET.Element, data_ids: frozenset[str]
+) -> list[ActionSpec]:
+    actions: list[ActionSpec] = []
+    for child in element:
+        tag = get_tag(child)
+        if tag == "raise":
+            actions.append(convert_raise(child))
+        elif tag == "assign":
+            actions.append(convert_assign(child, data_ids))
+    return actions
 
 
 def convert(element: ET.Element) -> MachineConfig:

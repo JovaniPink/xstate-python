@@ -81,12 +81,13 @@ Working:
   supported at the public `Machine(config, ...)` boundary.
 - Public snapshot immutability: configuration is a `frozenset`, actions are a
   `tuple`, and history is exposed read-only.
-- SCXML import with a safe Python boolean condition subset:
-  `true`, `false`, `!`, `&&`, `||`, and parentheses.
+- SCXML import with safe Boolean conditions plus the fixture-proven integer
+  data subset: literal initialization, same-variable `+ 1` assignment, and
+  strict integer equality guards.
 
 Known gaps:
 
-- The configured 54-case SCXML suite passes, including the enabled
+- The configured 56-case SCXML suite passes, including all 15 enabled
   `more-parallel` cases, but broader W3C datamodel and executable-content
   conformance is not claimed.
 - Graphviz export and graph/test helper APIs beyond Mermaid are future work.
