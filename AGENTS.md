@@ -11,7 +11,7 @@ run-to-completion execution core.
 - License: MIT
 - Python: 3.13+
 - Runtime dependencies: none
-- Current status: alpha, version `0.7.0`
+- Current status: alpha, version `0.7.1`
 
 The central bet is simple: charts designed in Stately or shared with a
 JavaScript frontend should load directly as Python `dict` / JSON data, with

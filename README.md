@@ -10,7 +10,7 @@
 <p align="center">
   <a href="https://github.com/JovaniPink/xstate-python/actions/workflows/pull_request.yaml"><img alt="Tests and code quality" src="https://github.com/JovaniPink/xstate-python/actions/workflows/pull_request.yaml/badge.svg"></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.13%2B-blue">
-  <img alt="Status" src="https://img.shields.io/badge/status-alpha%20(0.7.0)-orange">
+  <img alt="Status" src="https://img.shields.io/badge/status-alpha%20(0.7.1)-orange">
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green"></a>
 </p>
 
@@ -487,11 +487,11 @@ runtimes.
 
 ### Release preflight
 
-Before creating the GitHub Release for `0.7.0`, run the local preflight from
+Before creating the GitHub Release for `0.7.1`, run the local preflight from
 the target commit:
 
 ```bash
-poetry run python scripts/release_preflight.py v0.7.0
+poetry run python scripts/release_preflight.py v0.7.1
 ```
 
 The preflight verifies the expected tag against `pyproject.toml`, checks that
@@ -500,7 +500,7 @@ distribution without publishing. Pass `--target-ref` or `--master-ref` if the
 release target needs to be checked against different refs.
 
 The GitHub **Release Preflight** workflow exposes the same dry run through
-`workflow_dispatch`. It checks out `master`, defaults to `v0.7.0`, and calls
+`workflow_dispatch`. It checks out `master`, defaults to `v0.7.1`, and calls
 the same script without publishing. The GitHub Release publish workflow also
 delegates all validation to this script before `poetry publish`; workflow
 contract tests prevent either workflow from duplicating or drifting from the
@@ -510,7 +510,7 @@ script-owned quality gates.
 
 | Area | Current state |
 |---|---|
-| PyPI release | `0.7.0` release-readiness is complete; publish via GitHub Release |
+| PyPI release | `0.7.1` release metadata and preflight are current; publish via GitHub Release |
 | XState v5 setup | `setup(...).create_machine(...)` and composable guards are present |
 | Snapshot queries | `tags`, `meta`, `has_tag`/`hasTag`, and `state_in`/`stateIn` are present |
 | Diagrams | Dependency-free Mermaid export is present |

@@ -2,7 +2,7 @@
 
 Research snapshot: June 2026. External ecosystem numbers are approximate and
 should be refreshed before publication or fundraising use. Repo capability notes
-reflect the current `master` branch after the 0.7.0 correctness and adoption
+reflect the current `master` branch after the 0.7.1 SCXML conformance
 milestone.
 
 ## Product Thesis
@@ -22,7 +22,7 @@ bridge between XState's JSON ecosystem and Python backends.
 
 | Area | Status |
 |---|---|
-| Packaging | Project metadata is modernized for Python 3.13+ and ready for the 0.7.0 PyPI release |
+| Packaging | Project metadata is modernized for Python 3.13+ and ready for the 0.7.1 PyPI release |
 | Core transition API | `Machine(config).transition(state, event)` |
 | XState JSON | Native Python dict / JSON-compatible config boundary |
 | Parser architecture | Typed schema + normalization/parser layer |
@@ -90,7 +90,7 @@ JavaScript and wanting the same machine shape in Python services.
 
 | Priority | Work |
 |---|---|
-| High | Publish 0.7.0 to PyPI as `xstate` |
+| High | Publish 0.7.1 to PyPI as `xstate` |
 | High | Expand SCXML coverage beyond the configured subset without adding JavaScript evaluation |
 | Medium | Inspector protocol compatibility |
 | Medium | More XState v5 utilities: `provide`, action helpers, graph/test helpers |
@@ -100,7 +100,7 @@ JavaScript and wanting the same machine shape in Python services.
 
 | Metric | Near-term target |
 |---|---|
-| PyPI release | `pip install xstate` works after the 0.7.0 GitHub Release |
+| PyPI release | `pip install xstate` works after the 0.7.1 GitHub Release |
 | Primary test count | Maintain 300+ focused tests |
 | SCXML pass rate | Keep the configured 56-case suite green while expanding supported coverage |
 | Docs | Keep every public runtime boundary represented by a maintained concept guide |

@@ -39,11 +39,11 @@ def test_release_workflow_delegates_validation_to_preflight_script() -> None:
     assert "run: poetry publish" in workflow
 
 
-def test_manual_preflight_runs_v070_dry_run_against_master() -> None:
+def test_manual_preflight_runs_v071_dry_run_against_master() -> None:
     workflow = normalized_workflow("release_preflight.yaml")
 
     assert "workflow_dispatch:" in workflow
-    assert "default: v0.7.0" in workflow
+    assert "default: v0.7.1" in workflow
     assert "ref: master" in workflow
     assert "fetch-depth: 0" in workflow
     assert_delegates_to_preflight(
