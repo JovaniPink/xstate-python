@@ -3,14 +3,20 @@ from __future__ import annotations
 import functools
 import inspect
 import warnings
+from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
-from xstate.event import Event
+from xstate.event import Event, RuntimeEventPayload
 from xstate.exceptions import InvalidConfigError
 
 __all__ = [
     "HandlerArgs",
+    "ActionHandler",
+    "AssignmentHandler",
+    "DelayHandler",
+    "GuardHandler",
+    "OutputHandler",
     "GuardReference",
     "HandlerAdapter",
     "adapt_handler",
@@ -21,11 +27,39 @@ _UNSET = object()
 
 
 @dataclass(frozen=True, slots=True)
-class HandlerArgs:
-    context: Any
-    event: Event | None
+class HandlerArgs[ContextT = Any, EventDataT = Any, OutputT = Any]:
+    context: ContextT
+    event: Event[RuntimeEventPayload[EventDataT, OutputT]] | None
     params: Any | None = None
     state: Any | None = None
+
+
+class ActionHandler[ContextT = Any, EventDataT = Any, OutputT = Any](Protocol):
+    def __call__(
+        self, args: HandlerArgs[ContextT, EventDataT, OutputT], /
+    ) -> None | Awaitable[None]: ...
+
+
+class AssignmentHandler[ContextT = Any, EventDataT = Any, OutputT = Any](Protocol):
+    def __call__(
+        self, args: HandlerArgs[ContextT, EventDataT, OutputT], /
+    ) -> Mapping[str, Any]: ...
+
+
+class DelayHandler[ContextT = Any, EventDataT = Any, OutputT = Any](Protocol):
+    def __call__(
+        self, args: HandlerArgs[ContextT, EventDataT, OutputT], /
+    ) -> int | float: ...
+
+
+class GuardHandler[ContextT = Any, EventDataT = Any, OutputT = Any](Protocol):
+    def __call__(self, args: HandlerArgs[ContextT, EventDataT, OutputT], /) -> bool: ...
+
+
+class OutputHandler[ContextT = Any, EventDataT = Any, OutputT = Any](Protocol):
+    def __call__(
+        self, args: HandlerArgs[ContextT, EventDataT, OutputT], /
+    ) -> OutputT: ...
 
 
 @dataclass(frozen=True, slots=True)

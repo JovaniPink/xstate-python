@@ -29,10 +29,10 @@ import functools
 import threading
 from collections import deque
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from xstate.action import CANCEL_TYPE, SEND_PARENT_TYPE, SEND_TO_TYPE, SEND_TYPE, Action
-from xstate.event import Event as _Event
+from xstate.event import Event, EventInput, RuntimeEventPayload
 from xstate.exceptions import UnregisteredImplementationError
 from xstate.machine import Machine
 from xstate.scheduler import Clock, ThreadClock
@@ -54,7 +54,7 @@ STOPPED = "stopped"
 
 
 def resolve_delay_ms(
-    machine: Machine, delay_spec: Any, context: Any, event: Any
+    machine: Machine[Any, Any, Any], delay_spec: Any, context: Any, event: Any
 ) -> float:
     """Resolve a delay key to milliseconds.
 
@@ -78,12 +78,18 @@ def resolve_delay_ms(
     return float(delay)
 
 
-class Subscription:
+class Subscription[ContextT = Any, EventDataT = Any, OutputT = Any]:
     """Handle returned by :meth:`Interpreter.subscribe`; call ``unsubscribe``."""
 
-    def __init__(self, interpreter: Interpreter, listener: Callable[[State], None]):
+    def __init__(
+        self,
+        interpreter: Interpreter[ContextT, EventDataT, OutputT],
+        listener: Callable[[State[ContextT, EventDataT, OutputT]], None],
+    ):
         self._interpreter = interpreter
-        self._listener: Callable[[State], None] | None = listener
+        self._listener: (
+            Callable[[State[ContextT, EventDataT, OutputT]], None] | None
+        ) = listener
 
     def unsubscribe(self) -> None:
         with self._interpreter._lock:
@@ -92,19 +98,25 @@ class Subscription:
                 self._listener = None
 
 
-class Interpreter:
-    machine: Machine
-    state: State
+class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
+    machine: Machine[ContextT, EventDataT, OutputT]
+    state: State[ContextT, EventDataT, OutputT]
     clock: Clock
 
-    def __init__(self, machine: Machine, clock: Clock | None = None):
+    def __init__(
+        self,
+        machine: Machine[ContextT, EventDataT, OutputT],
+        clock: Clock | None = None,
+    ):
         self.machine = machine
         self.clock = clock if clock is not None else ThreadClock()
         self.state = machine.initial_state
         self._status = NOT_STARTED
         self._lock = threading.RLock()
-        self._listeners: set[Callable[[State], None]] = set()
-        self._event_queue: deque[Any] = deque()
+        self._listeners: set[Callable[[State[ContextT, EventDataT, OutputT]], None]] = (
+            set()
+        )
+        self._event_queue: deque[EventInput[EventDataT]] = deque()
         self._processing = False
         # `after`-event name → clock timeout id
         self._scheduled: dict[str, int] = {}
@@ -124,14 +136,16 @@ class Interpreter:
     def initialized(self) -> bool:
         return self._status == RUNNING
 
-    def start(self, initial_state: State | None = None) -> Interpreter:
+    def start(
+        self, initial_state: State[ContextT, EventDataT, OutputT] | None = None
+    ) -> Interpreter[ContextT, EventDataT, OutputT]:
         """Start the service.  Idempotent while already running."""
         with self._lock:
             if self._status == RUNNING:
                 return self
             if initial_state is not None:
                 self.state = initial_state
-            self.state.event = _Event("xstate.init")
+            self.state.event = Event("xstate.init")
             self._status = RUNNING
             self._sync_delays()
             state = self.state
@@ -139,7 +153,7 @@ class Interpreter:
         self._notify(state)
         return self
 
-    def stop(self) -> Interpreter:
+    def stop(self) -> Interpreter[ContextT, EventDataT, OutputT]:
         """Stop the service: cancel pending timers and drop all listeners."""
         with self._lock:
             for timeout_id in self._scheduled.values():
@@ -155,7 +169,9 @@ class Interpreter:
 
     # -- events -------------------------------------------------------------
 
-    def send(self, event: Any) -> State:
+    def send(
+        self, event: EventInput[EventDataT]
+    ) -> State[ContextT, EventDataT, OutputT]:
         """Send an event.  Events sent during processing are queued (RTC)."""
         with self._lock:
             if self._status != RUNNING:
@@ -186,14 +202,17 @@ class Interpreter:
                     self._processing = False
                 raise
 
-    def _process(self, event: Any) -> None:
+    def _process(self, event: EventInput[EventDataT]) -> None:
         with self._lock:
             if self._status != RUNNING:
                 return
             state = self.state
 
         next_state = self.machine.transition(state, event)
-        next_state.event = self.machine._to_event(event)
+        next_state.event = cast(
+            Event[RuntimeEventPayload[EventDataT, OutputT]],
+            self.machine._to_event(event),
+        )
 
         with self._lock:
             if self._status != RUNNING:
@@ -206,7 +225,9 @@ class Interpreter:
 
     # -- subscriptions ------------------------------------------------------
 
-    def subscribe(self, listener: Callable[[State], None]) -> Subscription:
+    def subscribe(
+        self, listener: Callable[[State[ContextT, EventDataT, OutputT]], None]
+    ) -> Subscription[ContextT, EventDataT, OutputT]:
         """Register a listener called with the current state and on each change."""
         with self._lock:
             self._listeners.add(listener)
@@ -215,7 +236,7 @@ class Interpreter:
             listener(state)
         return Subscription(self, listener)
 
-    def _notify(self, state: State) -> None:
+    def _notify(self, state: State[ContextT, EventDataT, OutputT]) -> None:
         with self._lock:
             listeners = tuple(self._listeners)
         for listener in listeners:
@@ -230,7 +251,7 @@ class Interpreter:
         SEND_TO_TYPE: "_execute_send_to",
     }
 
-    def _execute(self, state: State) -> None:
+    def _execute(self, state: State[ContextT, EventDataT, OutputT]) -> None:
         """Run resolved action callables and handle interpreter-owned actions."""
         for action in state.actions:
             if isinstance(action, Action):
@@ -251,12 +272,15 @@ class Interpreter:
         send_id = action.data.get("id")
         if delay is not None:
             delay_ms = self._resolve_delay(delay)
-            tid = self.clock.set_timeout(functools.partial(self.send, event), delay_ms)
+            tid = self.clock.set_timeout(
+                functools.partial(self.send, cast(EventInput[EventDataT], event)),
+                delay_ms,
+            )
             # Use the explicit id if given; fall back to tid so stop() can
             # cancel anonymous delayed sends too.
             self._send_timers[send_id if send_id else tid] = tid
         else:
-            self.send(event)
+            self.send(cast(EventInput[EventDataT], event))
 
     def _execute_cancel(self, action: Action) -> None:
         send_id = action.data.get("sendid")
@@ -331,6 +355,8 @@ class Interpreter:
             )
 
 
-def interpret(machine: Machine, clock: Clock | None = None) -> Interpreter:
+def interpret[ContextT, EventDataT, OutputT](
+    machine: Machine[ContextT, EventDataT, OutputT], clock: Clock | None = None
+) -> Interpreter[ContextT, EventDataT, OutputT]:
     """Create an :class:`Interpreter` for ``machine`` (XState ``interpret``)."""
     return Interpreter(machine, clock=clock)

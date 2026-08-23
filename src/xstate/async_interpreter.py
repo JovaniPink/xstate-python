@@ -43,28 +43,35 @@ from __future__ import annotations
 import asyncio
 import inspect
 from collections import deque
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 from xstate.action import CANCEL_TYPE, SEND_TYPE, Action
-from xstate.event import Event as _Event
+from xstate.event import Event, EventInput, RuntimeEventPayload
 from xstate.interpreter import NOT_STARTED, RUNNING, STOPPED, resolve_delay_ms
 from xstate.machine import Machine
 from xstate.state import State
 
 __all__ = ["AsyncSubscription", "AsyncInterpreter", "interpret_async"]
 
-_QueuedEvent = tuple[Any, "asyncio.Future[State]"]
+type _QueuedEvent[ContextT, EventDataT, OutputT] = tuple[
+    EventInput[EventDataT],
+    asyncio.Future[State[ContextT, EventDataT, OutputT]],
+]
 
 
-class AsyncSubscription:
+class AsyncSubscription[ContextT = Any, EventDataT = Any, OutputT = Any]:
     """Handle returned by :meth:`AsyncInterpreter.subscribe`; call ``unsubscribe``."""
 
     def __init__(
-        self, interpreter: AsyncInterpreter, listener: Callable[[State], None]
+        self,
+        interpreter: AsyncInterpreter[ContextT, EventDataT, OutputT],
+        listener: Callable[[State[ContextT, EventDataT, OutputT]], None],
     ):
         self._interpreter = interpreter
-        self._listener: Callable[[State], None] | None = listener
+        self._listener: (
+            Callable[[State[ContextT, EventDataT, OutputT]], None] | None
+        ) = listener
 
     def unsubscribe(self) -> None:
         if self._listener is not None:
@@ -72,7 +79,7 @@ class AsyncSubscription:
             self._listener = None
 
 
-class AsyncInterpreter:
+class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
     """An asyncio-native running instance of a :class:`~xstate.machine.Machine`.
 
     Lifecycle and messaging are coroutines (``start`` / ``send`` / ``stop``);
@@ -81,15 +88,17 @@ class AsyncInterpreter:
     loop is running when the service is started.
     """
 
-    machine: Machine
-    state: State
+    machine: Machine[ContextT, EventDataT, OutputT]
+    state: State[ContextT, EventDataT, OutputT]
 
-    def __init__(self, machine: Machine):
+    def __init__(self, machine: Machine[ContextT, EventDataT, OutputT]):
         self.machine = machine
         self.state = machine.initial_state
         self._status = NOT_STARTED
-        self._listeners: set[Callable[[State], None]] = set()
-        self._event_queue: deque[_QueuedEvent] = deque()
+        self._listeners: set[Callable[[State[ContextT, EventDataT, OutputT]], None]] = (
+            set()
+        )
+        self._event_queue: deque[_QueuedEvent[ContextT, EventDataT, OutputT]] = deque()
         self._processing = False
         self._processing_task: asyncio.Task[Any] | None = None
         # `after`-event name -> asyncio.Task running the delay
@@ -107,20 +116,22 @@ class AsyncInterpreter:
     def initialized(self) -> bool:
         return self._status == RUNNING
 
-    async def start(self, initial_state: State | None = None) -> AsyncInterpreter:
+    async def start(
+        self, initial_state: State[ContextT, EventDataT, OutputT] | None = None
+    ) -> AsyncInterpreter[ContextT, EventDataT, OutputT]:
         """Start the service. Idempotent while already running."""
         if self._status == RUNNING:
             return self
         if initial_state is not None:
             self.state = initial_state
-        self.state.event = _Event("xstate.init")
+        self.state.event = Event("xstate.init")
         self._status = RUNNING
         self._sync_delays()
         await self._execute(self.state)
         self._notify(self.state)
         return self
 
-    async def stop(self) -> AsyncInterpreter:
+    async def stop(self) -> AsyncInterpreter[ContextT, EventDataT, OutputT]:
         """Stop the service: cancel pending timers and drop all listeners."""
         for task in self._scheduled.values():
             task.cancel()
@@ -135,13 +146,17 @@ class AsyncInterpreter:
 
     # -- events -------------------------------------------------------------
 
-    async def send(self, event: Any) -> State:
+    async def send(
+        self, event: EventInput[EventDataT]
+    ) -> State[ContextT, EventDataT, OutputT]:
         """Send an event. Events sent during processing are queued (RTC)."""
         if self._status != RUNNING:
             # Match XState: events before start / after stop are dropped.
             return self.state
 
-        future: asyncio.Future[State] = asyncio.get_running_loop().create_future()
+        future: asyncio.Future[State[ContextT, EventDataT, OutputT]] = (
+            asyncio.get_running_loop().create_future()
+        )
         self._event_queue.append((event, future))
         if self._processing:
             # Same-task re-entrant sends from an action must not await their own
@@ -171,7 +186,9 @@ class AsyncInterpreter:
             self._processing_task = None
         return future.result()
 
-    def _resolve_queued_events(self, state: State) -> None:
+    def _resolve_queued_events(
+        self, state: State[ContextT, EventDataT, OutputT]
+    ) -> None:
         while self._event_queue:
             _event, future = self._event_queue.popleft()
             if not future.done():
@@ -184,9 +201,12 @@ class AsyncInterpreter:
                 future.set_exception(exc)
                 future.exception()
 
-    async def _process(self, event: Any) -> None:
+    async def _process(self, event: EventInput[EventDataT]) -> None:
         next_state = self.machine.transition(self.state, event)
-        next_state.event = self.machine._to_event(event)
+        next_state.event = cast(
+            Event[RuntimeEventPayload[EventDataT, OutputT]],
+            self.machine._to_event(event),
+        )
         self.state = next_state
         self._sync_delays()
         await self._execute(next_state)
@@ -194,7 +214,9 @@ class AsyncInterpreter:
 
     # -- subscriptions ------------------------------------------------------
 
-    def subscribe(self, listener: Callable[[State], None]) -> AsyncSubscription:
+    def subscribe(
+        self, listener: Callable[[State[ContextT, EventDataT, OutputT]], None]
+    ) -> AsyncSubscription[ContextT, EventDataT, OutputT]:
         """Register a listener called with the current state and on each change.
 
         Listeners are synchronous observers (as in XState); perform async work
@@ -205,7 +227,7 @@ class AsyncInterpreter:
             listener(self.state)
         return AsyncSubscription(self, listener)
 
-    def _notify(self, state: State) -> None:
+    def _notify(self, state: State[ContextT, EventDataT, OutputT]) -> None:
         for listener in list(self._listeners):
             listener(state)
 
@@ -216,7 +238,7 @@ class AsyncInterpreter:
         CANCEL_TYPE: "_execute_cancel",
     }
 
-    async def _execute(self, state: State) -> None:
+    async def _execute(self, state: State[ContextT, EventDataT, OutputT]) -> None:
         """Run resolved action callables; await any that return a coroutine."""
         for action in state.actions:
             if isinstance(action, Action):
@@ -246,7 +268,7 @@ class AsyncInterpreter:
             # by the Task itself so stop() can still cancel anonymous sends.
             self._send_timers[send_id if send_id else task] = task
         else:
-            await self.send(event)
+            await self.send(cast(EventInput[EventDataT], event))
 
     async def _execute_cancel(self, action: Action) -> None:
         send_id = action.data.get("sendid")
@@ -258,8 +280,8 @@ class AsyncInterpreter:
     # -- delayed transitions ------------------------------------------------
 
     def _schedule(
-        self, coro_fn: Callable[[Any], Any], arg: Any, delay_ms: float
-    ) -> asyncio.Task:
+        self, coro_fn: Callable[[Any], Awaitable[Any]], arg: Any, delay_ms: float
+    ) -> asyncio.Task[None]:
         """Create a task that waits ``delay_ms`` then calls ``coro_fn(arg)``."""
 
         async def _fire() -> None:
@@ -301,7 +323,9 @@ class AsyncInterpreter:
             )
 
 
-def interpret_async(machine: Machine) -> AsyncInterpreter:
+def interpret_async[ContextT, EventDataT, OutputT](
+    machine: Machine[ContextT, EventDataT, OutputT],
+) -> AsyncInterpreter[ContextT, EventDataT, OutputT]:
     """Create an :class:`AsyncInterpreter` for ``machine``.
 
     The asyncio counterpart of :func:`~xstate.interpreter.interpret`. The service

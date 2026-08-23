@@ -5,29 +5,30 @@ from typing import Any
 
 from xstate.context import ContextAdapter
 from xstate.machine import Machine
+from xstate.schema import MachineConfig
 
 __all__ = ["MachineSetup", "setup"]
 
 
 @dataclass(frozen=True, slots=True)
-class MachineSetup:
+class MachineSetup[ContextT = Any, EventDataT = Any, OutputT = Any]:
     actions: dict[str, Any] = field(default_factory=dict)
     guards: dict[str, Any] = field(default_factory=dict)
     delays: dict[str, Any] = field(default_factory=dict)
     actors: dict[str, Any] = field(default_factory=dict)
-    context_adapter: ContextAdapter | None = None
+    context_adapter: ContextAdapter[ContextT] | None = None
 
     def create_machine(
         self,
-        config: dict[str, Any],
+        config: MachineConfig[ContextT, EventDataT, OutputT] | dict[str, Any],
         *,
         actions: dict[str, Any] | None = None,
         guards: dict[str, Any] | None = None,
         delays: dict[str, Any] | None = None,
         actors: dict[str, Any] | None = None,
-        context_adapter: ContextAdapter | None = None,
-    ) -> Machine:
-        return Machine(
+        context_adapter: ContextAdapter[ContextT] | None = None,
+    ) -> Machine[ContextT, EventDataT, OutputT]:
+        return Machine[ContextT, EventDataT, OutputT](
             config,
             actions={**self.actions, **(actions or {})},
             guards={**self.guards, **(guards or {})},
@@ -38,15 +39,15 @@ class MachineSetup:
         )
 
 
-def setup(
+def setup[ContextT = Any, EventDataT = Any, OutputT = Any](
     *,
     actions: dict[str, Any] | None = None,
     guards: dict[str, Any] | None = None,
     delays: dict[str, Any] | None = None,
     actors: dict[str, Any] | None = None,
-    context_adapter: ContextAdapter | None = None,
-) -> MachineSetup:
-    return MachineSetup(
+    context_adapter: ContextAdapter[ContextT] | None = None,
+) -> MachineSetup[ContextT, EventDataT, OutputT]:
+    return MachineSetup[ContextT, EventDataT, OutputT](
         actions=actions or {},
         guards=guards or {},
         delays=delays or {},
