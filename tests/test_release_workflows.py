@@ -29,6 +29,7 @@ def assert_delegates_to_preflight(workflow: str, invocation: str) -> None:
 def test_release_workflow_delegates_validation_to_preflight_script() -> None:
     workflow = normalized_workflow("release.yaml")
 
+    assert "vars.PYPI_PUBLISH_ENABLED == 'true'" in workflow
     assert_delegates_to_preflight(
         workflow,
         (

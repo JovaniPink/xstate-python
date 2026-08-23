@@ -50,13 +50,18 @@ functions, delay values, and actor logic.
 
 ## Installation
 
-Install the released package from PyPI:
+No JovaniPink build of this repository is currently verified as published on
+PyPI. The existing `xstate` project on PyPI is a separate `0.0.1` distribution;
+do not use `pip install xstate` expecting the code documented here.
+
+Install a reviewed source revision by replacing `<commit>` with an exact commit
+SHA:
 
 ```bash
-pip install xstate
+pip install "git+https://github.com/JovaniPink/xstate-python.git@<commit>"
 ```
 
-For an unreleased checkout, install from source:
+For development, clone the repository and use the locked Poetry environment:
 
 ```bash
 git clone https://github.com/JovaniPink/xstate-python.git
@@ -501,16 +506,17 @@ release target needs to be checked against different refs.
 
 The GitHub **Release Preflight** workflow exposes the same dry run through
 `workflow_dispatch`. It checks out `master`, defaults to `v0.7.1`, and calls
-the same script without publishing. The GitHub Release publish workflow also
-delegates all validation to this script before `poetry publish`; workflow
-contract tests prevent either workflow from duplicating or drifting from the
-script-owned quality gates.
+the same script without publishing. The GitHub Release workflow is fail-closed:
+it delegates validation to the same script but can publish only when the
+repository variable `PYPI_PUBLISH_ENABLED` is explicitly set to `true`, the
+token is configured, and ownership of the chosen PyPI project has been verified.
+Creating a tag or GitHub Release is not publication authorization.
 
 ## Roadmap
 
 | Area | Current state |
 |---|---|
-| PyPI release | `0.7.1` release metadata and preflight are current; publish via GitHub Release |
+| Package distribution | `0.7.1` source and wheel metadata are prepared; PyPI name/ownership and publication authorization remain unresolved |
 | XState v5 setup | `setup(...).create_machine(...)` and composable guards are present |
 | Snapshot queries | `tags`, `meta`, `has_tag`/`hasTag`, and `state_in`/`stateIn` are present |
 | Diagrams | Dependency-free Mermaid export is present |

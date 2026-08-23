@@ -22,7 +22,7 @@ bridge between XState's JSON ecosystem and Python backends.
 
 | Area | Status |
 |---|---|
-| Packaging | Project metadata is modernized for Python 3.13+ and ready for the 0.7.1 PyPI release |
+| Packaging | Python 3.13+ source and wheel metadata are prepared for 0.7.1; package-index name and ownership remain unresolved |
 | Core transition API | `Machine(config).transition(state, event)` |
 | XState JSON | Native Python dict / JSON-compatible config boundary |
 | Parser architecture | Typed schema + normalization/parser layer |
@@ -90,7 +90,7 @@ JavaScript and wanting the same machine shape in Python services.
 
 | Priority | Work |
 |---|---|
-| High | Publish 0.7.1 to PyPI as `xstate` |
+| High | Resolve the package-index name and prove publication ownership before enabling release publishing |
 | High | Expand SCXML coverage beyond the configured subset without adding JavaScript evaluation |
 | Medium | Inspector protocol compatibility |
 | Medium | More XState v5 utilities: `provide`, action helpers, graph/test helpers |
@@ -100,7 +100,7 @@ JavaScript and wanting the same machine shape in Python services.
 
 | Metric | Near-term target |
 |---|---|
-| PyPI release | `pip install xstate` works after the 0.7.1 GitHub Release |
+| Package distribution | An approved package name installs the reviewed 0.7.1 artifact after ownership and publication are verified |
 | Primary test count | Maintain 300+ focused tests |
 | SCXML pass rate | Keep the configured 56-case suite green while expanding supported coverage |
 | Docs | Keep every public runtime boundary represented by a maintained concept guide |

@@ -4,10 +4,11 @@
 
 A Python implementation of [XState](https://github.com/statelyai/xstate) — statecharts and
 hierarchical state machines for Python, following the W3C SCXML execution algorithm. The goal is
-a **solid, published Python statechart library** that tracks XState v5's architecture and owns
-the niche of native XState JSON compatibility.
+a **solid Python statechart library** that tracks XState v5's architecture and owns the niche of
+native XState JSON compatibility. The repository is an alpha source project; package-index
+publication is not yet verified.
 
-**PyPI name:** `xstate` | **License:** MIT | **Python:** 3.13+
+**Declared distribution name:** `xstate` (PyPI ownership unresolved) | **License:** MIT | **Python:** 3.13+
 
 ---
 
