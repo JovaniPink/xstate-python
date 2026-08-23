@@ -99,7 +99,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument(
         "expected_tag",
-        help="Release tag expected from pyproject.toml, for example v0.7.0.",
+        help="Release tag expected from pyproject.toml, for example v0.7.1.",
     )
     parser.add_argument(
         "--target-ref",

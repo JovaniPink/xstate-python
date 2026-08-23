@@ -1,14 +1,14 @@
 # Python State Machine Library Comparison
 
 Research snapshot: June 2026. Competitor figures are intentionally approximate;
-the xstate-python column reflects the current `master` branch after the 0.7.0
-release-readiness work.
+the xstate-python column reflects the current `master` branch after the 0.7.1
+source-release preparation work.
 
 ## Feature Matrix
 
 | Feature | **transitions** | **python-statemachine** | **xstate-python** | **xstate-statemachine** | **Sismic** | **Automat** |
 |---|---|---|---|---|---|---|
-| Status | Mature / active | Mature / active | Alpha / 0.7.0 release-ready | Small active project | Mature niche | Mature focused FSM |
+| Status | Mature / active | Mature / active | Alpha / 0.7.1 source candidate | Small active project | Mature niche | Mature focused FSM |
 | Python support | Broad legacy support | Modern Python | **3.13+** | Modern Python | Modern Python | Modern Python |
 | XState JSON | No | No | **Yes, native** | Yes | No | No |
 | SCXML algorithm | No | Yes | **Yes, partial conformance** | Partial | Yes | No |
@@ -71,7 +71,7 @@ structure with a JavaScript/XState frontend or a Stately-authored design.
 
 | Gap | Notes |
 |---|---|
-| PyPI release | 0.7.0 packaging metadata and release workflow are ready; publish via GitHub Release. |
+| Package distribution | 0.7.1 artifacts can be built, but PyPI name/ownership and publication authorization are unresolved. |
 | SCXML conformance | Configured SCXML suite is `56 passed`, `0 failed`; broader W3C coverage is not yet claimed. |
 | Full ECMAScript cond support | Intentionally not implemented; unsupported SCXML expressions raise `InvalidConfigError`. |
 | Graph/test utilities | Mermaid export exists; no graph traversal/test-path helpers yet. |

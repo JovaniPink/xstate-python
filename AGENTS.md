@@ -7,11 +7,11 @@ actor-based state machines. The project goal is to own the Python niche of
 native XState / Stately JSON compatibility while preserving a W3C SCXML-style
 run-to-completion execution core.
 
-- PyPI name: `xstate`
+- Declared distribution name: `xstate` (PyPI ownership is not established)
 - License: MIT
 - Python: 3.13+
 - Runtime dependencies: none
-- Current status: alpha, version `0.7.0`
+- Current status: alpha, `0.7.1` source release candidate
 
 The central bet is simple: charts designed in Stately or shared with a
 JavaScript frontend should load directly as Python `dict` / JSON data, with

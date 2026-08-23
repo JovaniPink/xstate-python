@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented here.
 
+## 0.7.1 - 2026-08-21
+
+### Added
+
+- Vendored the configured 56-case SCXML Test Framework fixture subset under
+  `tests/fixtures/scxml/`, including upstream provenance, license custody, and
+  an exact-inventory test.
+- Added the fixture-proven SCXML integer-data subset: non-negative integer
+  initialization, same-variable `+ 1` assignment, and strict integer equality
+  guards.
+
+### Changed
+
+- Removed the SCXML fixture submodule so local, CI, and release validation use
+  the same repository-owned test inputs without a separate checkout step.
+- Expanded the enabled `more-parallel` conformance subset from 13 to 15 cases;
+  the configured suite now covers 56 cases.
+
+### Fixed
+
+- Corrected atomic self-transition handling inside parallel states so the
+  source branch exits and re-enters without cycling active sibling regions.
+
 ## 0.7.0 - 2026-07-02
 
 ### Added

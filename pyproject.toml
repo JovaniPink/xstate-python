@@ -1,6 +1,6 @@
 [project]
 name = "xstate"
-version = "0.7.0"
+version = "0.7.1"
 description = "Statecharts and state machines for Python, inspired by XState."
 readme = "README.md"
 requires-python = ">=3.13"

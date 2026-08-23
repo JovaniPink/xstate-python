@@ -4,10 +4,11 @@
 
 A Python implementation of [XState](https://github.com/statelyai/xstate) — statecharts and
 hierarchical state machines for Python, following the W3C SCXML execution algorithm. The goal is
-a **solid, published Python statechart library** that tracks XState v5's architecture and owns
-the niche of native XState JSON compatibility.
+a **solid Python statechart library** that tracks XState v5's architecture and owns the niche of
+native XState JSON compatibility. The repository is an alpha source project; package-index
+publication is not yet verified.
 
-**PyPI name:** `xstate` | **License:** MIT | **Python:** 3.13+
+**Declared distribution name:** `xstate` (PyPI ownership unresolved) | **License:** MIT | **Python:** 3.13+
 
 ---
 
@@ -46,7 +47,7 @@ The critical execution order is: `main_event_loop` → `microstep` → `main_eve
 
 ---
 
-## Current state (0.7.0 on master)
+## Current state (0.7.1 release candidate)
 
 **Working:**
 - Hierarchical (compound) states
@@ -141,7 +142,8 @@ boundary.
 | 0.4.0 | v5 config alignment | Rename `cond`→`guard`, `data`→`output`, `always:`, single-object handler signatures, MachineSnapshot |
 | 0.5.0 | Actor model | `create_actor`, actor system, `from_promise`/`from_callback`, asyncio |
 | 0.6.0 | Setup & parity | `setup()`, composable guards (`and_`/`or_`/`not_`), snapshot serialization |
-| 0.7.0 | Current parity | State `tags` + `meta`, `hasTag()`, `stateIn` guard, `choose`/`pure` actions, Mermaid diagrams |
+| 0.7.0 | Snapshot and action parity | State `tags` + `meta`, `hasTag()`, `stateIn` guard, `choose`/`pure` actions, Mermaid diagrams |
+| 0.7.1 | SCXML release hardening | Vendored fixture subset, expanded parallel conformance, safe integer-data subset |
 | 0.8.0+ | Next parity + internals | `enqueueActions`, `reenter`, `stopChild`, dynamic `sendTo`, wildcard event descriptors, graph/test helpers, inspector protocol, `ParamSpec` handler typing |
 
 The differentiating niche: **XState / Stately.ai JSON compatibility** — neither `transitions`
@@ -200,8 +202,9 @@ landscape (`transitions`, `python-statemachine`, `Sismic`). Ranked by parity val
 - **Observer pattern** — `python-statemachine`'s `add_observer`; we have `subscribe`, consider a
   multi-callback observer protocol with entry/exit hooks.
 
-**Process note:** 0.7.0 scope is locked on master. Re-run ecosystem research
-before adding new comparative claims or finalizing a 0.8.0 scope.
+**Process note:** 0.7.1 scope is limited to release packaging for the merged
+SCXML fixture and parallel-conformance work. Re-run ecosystem research before
+adding new comparative claims or finalizing a 0.8.0 scope.
 
 ---
 
