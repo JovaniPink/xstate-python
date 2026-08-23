@@ -71,6 +71,63 @@ def test_raise_chained():
     assert state.value == "done"
 
 
+def test_multiple_raised_events_remain_fifo_across_microsteps() -> None:
+    """A handled internal event must not replace events already queued behind it."""
+    machine = Machine(
+        {
+            "id": "fifo",
+            "initial": "a",
+            "states": {
+                "a": {
+                    "on": {
+                        "START": {
+                            "target": "b",
+                            "actions": [raise_("ONE"), raise_("TWO")],
+                        }
+                    }
+                },
+                "b": {"on": {"ONE": "c"}},
+                "c": {"on": {"TWO": "d"}},
+                "d": {},
+            },
+        }
+    )
+
+    state = machine.transition(machine.initial_state, "START")
+
+    assert state.value == "d"
+
+
+def test_ignored_internal_event_does_not_discard_later_queued_event() -> None:
+    machine = Machine(
+        {
+            "id": "ignored-fifo",
+            "initial": "a",
+            "states": {
+                "a": {
+                    "on": {
+                        "START": {
+                            "target": "b",
+                            "actions": [
+                                raise_("STEP"),
+                                raise_("IGNORED"),
+                                raise_("FINISH"),
+                            ],
+                        }
+                    }
+                },
+                "b": {"on": {"STEP": "c"}},
+                "c": {"on": {"FINISH": "d"}},
+                "d": {},
+            },
+        }
+    )
+
+    state = machine.transition(machine.initial_state, "START")
+
+    assert state.value == "d"
+
+
 def test_raise_does_not_affect_pure_machine_api():
     """raise_ works without the interpreter — pure Machine.transition."""
     machine = Machine(

@@ -88,11 +88,18 @@ warn_unused_ignores = true
 no_implicit_optional = true
 no_implicit_reexport = true
 
-# algorithm.py implements W3C SCXML; internal control-flow helpers still use
-# loose signatures while the parsed config boundary is now typed separately.
+# The SCXML execution core is correctness-critical and must remain fully typed.
 [[tool.mypy.overrides]]
 module = "xstate.algorithm"
-disallow_untyped_defs = false
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+strict_equality = true
+extra_checks = true
 
 
 [tool.pytest.ini_options]

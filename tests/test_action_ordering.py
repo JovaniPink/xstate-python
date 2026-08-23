@@ -2,7 +2,7 @@ from collections.abc import Callable
 
 import pytest
 
-from xstate import HandlerArgs, Machine, interpret
+from xstate import HandlerArgs, Machine, assign, interpret
 
 
 def recorder(log: list[str], label: str) -> Callable[[HandlerArgs], None]:
@@ -162,3 +162,50 @@ def test_parallel_exits_follow_reverse_region_document_order(
         "transition",
         "done.enter",
     ]
+
+
+def test_parallel_eventless_transition_actions_follow_document_order() -> None:
+    def append(label: str):
+        return assign({"trace": lambda context, _event: [*context["trace"], label]})
+
+    for _ in range(100):
+        machine = Machine(
+            {
+                "id": "parallel-eventless-order",
+                "initial": "active",
+                "context": {"trace": []},
+                "states": {
+                    "active": {
+                        "type": "parallel",
+                        "states": {
+                            "alpha": {
+                                "initial": "waiting",
+                                "states": {
+                                    "waiting": {
+                                        "always": {
+                                            "target": "done",
+                                            "actions": append("alpha"),
+                                        }
+                                    },
+                                    "done": {},
+                                },
+                            },
+                            "beta": {
+                                "initial": "waiting",
+                                "states": {
+                                    "waiting": {
+                                        "always": {
+                                            "target": "done",
+                                            "actions": append("beta"),
+                                        }
+                                    },
+                                    "done": {},
+                                },
+                            },
+                        },
+                    }
+                },
+            }
+        )
+
+        assert machine.initial_state.context["trace"] == ["alpha", "beta"]

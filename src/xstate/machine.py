@@ -106,7 +106,7 @@ class Machine:
         history_value = {
             state_id: set(states) for state_id, states in state.history_value.items()
         }
-        configuration, _actions, context = main_event_loop(
+        configuration, _actions, context, output = main_event_loop(
             configuration, event, context, history_value
         )
 
@@ -118,6 +118,7 @@ class Machine:
             context=context,
             actions=actions,
             history_value=history_value,
+            output=output,
         )
 
     def _get_actions(
@@ -223,24 +224,25 @@ class Machine:
         context = self.context_adapter.snapshot(self.context)
         history_value: dict[str, Any] = {}
         init_event = Event("xstate.init")
-        configuration, _actions, internal_queue, context = enter_states(
+        configuration, _actions, internal_queue, context, output = enter_states(
             [self.root.initial],
             configuration=set(),
-            states_to_invoke=set(),
             history_value=history_value,
             actions=[],
             internal_queue=deque(),
             context=context,
             event=init_event,
+            output=None,
         )
 
-        configuration, _actions, context = main_event_loop2(
+        configuration, _actions, context, output = main_event_loop2(
             configuration=configuration,
             actions=_actions,
             internal_queue=internal_queue,
             context=context,
             event=init_event,
             history_value=history_value,
+            output=output,
         )
 
         actions, unknown = self._get_actions(_actions, context, init_event)
@@ -251,4 +253,5 @@ class Machine:
             context=context,
             actions=actions,
             history_value=history_value,
+            output=output,
         )

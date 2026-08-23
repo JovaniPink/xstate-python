@@ -634,6 +634,32 @@ def test_output_populated_from_final_state_output():
     assert state.output == {"score": 100}
 
 
+def test_callable_top_level_output_is_evaluated_once() -> None:
+    calls = 0
+
+    def output(context, _event):
+        nonlocal calls
+        calls += 1
+        return {"score": context["score"]}
+
+    machine = Machine(
+        {
+            "id": "s",
+            "context": {"score": 100},
+            "initial": "running",
+            "states": {
+                "running": {"on": {"FINISH": "done"}},
+                "done": {"type": "final", "output": output},
+            },
+        }
+    )
+
+    state = machine.transition(machine.initial_state, "FINISH")
+
+    assert calls == 1
+    assert state.output == {"score": 100}
+
+
 def test_output_none_when_final_state_has_no_output():
     machine = Machine(
         {
