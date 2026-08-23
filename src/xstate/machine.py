@@ -4,7 +4,7 @@ import functools
 import warnings
 from collections import deque
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from xstate.action import INTERPRETER_TYPES, Action
 from xstate.algorithm import (
@@ -15,9 +15,10 @@ from xstate.algorithm import (
 )
 from xstate.config_parser import StateNodeConfigParser
 from xstate.context import ContextAdapter, DeepCopyContextAdapter
-from xstate.event import Event, to_event
+from xstate.event import Event, EventInput, to_event
 from xstate.exceptions import InvalidConfigError, UnregisteredImplementationError
 from xstate.handlers import HandlerAdapter, adapt_handler
+from xstate.schema import MachineConfig
 from xstate.state import State
 from xstate.state_node import StateNode
 
@@ -27,7 +28,7 @@ ActionCallable = Callable[[], Any]
 ResolvedAction = Action | ActionCallable
 
 
-class Machine:
+class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
     id: str
     root: StateNode
     _id_map: dict[str, StateNode]
@@ -39,16 +40,17 @@ class Machine:
     actors: dict[str, Any]
     _order: int
     strict: bool
-    context_adapter: ContextAdapter
+    context: ContextT
+    context_adapter: ContextAdapter[ContextT]
 
     def __init__(
         self,
-        config: dict[str, Any],
+        config: MachineConfig[ContextT, EventDataT, OutputT] | dict[str, Any],
         actions: dict[str, Any] | None = None,
         guards: dict[str, Any] | None = None,
         delays: dict[str, Any] | None = None,
         actors: dict[str, Any] | None = None,
-        context_adapter: ContextAdapter | None = None,
+        context_adapter: ContextAdapter[ContextT] | None = None,
         strict: bool = False,
     ):
         if "id" not in config:
@@ -71,11 +73,13 @@ class Machine:
         # Named actor logic referenced by `invoke: {"src": "<name>"}`; resolved
         # by the actor layer when an invoking state is entered.
         self.actors = actors if actors is not None else {}
-        self.root = StateNodeConfigParser(self).parse(config)
+        raw_config = cast(dict[str, Any], config)
+        self.root = StateNodeConfigParser(self).parse(raw_config)
         self.states = self.root.states
-        self.config = config
-        self.context = (
-            config.get("context") if config.get("context") is not None else {}
+        self.config = raw_config
+        self.context = cast(
+            ContextT,
+            config.get("context") if config.get("context") is not None else {},
         )
 
     def _adapt_registry(self, registry: dict[str, Any], *, kind: str) -> dict[str, Any]:
@@ -94,10 +98,14 @@ class Machine:
         self._order += 1
         return order
 
-    def _to_event(self, event: Any) -> Event:
+    def _to_event(self, event: EventInput[EventDataT]) -> Event[EventDataT]:
         return to_event(event)
 
-    def transition(self, state: State, event: Any) -> State:
+    def transition(
+        self,
+        state: State[ContextT, EventDataT, OutputT],
+        event: EventInput[EventDataT],
+    ) -> State[ContextT, EventDataT, OutputT]:
         event = self._to_event(event)
         configuration = get_configuration_from_state(
             from_node=self.root, state_value=state.value, partial_configuration=set()
@@ -113,12 +121,12 @@ class Machine:
         actions, unknown = self._get_actions(_actions, context, event)
         self._warn_unknown_actions(unknown)
 
-        return State(
+        return State[ContextT, EventDataT, OutputT](
             configuration=configuration,
             context=context,
             actions=actions,
             history_value=history_value,
-            output=output,
+            output=cast(OutputT | None, output),
         )
 
     def _get_actions(
@@ -181,9 +189,12 @@ class Machine:
                 stacklevel=3,
             )
 
-    def state_from(self, state_value: Any) -> State:
+    def state_from(self, state_value: Any) -> State[ContextT, EventDataT, OutputT]:
         configuration = set(self._get_configuration(state_value=state_value))
-        return State(configuration=configuration, context={})
+        return State[ContextT, EventDataT, OutputT](
+            configuration=configuration,
+            context=cast(ContextT, {}),
+        )
 
     def _register(self, state_node: StateNode) -> None:
         state_node.machine = self
@@ -220,7 +231,7 @@ class Machine:
         return configuration
 
     @property
-    def initial_state(self) -> State:
+    def initial_state(self) -> State[ContextT, EventDataT, OutputT]:
         context = self.context_adapter.snapshot(self.context)
         history_value: dict[str, Any] = {}
         init_event = Event("xstate.init")
@@ -248,10 +259,10 @@ class Machine:
         actions, unknown = self._get_actions(_actions, context, init_event)
         self._warn_unknown_actions(unknown)
 
-        return State(
+        return State[ContextT, EventDataT, OutputT](
             configuration=configuration,
             context=context,
             actions=actions,
             history_value=history_value,
-            output=output,
+            output=cast(OutputT | None, output),
         )

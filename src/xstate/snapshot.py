@@ -29,14 +29,16 @@ Usage::
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from xstate.machine import Machine
     from xstate.state import State
 
 
-def serialize_snapshot(snapshot: State) -> dict[str, Any]:
+def serialize_snapshot[ContextT, EventDataT, OutputT](
+    snapshot: State[ContextT, EventDataT, OutputT],
+) -> dict[str, Any]:
     """Serialize *snapshot* to a JSON-compatible dict."""
     history_value: dict[str, list[str]] = {}
     for hist_node_id, state_nodes in (snapshot.history_value or {}).items():
@@ -53,7 +55,9 @@ def serialize_snapshot(snapshot: State) -> dict[str, Any]:
     }
 
 
-def deserialize_snapshot(machine: Machine, data: dict[str, Any]) -> State:
+def deserialize_snapshot[ContextT, EventDataT, OutputT](
+    machine: Machine[ContextT, EventDataT, OutputT], data: dict[str, Any]
+) -> State[ContextT, EventDataT, OutputT]:
     """Reconstruct a :class:`~xstate.state.State` from a serialized dict.
 
     Pass the returned state to ``create_actor(machine, snapshot=...)`` or
@@ -69,9 +73,9 @@ def deserialize_snapshot(machine: Machine, data: dict[str, Any]) -> State:
         if nodes:
             history_value[hist_node_id] = nodes
 
-    state = State(
+    state = State[ContextT, EventDataT, OutputT](
         configuration=configuration,
-        context=dict(data.get("context") or {}),
+        context=cast(ContextT, dict(data.get("context") or {})),
         history_value=history_value,
     )
     if data.get("status") == "error":

@@ -400,7 +400,8 @@ PYTHONPATH=src python3 docs/examples/scxml_toggle.py
 
 Concept guides and the runnable-example index live in [`docs/`](./docs). Start
 with [machines and implementations](./docs/concepts/machines-and-implementations.md)
-or [runtime choices](./docs/concepts/runtimes.md), then continue with
+or [static typing](./docs/concepts/typing.md) and
+[runtime choices](./docs/concepts/runtimes.md), then continue with
 [actors](./docs/concepts/actors.md) and
 [snapshot persistence](./docs/concepts/persistence.md). The
 [SCXML import guide](./docs/concepts/scxml.md) covers the supported XML and safe

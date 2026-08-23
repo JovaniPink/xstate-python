@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from xstate.action import Action
 from xstate.algorithm import get_state_value, is_in_final_state
-from xstate.event import to_event
+from xstate.event import Event, EventInput, RuntimeEventPayload, to_event
 from xstate.exceptions import InvalidConfigError
 
 if TYPE_CHECKING:
@@ -17,28 +17,27 @@ __all__ = ["State", "MachineSnapshot"]
 _OUTPUT_UNSET = object()
 
 
-class State:
+class State[ContextT = Any, EventDataT = Any, OutputT = Any]:
     configuration: frozenset[StateNode]
     value: Any
-    context: Any
+    context: ContextT
     actions: tuple[Callable[..., Any] | Action, ...]
     history_value: Mapping[str, frozenset[StateNode]]
     _tags: frozenset[str]
     _meta: Mapping[str, Any]
     status: Literal["active", "done", "error"]
-    output: Any | None
+    output: OutputT | None
     error: Any | None
-    event: (
-        Any | None
-    )  # stamped by Interpreter; None when produced by machine.transition
+    # Stamped by Interpreter; None when produced by machine.transition.
+    event: Event[RuntimeEventPayload[EventDataT, OutputT]] | None
 
     def __init__(
         self,
         configuration: set[StateNode] | frozenset[StateNode],
-        context: Any,
+        context: ContextT,
         actions: Iterable[Callable[..., Any] | Action] | None = None,
         history_value: Mapping[str, Iterable[StateNode]] | None = None,
-        output: Any = _OUTPUT_UNSET,
+        output: OutputT | object = _OUTPUT_UNSET,
     ):
         if not configuration:
             raise InvalidConfigError("State requires a non-empty configuration.")
@@ -86,7 +85,7 @@ class State:
                 None,
             )
             if output is not _OUTPUT_UNSET:
-                self.output = output
+                self.output = cast(OutputT | None, output)
             elif final_child is None or callable(final_child.donedata):
                 # Callable output is resolved by the algorithm at entry time.
                 # State construction outside a macrostep must never expose the
@@ -120,7 +119,7 @@ class State:
     # XState v5 spells this ``hasTag``; expose both for JS-parity ergonomics.
     hasTag = has_tag
 
-    def can(self, event: Any) -> bool:
+    def can(self, event: EventInput[EventDataT]) -> bool:
         """Return True if any enabled transition exists for *event* right now.
 
         Respects guards and the current context, so the result reflects whether

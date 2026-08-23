@@ -10,7 +10,12 @@ from xstate.action import (  # noqa
 )
 from xstate.actor import (  # noqa
     Actor,
+    ActorSnapshot,
     ActorSystem,
+    CallbackHandler,
+    CallbackLogic,
+    ObservableLogic,
+    PromiseLogic,
     create_actor,
     from_callback,
     from_observable,
@@ -24,29 +29,52 @@ from xstate.context import (  # noqa
     DeepCopyContextAdapter,
     dataclass_context,
 )
-from xstate.event import Event, to_event  # noqa
+from xstate.event import Event, EventInput, RuntimeEventPayload, to_event  # noqa
 from xstate.exceptions import (  # noqa
     InvalidConfigError,
     UnregisteredImplementationError,
     XStateError,
 )
 from xstate.guards import and_, not_, or_, state_in, stateIn  # noqa
-from xstate.handlers import HandlerArgs  # noqa
+from xstate.handlers import (  # noqa
+    ActionHandler,
+    AssignmentHandler,
+    DelayHandler,
+    GuardHandler,
+    HandlerArgs,
+    OutputHandler,
+)
 from xstate.interpreter import Interpreter, interpret  # noqa
 from xstate.machine import Machine  # noqa
 from xstate.mermaid import to_mermaid  # noqa
 from xstate.scheduler import Clock, SimulatedClock, ThreadClock  # noqa
+from xstate.schema import (  # noqa
+    ActionSpec,
+    HandlerSpec,
+    InvokeConfig,
+    MachineConfig,
+    StateNodeConfig,
+    StateValue,
+    TransitionConfig,
+    TransitionTarget,
+)
 from xstate.setup_api import MachineSetup, setup  # noqa
 from xstate.snapshot import deserialize_snapshot, serialize_snapshot  # noqa
-from xstate.state import MachineSnapshot  # noqa
+from xstate.state import MachineSnapshot, State  # noqa
 
 __all__ = [
     # Core
     "Machine",
     "MachineSnapshot",
+    "State",
     "setup",
     "MachineSetup",
     "HandlerArgs",
+    "ActionHandler",
+    "AssignmentHandler",
+    "DelayHandler",
+    "GuardHandler",
+    "OutputHandler",
     # Interpreter
     "interpret",
     "Interpreter",
@@ -56,7 +84,12 @@ __all__ = [
     # Actor model (v5)
     "create_actor",
     "Actor",
+    "ActorSnapshot",
     "ActorSystem",
+    "PromiseLogic",
+    "CallbackLogic",
+    "ObservableLogic",
+    "CallbackHandler",
     "from_promise",
     "from_callback",
     "from_observable",
@@ -78,7 +111,18 @@ __all__ = [
     "dataclass_context",
     # Event
     "Event",
+    "EventInput",
+    "RuntimeEventPayload",
     "to_event",
+    # Typed config boundary
+    "ActionSpec",
+    "HandlerSpec",
+    "TransitionTarget",
+    "StateValue",
+    "TransitionConfig",
+    "InvokeConfig",
+    "StateNodeConfig",
+    "MachineConfig",
     # Exceptions
     "XStateError",
     "InvalidConfigError",

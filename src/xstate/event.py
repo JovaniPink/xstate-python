@@ -3,18 +3,23 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-__all__ = ["Event", "to_event"]
+__all__ = ["Event", "EventInput", "RuntimeEventPayload", "to_event"]
+
+type EventInput[EventDataT = Any] = str | Event[EventDataT] | EventDataT
+type RuntimeEventPayload[EventDataT = Any, OutputT = Any] = (
+    EventDataT | OutputT | BaseException
+)
 
 
 @dataclass(slots=True, frozen=True)
-class Event:
+class Event[PayloadT = Any]:
     name: str
     # Excluded from __hash__ so events with dict payloads remain hashable.
     # __eq__ still compares data, preserving the Python hash/eq contract.
-    data: dict[str, Any] | None = field(default=None, hash=False)
+    data: PayloadT | None = field(default=None, hash=False)
 
 
-def to_event(event: Any) -> Event:
+def to_event[EventDataT](event: EventInput[EventDataT]) -> Event[EventDataT]:
     """Normalize any event representation to an :class:`Event`."""
     if isinstance(event, Event):
         return event

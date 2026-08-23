@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 import dataclasses
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from xstate.exceptions import InvalidConfigError
 
@@ -14,27 +14,27 @@ __all__ = [
 ]
 
 
-class ContextAdapter(Protocol):
-    def snapshot(self, context: Any) -> Any:
+class ContextAdapter[ContextT = Any](Protocol):
+    def snapshot(self, context: ContextT) -> ContextT:
         """Return the context object used as the base for a new snapshot."""
 
-    def apply(self, context: Any, updates: dict[str, Any]) -> Any:
+    def apply(self, context: ContextT, updates: dict[str, Any]) -> ContextT:
         """Return context after applying assign updates."""
 
 
-class DeepCopyContextAdapter:
+class DeepCopyContextAdapter[ContextT = Any]:
     """Default context policy: isolate snapshots with deepcopy, update by copy."""
 
-    def snapshot(self, context: Any) -> Any:
+    def snapshot(self, context: ContextT) -> ContextT:
         if context is None:
-            return {}
+            return cast(ContextT, {})
         return copy.deepcopy(context)
 
-    def apply(self, context: Any, updates: dict[str, Any]) -> Any:
+    def apply(self, context: ContextT, updates: dict[str, Any]) -> ContextT:
         if isinstance(context, dict):
             next_context = dict(context)
             next_context.update(updates)
-            return next_context
+            return cast(ContextT, next_context)
         if dataclasses.is_dataclass(context) and not isinstance(context, type):
             return dataclasses.replace(context, **updates)
         raise InvalidConfigError(
@@ -43,13 +43,13 @@ class DeepCopyContextAdapter:
         )
 
 
-class DataclassContextAdapter:
+class DataclassContextAdapter[ContextT = Any]:
     """Context policy for immutable dataclass context values."""
 
-    def snapshot(self, context: Any) -> Any:
+    def snapshot(self, context: ContextT) -> ContextT:
         return context
 
-    def apply(self, context: Any, updates: dict[str, Any]) -> Any:
+    def apply(self, context: ContextT, updates: dict[str, Any]) -> ContextT:
         if not dataclasses.is_dataclass(context) or isinstance(context, type):
             raise InvalidConfigError(
                 "DataclassContextAdapter requires a dataclass instance context."
@@ -57,5 +57,5 @@ class DataclassContextAdapter:
         return dataclasses.replace(context, **updates)
 
 
-def dataclass_context() -> DataclassContextAdapter:
+def dataclass_context[ContextT]() -> DataclassContextAdapter[ContextT]:
     return DataclassContextAdapter()
