@@ -87,7 +87,7 @@ Working:
 
 Known gaps:
 
-- The configured 56-case SCXML suite passes, including all 15 enabled
+- The configured 57-case SCXML suite passes, including all 15 enabled
   `more-parallel` cases, but broader W3C datamodel and executable-content
   conformance is not claimed.
 - Graphviz export and graph/test helper APIs beyond Mermaid are future work.

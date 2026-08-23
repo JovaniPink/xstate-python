@@ -14,6 +14,8 @@ if TYPE_CHECKING:
 
 __all__ = ["State", "MachineSnapshot"]
 
+_OUTPUT_UNSET = object()
+
 
 class State:
     configuration: frozenset[StateNode]
@@ -36,6 +38,7 @@ class State:
         context: Any,
         actions: Iterable[Callable[..., Any] | Action] | None = None,
         history_value: Mapping[str, Iterable[StateNode]] | None = None,
+        output: Any = _OUTPUT_UNSET,
     ):
         if not configuration:
             raise InvalidConfigError("State requires a non-empty configuration.")
@@ -82,7 +85,15 @@ class State:
                 ),
                 None,
             )
-            self.output = final_child.donedata if final_child else None
+            if output is not _OUTPUT_UNSET:
+                self.output = output
+            elif final_child is None or callable(final_child.donedata):
+                # Callable output is resolved by the algorithm at entry time.
+                # State construction outside a macrostep must never expose the
+                # internal HandlerAdapter as public snapshot output.
+                self.output = None
+            else:
+                self.output = final_child.donedata
         else:
             self.status = "active"
             self.output = None
