@@ -6,6 +6,8 @@ Covers behaviors beyond the basic shallow/deep tests already in test_history.py:
   - Multi-target transitions that restore multiple regions simultaneously
 """
 
+import pytest
+
 from xstate import Machine
 
 # ---------------------------------------------------------------------------
@@ -228,6 +230,38 @@ def _reach_ACEKMO(machine):
     s = _reach_ACEKMN(machine)
     s = machine.transition(s, "INNER_K")  # A=C.E, K=M.O
     return s
+
+
+@pytest.mark.parametrize("history_type", ["shallow", "deep"])
+def test_unvisited_parallel_history_enters_default_configuration(history_type):
+    """Match XState's shallow and deep unvisited parallel-history shape."""
+    machine = Machine(
+        {
+            "id": "unvisited-parallel-history",
+            "initial": "off",
+            "states": {
+                "off": {"on": {"GO": "on.hist"}},
+                "on": {
+                    "type": "parallel",
+                    "states": {
+                        "regA": {
+                            "initial": "a1",
+                            "states": {"a1": {}, "a2": {}},
+                        },
+                        "regB": {
+                            "initial": "b1",
+                            "states": {"b1": {}, "b2": {}},
+                        },
+                        "hist": {"type": "history", "history": history_type},
+                    },
+                },
+            },
+        }
+    )
+
+    state = machine.transition(machine.initial_state, "GO")
+
+    assert state.value == {"on": {"regA": "a1", "regB": "b1"}}
 
 
 def test_parallel_switch_enters_initials():

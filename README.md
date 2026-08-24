@@ -451,7 +451,7 @@ are retained under `tests/fixtures/scxml/`.
 poetry run python -m pytest tests/test_scxml.py
 ```
 
-The configured conformance subset contains 56 passing cases, including all 15 enabled
+The configured conformance subset contains 57 passing cases, including all 15 enabled
 `more-parallel` cases, plus a fixture inventory/provenance guard. This is a focused SCXML
 subset rather than a claim of full W3C conformance; broader datamodel and executable-content
 coverage remains future work. The `cond-js` subset passes with the safe Boolean evaluator,

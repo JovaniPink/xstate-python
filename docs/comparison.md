@@ -72,7 +72,7 @@ structure with a JavaScript/XState frontend or a Stately-authored design.
 | Gap | Notes |
 |---|---|
 | Package distribution | 0.7.1 artifacts can be built, but PyPI name/ownership and publication authorization are unresolved. |
-| SCXML conformance | Configured SCXML suite is `56 passed`, `0 failed`; broader W3C coverage is not yet claimed. |
+| SCXML conformance | Configured SCXML suite is `57 passed`, `0 failed`; broader W3C coverage is not yet claimed. |
 | Full ECMAScript cond support | Intentionally not implemented; unsupported SCXML expressions raise `InvalidConfigError`. |
 | Graph/test utilities | Mermaid export exists; no graph traversal/test-path helpers yet. |
 | Inspector protocol | No `@statelyai/inspect` compatibility yet. |

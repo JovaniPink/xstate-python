@@ -135,7 +135,7 @@ in the same way; declaring data does not expand the supported grammar.
 
 ## Conformance Boundary
 
-The configured repository subset contains 56 passing conformance cases, including all 15 enabled
+The configured repository subset contains 57 passing conformance cases, including all 15 enabled
 `more-parallel` cases, plus a fixture inventory/provenance guard. This is a focused subset, not a
 claim of complete W3C SCXML conformance. The broader datamodel and executable content surface
 remains future work.

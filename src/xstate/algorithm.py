@@ -515,8 +515,47 @@ def compute_exit_set(
     return states_to_exit
 
 
-def name_match(event: str, specific_event: str) -> bool:
-    return event == specific_event
+def name_match(descriptor: str, event_type: str) -> bool:
+    """Return whether an XState event descriptor matches an event type.
+
+    Bare descriptors are exact. ``*`` is the catch-all descriptor, while a
+    partial wildcard must end in ``.*`` and matches both the base token and its
+    dotted descendants. Infix and non-tokenized wildcard forms do not match.
+    """
+    if descriptor == event_type or descriptor == "*":
+        return True
+    if not descriptor.endswith(".*") or descriptor.count("*") != 1:
+        return False
+    prefix = descriptor[:-2]
+    return bool(prefix) and (
+        event_type == prefix or event_type.startswith(f"{prefix}.")
+    )
+
+
+def _event_descriptor_candidates(
+    state_node: StateNode, event_type: str
+) -> TransitionSequence:
+    """Return candidates in XState v5 descriptor-priority order."""
+    descriptors: list[str] = []
+    if event_type in state_node.on:
+        descriptors.append(event_type)
+
+    partial_descriptors = [
+        descriptor
+        for descriptor in state_node.on
+        if descriptor not in {"", event_type, "*"}
+        and name_match(descriptor, event_type)
+    ]
+    descriptors.extend(sorted(partial_descriptors, key=len, reverse=True))
+
+    if "*" in state_node.on and event_type != "*":
+        descriptors.append("*")
+
+    return [
+        transition
+        for descriptor in descriptors
+        for transition in sorted(state_node.on[descriptor], key=lambda item: item.order)
+    ]
 
 
 def _matches_in_state(
@@ -646,14 +685,11 @@ def select_transitions(
         for s in [state_node] + get_proper_ancestors(state_node, None):
             if break_loop:
                 break
-            for t in sorted(s.transitions, key=lambda t: t.order):
-                if (
-                    t.event
-                    and name_match(t.event, event.name)
-                    and condition_match(t, context, event, configuration)
-                ):
+            for t in _event_descriptor_candidates(s, event.name):
+                if condition_match(t, context, event, configuration):
                     enabled_transitions.add(t)
                     break_loop = True
+                    break
     return remove_conflicting_transitions(
         enabled_transitions,
         configuration=configuration,

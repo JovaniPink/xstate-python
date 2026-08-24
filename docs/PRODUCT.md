@@ -37,7 +37,7 @@ bridge between XState's JSON ecosystem and Python backends.
 | Actor model | `create_actor`, `ActorSystem`, spawn, parent/child tree, `send_parent`, `send_to` |
 | Actor logic | `from_promise`, `from_callback`, `from_observable`, `to_promise` |
 | Invoke | Child actor lifetime reconciliation with `done.invoke.*` and `error.platform.*` events |
-| SCXML XML import | Present; safe Boolean and narrow integer-data subset; configured 56-case suite passes |
+| SCXML XML import | Present; safe Boolean and narrow integer-data subset; configured 57-case suite passes |
 
 ## What Works Today
 
@@ -58,7 +58,7 @@ bridge between XState's JSON ecosystem and Python backends.
   `MachineSnapshot`, `create_actor`, and `setup`.
 - Primary suite passes in current Python 3.13/3.14 CI.
 - SCXML `cond-js` subset result: `4 passed`.
-- Configured SCXML result: `56 passed`, `0 failed`, including all enabled
+- Configured SCXML result: `57 passed`, `0 failed`, including all enabled
   `more-parallel` cases.
 - Concept guides cover machine configuration, runtime choices, actors,
   persistence, and SCXML import.
@@ -81,7 +81,7 @@ JavaScript and wanting the same machine shape in Python services.
 
 | Milestone | Result |
 |---|---|
-| Parallel transition domains | All 15 configured `more-parallel` cases pass; the configured SCXML suite is `56 passed`, `0 failed` |
+| Parallel transition domains | All 15 configured `more-parallel` cases pass; the configured SCXML suite is `57 passed`, `0 failed` |
 | Concept documentation | Machines, implementations, sync/async runtimes, actors, persistence, and SCXML import are documented |
 | Runnable examples | `docs/examples/` is canonical and every runner has subprocess smoke coverage |
 | Persistence adoption | Snapshot compatibility and timer/child-actor restoration limits are documented with a JSON resume example |
@@ -102,7 +102,7 @@ JavaScript and wanting the same machine shape in Python services.
 |---|---|
 | Package distribution | An approved package name installs the reviewed 0.7.1 artifact after ownership and publication are verified |
 | Primary test count | Maintain 300+ focused tests |
-| SCXML pass rate | Keep the configured 56-case suite green while expanding supported coverage |
+| SCXML pass rate | Keep the configured 57-case suite green while expanding supported coverage |
 | Docs | Keep every public runtime boundary represented by a maintained concept guide |
 | Examples | Keep JSON, sync, async, actor, persistence, and SCXML runners green in CI; add framework integrations next |
 
