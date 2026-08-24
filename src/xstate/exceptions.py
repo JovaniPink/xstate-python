@@ -1,4 +1,9 @@
-__all__ = ["XStateError", "InvalidConfigError", "UnregisteredImplementationError"]
+__all__ = [
+    "XStateError",
+    "InvalidConfigError",
+    "InfiniteLoopError",
+    "UnregisteredImplementationError",
+]
 
 
 class XStateError(Exception):
@@ -11,6 +16,16 @@ class InvalidConfigError(XStateError, ValueError):
     Subclasses :class:`ValueError` for backwards compatibility with callers that
     already catch ``ValueError`` on bad machine configurations.
     """
+
+
+class InfiniteLoopError(XStateError):
+    """Raised before a macrostep exceeds its configured iteration limit."""
+
+    def __init__(self, machine_id: str, limit: int, event_type: str):
+        super().__init__(
+            f"Machine '{machine_id}' exceeded max iterations {limit} for event "
+            f"'{event_type}'."
+        )
 
 
 class UnregisteredImplementationError(XStateError, UserWarning, ValueError):

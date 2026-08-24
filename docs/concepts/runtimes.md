@@ -67,6 +67,56 @@ guard layer remains synchronous.
 
 See [async workflow](../examples/async_workflow.py) for a complete program.
 
+## Bounded Execution And Microstep Traces
+
+Use `max_iterations` to fail before a macrostep executes more enabled
+microsteps than the application permits. The same limit can be stored in
+portable machine JSON as `options.maxIterations`; a non-`None` constructor
+keyword takes precedence.
+
+```python
+from xstate import Machine
+
+machine = Machine(config, max_iterations=100)
+```
+
+The default is unlimited. Boolean, negative, and non-integer limits raise
+`InvalidConfigError`. If a limit is exceeded, `InfiniteLoopError` is raised
+before the next microstep runs, and a running interpreter keeps its last
+committed snapshot.
+
+Pure trace helpers expose settled intermediate snapshots without exposing the
+internal transition queue:
+
+```python
+from xstate import get_initial_microsteps, get_microsteps
+
+initial_steps = get_initial_microsteps(machine)
+steps = get_microsteps(machine, machine.initial_state, {"type": "SUBMIT"})
+
+for step in steps:
+    print(step.event.name, step.snapshot.value, step.transitions)
+```
+
+Each intermediate snapshot contains only that microstep's actions. The normal
+`Machine.transition` result still contains every macrostep action in execution
+order. Ignored events appear with an empty `transitions` tuple.
+
+Sync and async interpreters accept an `inspect` callback. It receives one
+`MacrostepTrace` for initialization and one for each external event after the
+settled snapshot is installed but before actions and subscribers run:
+
+```python
+from xstate import interpret
+
+service = interpret(machine, inspect=lambda trace: print(trace.snapshot.value))
+service.start()
+```
+
+Inspector failures emit `RuntimeWarning` and do not interrupt machine behavior.
+Machine-backed `create_actor` accepts the same callback. This local callback is
+not the remote `@statelyai/inspect` protocol.
+
 ## Actors
 
 `create_actor(machine)` wraps a machine with an XState v5-style actor API. It is

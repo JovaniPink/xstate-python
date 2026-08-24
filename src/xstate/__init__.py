@@ -31,6 +31,7 @@ from xstate.context import (  # noqa
 )
 from xstate.event import Event, EventInput, RuntimeEventPayload, to_event  # noqa
 from xstate.exceptions import (  # noqa
+    InfiniteLoopError,
     InvalidConfigError,
     UnregisteredImplementationError,
     XStateError,
@@ -45,7 +46,7 @@ from xstate.handlers import (  # noqa
     OutputHandler,
 )
 from xstate.interpreter import Interpreter, interpret  # noqa
-from xstate.machine import Machine  # noqa
+from xstate.machine import Machine, get_initial_microsteps, get_microsteps  # noqa
 from xstate.mermaid import to_mermaid  # noqa
 from xstate.scheduler import Clock, SimulatedClock, ThreadClock  # noqa
 from xstate.schema import (  # noqa
@@ -53,6 +54,7 @@ from xstate.schema import (  # noqa
     HandlerSpec,
     InvokeConfig,
     MachineConfig,
+    MachineOptionsConfig,
     StateNodeConfig,
     StateValue,
     TransitionConfig,
@@ -61,6 +63,7 @@ from xstate.schema import (  # noqa
 from xstate.setup_api import MachineSetup, setup  # noqa
 from xstate.snapshot import deserialize_snapshot, serialize_snapshot  # noqa
 from xstate.state import MachineSnapshot, State  # noqa
+from xstate.trace import MacrostepTrace, MicrostepTrace, TransitionTrace  # noqa
 
 __all__ = [
     # Core
@@ -75,6 +78,11 @@ __all__ = [
     "DelayHandler",
     "GuardHandler",
     "OutputHandler",
+    "TransitionTrace",
+    "MicrostepTrace",
+    "MacrostepTrace",
+    "get_microsteps",
+    "get_initial_microsteps",
     # Interpreter
     "interpret",
     "Interpreter",
@@ -123,9 +131,11 @@ __all__ = [
     "InvokeConfig",
     "StateNodeConfig",
     "MachineConfig",
+    "MachineOptionsConfig",
     # Exceptions
     "XStateError",
     "InvalidConfigError",
+    "InfiniteLoopError",
     "UnregisteredImplementationError",
     # Clocks
     "Clock",

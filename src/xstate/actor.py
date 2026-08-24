@@ -49,6 +49,7 @@ from xstate.interpreter import NOT_STARTED, RUNNING, STOPPED, Interpreter, Subsc
 from xstate.machine import Machine
 from xstate.scheduler import Clock
 from xstate.state import State
+from xstate.trace import MacrostepTrace
 
 __all__ = [
     "PromiseLogic",
@@ -337,8 +338,14 @@ class _MachineBackend:
 
     is_machine = True
 
-    def __init__(self, actor: Actor, machine: Machine, clock: Clock | None):
-        self.interpreter = Interpreter(machine, clock=clock)
+    def __init__(
+        self,
+        actor: Actor,
+        machine: Machine,
+        clock: Clock | None,
+        inspect: Callable[[MacrostepTrace], None] | None,
+    ):
+        self.interpreter = Interpreter(machine, clock=clock, inspect=inspect)
         # Back-reference so interpreter-owned actions (send_parent / send_to)
         # can reach the actor and its system.
         self.interpreter._actor = actor
@@ -527,10 +534,16 @@ type ActorSnapshotValue[ContextT = Any, EventDataT = Any, OutputT = Any] = (
 
 
 def _build_backend(
-    actor: Actor, logic: ActorLogic, clock: Clock | None, input: Any
+    actor: Actor,
+    logic: ActorLogic,
+    clock: Clock | None,
+    input: Any,
+    inspect: Callable[[MacrostepTrace], None] | None,
 ) -> ActorBackend:
     if isinstance(logic, Machine):
-        return _MachineBackend(actor, logic, clock)
+        return _MachineBackend(actor, logic, clock, inspect)
+    if inspect is not None:
+        raise TypeError("inspect is only supported for machine actor logic.")
     if isinstance(logic, PromiseLogic):
         return _PromiseBackend(actor, logic, input)
     if isinstance(logic, CallbackLogic):
@@ -621,6 +634,7 @@ class Actor[SendEventT = Any, SnapshotT = Any, OutputT = Any]:
         parent: Actor[Any, Any, Any] | None = None,
         input: Any = None,
         snapshot: Any = None,
+        inspect: Callable[[MacrostepTrace], None] | None = None,
     ) -> None:
         self._system = system if system is not None else ActorSystem()
         with self._system._lock:
@@ -634,7 +648,9 @@ class Actor[SendEventT = Any, SnapshotT = Any, OutputT = Any]:
             self._invoked: dict[str, Actor[Any, Any, Any]] = {}
             self._invocation_sub: SubscriptionProtocol | None = None
             self._syncing = False
-            self._backend: ActorBackend = _build_backend(self, logic, clock, input)
+            self._backend: ActorBackend = _build_backend(
+                self, logic, clock, input, inspect
+            )
             self._system._register_unlocked(self)
 
     # -- identity -----------------------------------------------------------
@@ -934,6 +950,9 @@ def create_actor[ContextT, EventDataT, OutputT](
     system: ActorSystem | None = None,
     input: Any = None,
     snapshot: State[ContextT, EventDataT, OutputT] | None = None,
+    inspect: (
+        Callable[[MacrostepTrace[ContextT, EventDataT, OutputT]], None] | None
+    ) = None,
 ) -> Actor[EventInput[EventDataT], State[ContextT, EventDataT, OutputT], OutputT]: ...
 
 
@@ -993,6 +1012,7 @@ def create_actor(
     system: ActorSystem | None = None,
     input: Any = None,
     snapshot: Any = None,
+    inspect: Callable[[MacrostepTrace], None] | None = None,
 ) -> Actor[Any, Any, Any]:
     """Create an :class:`Actor` from actor *logic* (XState v5 ``createActor``).
 
@@ -1003,7 +1023,13 @@ def create_actor(
     :func:`~xstate.snapshot.deserialize_snapshot`) to resume from a checkpoint.
     """
     return Actor(
-        logic, id=id, clock=clock, system=system, input=input, snapshot=snapshot
+        logic,
+        id=id,
+        clock=clock,
+        system=system,
+        input=input,
+        snapshot=snapshot,
+        inspect=inspect,
     )
 
 

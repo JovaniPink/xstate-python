@@ -57,6 +57,8 @@ structure with a JavaScript/XState frontend or a Stately-authored design.
 - Synchronous `Interpreter` with a run-to-completion queue and thread-safe timer
   callback serialization.
 - `AsyncInterpreter` for asyncio runtimes and awaitable action side effects.
+- Bounded macrostep execution, typed microstep traces, and local sync/async
+  inspection callbacks.
 - Actor model with `create_actor`, `ActorSystem`, `spawn`, `from_promise`,
   `from_callback`, `from_observable`, `to_promise`, `send_parent`, `send_to`,
   and `invoke` reconciliation.
@@ -75,7 +77,7 @@ structure with a JavaScript/XState frontend or a Stately-authored design.
 | SCXML conformance | Configured SCXML suite is `57 passed`, `0 failed`; broader W3C coverage is not yet claimed. |
 | Full ECMAScript cond support | Intentionally not implemented; unsupported SCXML expressions raise `InvalidConfigError`. |
 | Graph/test utilities | Mermaid export exists; no graph traversal/test-path helpers yet. |
-| Inspector protocol | No `@statelyai/inspect` compatibility yet. |
+| Inspector protocol | Local `MacrostepTrace` callbacks exist; no `@statelyai/inspect` wire-protocol compatibility yet. |
 
 ## Strategic Position
 

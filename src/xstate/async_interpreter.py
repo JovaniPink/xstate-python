@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import warnings
 from collections import deque
 from collections.abc import Awaitable, Callable
 from typing import Any, cast
@@ -51,6 +52,7 @@ from xstate.event import Event, EventInput, RuntimeEventPayload
 from xstate.interpreter import NOT_STARTED, RUNNING, STOPPED, resolve_delay_ms
 from xstate.machine import Machine
 from xstate.state import State
+from xstate.trace import MacrostepTrace
 
 __all__ = ["AsyncSubscription", "AsyncInterpreter", "interpret_async"]
 
@@ -91,9 +93,17 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
     machine: Machine[ContextT, EventDataT, OutputT]
     state: State[ContextT, EventDataT, OutputT]
 
-    def __init__(self, machine: Machine[ContextT, EventDataT, OutputT]):
+    def __init__(
+        self,
+        machine: Machine[ContextT, EventDataT, OutputT],
+        *,
+        inspect: (
+            Callable[[MacrostepTrace[ContextT, EventDataT, OutputT]], None] | None
+        ) = None,
+    ):
         self.machine = machine
-        self.state = machine.initial_state
+        self.state, self._initial_trace = machine._initial_transition()
+        self._inspector = inspect
         self._status = NOT_STARTED
         self._listeners: set[Callable[[State[ContextT, EventDataT, OutputT]], None]] = (
             set()
@@ -124,9 +134,16 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
             return self
         if initial_state is not None:
             self.state = initial_state
+            self._initial_trace = MacrostepTrace(
+                event=cast(Event[EventDataT], Event("xstate.init")),
+                previous_snapshot=None,
+                snapshot=initial_state,
+                microsteps=(),
+            )
         self.state.event = Event("xstate.init")
         self._status = RUNNING
         self._sync_delays()
+        self._inspect_trace(self._initial_trace)
         await self._execute(self.state)
         self._notify(self.state)
         return self
@@ -202,13 +219,14 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
                 future.exception()
 
     async def _process(self, event: EventInput[EventDataT]) -> None:
-        next_state = self.machine.transition(self.state, event)
+        next_state, trace = self.machine._transition_with_trace(self.state, event)
         next_state.event = cast(
             Event[RuntimeEventPayload[EventDataT, OutputT]],
             self.machine._to_event(event),
         )
         self.state = next_state
         self._sync_delays()
+        self._inspect_trace(trace)
         await self._execute(next_state)
         self._notify(next_state)
 
@@ -230,6 +248,20 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
     def _notify(self, state: State[ContextT, EventDataT, OutputT]) -> None:
         for listener in list(self._listeners):
             listener(state)
+
+    def _inspect_trace(
+        self, trace: MacrostepTrace[ContextT, EventDataT, OutputT]
+    ) -> None:
+        if self._inspector is None:
+            return
+        try:
+            self._inspector(trace)
+        except Exception as exc:  # noqa: BLE001 - inspection must be fail-open
+            warnings.warn(
+                f"Inspector callback failed: {exc}",
+                RuntimeWarning,
+                stacklevel=3,
+            )
 
     # -- side effects -------------------------------------------------------
 
@@ -325,10 +357,13 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
 
 def interpret_async[ContextT, EventDataT, OutputT](
     machine: Machine[ContextT, EventDataT, OutputT],
+    *,
+    inspect: Callable[[MacrostepTrace[ContextT, EventDataT, OutputT]], None]
+    | None = None,
 ) -> AsyncInterpreter[ContextT, EventDataT, OutputT]:
     """Create an :class:`AsyncInterpreter` for ``machine``.
 
     The asyncio counterpart of :func:`~xstate.interpreter.interpret`. The service
     is not started; ``await`` its :meth:`AsyncInterpreter.start`.
     """
-    return AsyncInterpreter(machine)
+    return AsyncInterpreter(machine, inspect=inspect)

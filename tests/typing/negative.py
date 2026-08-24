@@ -7,7 +7,10 @@ from xstate import (
     GuardHandler,
     HandlerArgs,
     Machine,
+    MachineOptionsConfig,
+    MacrostepTrace,
     OutputHandler,
+    State,
     interpret,
 )
 
@@ -55,3 +58,19 @@ output: OutputHandler[Context, IncrementEvent, Output] = (  # invalid-output-han
     wrong_output
 )
 event = Event[IncrementEvent]("INCREMENT", {"type": "INCREMENT"})  # invalid-event
+options: MachineOptionsConfig = {"maxIterations": "2"}  # invalid-options
+Machine({"id": "bad", "states": {}}, max_iterations="2")  # invalid-limit
+
+
+def wrong_inspector(_trace: State[Context, IncrementEvent, Output]) -> None:
+    return None
+
+
+interpret(machine, inspect=wrong_inspector)  # invalid-inspector
+
+
+def valid_inspector(
+    trace: MacrostepTrace[Context, IncrementEvent, Output],
+) -> None:
+    bad_snapshot: State[str, IncrementEvent, Output] = trace.snapshot  # invalid-trace
+    _ = bad_snapshot

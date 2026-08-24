@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import functools
 import threading
+import warnings
 from collections import deque
 from collections.abc import Callable
 from typing import Any, cast
@@ -37,6 +38,7 @@ from xstate.exceptions import UnregisteredImplementationError
 from xstate.machine import Machine
 from xstate.scheduler import Clock, ThreadClock
 from xstate.state import State
+from xstate.trace import MacrostepTrace
 
 __all__ = [
     "NOT_STARTED",
@@ -107,10 +109,15 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
         self,
         machine: Machine[ContextT, EventDataT, OutputT],
         clock: Clock | None = None,
+        *,
+        inspect: (
+            Callable[[MacrostepTrace[ContextT, EventDataT, OutputT]], None] | None
+        ) = None,
     ):
         self.machine = machine
         self.clock = clock if clock is not None else ThreadClock()
-        self.state = machine.initial_state
+        self.state, self._initial_trace = machine._initial_transition()
+        self._inspector = inspect
         self._status = NOT_STARTED
         self._lock = threading.RLock()
         self._listeners: set[Callable[[State[ContextT, EventDataT, OutputT]], None]] = (
@@ -145,10 +152,18 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
                 return self
             if initial_state is not None:
                 self.state = initial_state
+                self._initial_trace = MacrostepTrace(
+                    event=cast(Event[EventDataT], Event("xstate.init")),
+                    previous_snapshot=None,
+                    snapshot=initial_state,
+                    microsteps=(),
+                )
             self.state.event = Event("xstate.init")
             self._status = RUNNING
             self._sync_delays()
             state = self.state
+            initial_trace = self._initial_trace
+        self._inspect_trace(initial_trace)
         self._execute(state)
         self._notify(state)
         return self
@@ -208,7 +223,7 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
                 return
             state = self.state
 
-        next_state = self.machine.transition(state, event)
+        next_state, trace = self.machine._transition_with_trace(state, event)
         next_state.event = cast(
             Event[RuntimeEventPayload[EventDataT, OutputT]],
             self.machine._to_event(event),
@@ -220,6 +235,7 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
             self.state = next_state
             self._sync_delays()
 
+        self._inspect_trace(trace)
         self._execute(next_state)
         self._notify(next_state)
 
@@ -241,6 +257,20 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
             listeners = tuple(self._listeners)
         for listener in listeners:
             listener(state)
+
+    def _inspect_trace(
+        self, trace: MacrostepTrace[ContextT, EventDataT, OutputT]
+    ) -> None:
+        if self._inspector is None:
+            return
+        try:
+            self._inspector(trace)
+        except Exception as exc:  # noqa: BLE001 - inspection must be fail-open
+            warnings.warn(
+                f"Inspector callback failed: {exc}",
+                RuntimeWarning,
+                stacklevel=3,
+            )
 
     # -- side effects -------------------------------------------------------
 
@@ -356,7 +386,11 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
 
 
 def interpret[ContextT, EventDataT, OutputT](
-    machine: Machine[ContextT, EventDataT, OutputT], clock: Clock | None = None
+    machine: Machine[ContextT, EventDataT, OutputT],
+    clock: Clock | None = None,
+    *,
+    inspect: Callable[[MacrostepTrace[ContextT, EventDataT, OutputT]], None]
+    | None = None,
 ) -> Interpreter[ContextT, EventDataT, OutputT]:
     """Create an :class:`Interpreter` for ``machine`` (XState ``interpret``)."""
-    return Interpreter(machine, clock=clock)
+    return Interpreter(machine, clock=clock, inspect=inspect)

@@ -23,11 +23,16 @@ __all__ = [
     "ActionSpec",
     "TransitionTarget",
     "StateValue",
+    "MachineOptionsConfig",
     "TransitionConfig",
     "InvokeConfig",
     "StateNodeConfig",
     "MachineConfig",
 ]
+
+
+class MachineOptionsConfig(TypedDict, total=False):
+    maxIterations: int
 
 
 _TransitionInConfig = TypedDict(
@@ -127,3 +132,4 @@ class MachineConfig[ContextT = Any, EventDataT = Any, OutputT = Any](
     StateNodeConfig[ContextT, EventDataT, OutputT], total=False
 ):
     context: ContextT
+    options: MachineOptionsConfig
