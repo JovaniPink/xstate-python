@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Literal, TypedDict
 
 from xstate import (
+    ActorRef,
+    ActorSnapshot,
     Event,
     GuardHandler,
     HandlerArgs,
@@ -11,6 +13,7 @@ from xstate import (
     MacrostepTrace,
     OutputHandler,
     State,
+    create_actor,
     interpret,
 )
 
@@ -74,3 +77,12 @@ def valid_inspector(
 ) -> None:
     bad_snapshot: State[str, IncrementEvent, Output] = trace.snapshot  # invalid-trace
     _ = bad_snapshot
+
+
+actor_ref: ActorRef[IncrementEvent, State[Context, IncrementEvent, Output]] = (
+    create_actor(machine)
+)
+actor_ref.send({"type": "OTHER", "by": 1})  # invalid-actor-ref-send
+wrong_ref_snapshot: ActorSnapshot[Output] = (  # invalid-actor-ref-snapshot
+    actor_ref.get_snapshot()
+)

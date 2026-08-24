@@ -50,5 +50,7 @@ def test_invalid_typing_contracts_are_rejected() -> None:
         'Argument "max_iterations" to "Machine"',
         'Argument "inspect" to "interpret"',
         'variable has type "State[str, IncrementEvent, Output]"',
+        'TypedDict item "type" has type "Literal[\'INCREMENT\']"',
+        'variable has type "ActorSnapshot[Output',
     ):
         assert expected in output

@@ -7,9 +7,11 @@ from typing import Any, Literal, TypedDict, assert_type
 from xstate import (
     ActionHandler,
     Actor,
+    ActorRef,
     ActorSnapshot,
     AssignmentHandler,
     AsyncInterpreter,
+    CompletionSnapshot,
     ContextAdapter,
     DeepCopyContextAdapter,
     DelayHandler,
@@ -27,6 +29,7 @@ from xstate import (
     MicrostepTrace,
     OutputHandler,
     State,
+    SubscriptionProtocol,
     TransitionTrace,
     create_actor,
     from_callback,
@@ -167,7 +170,12 @@ assert_type(
 )
 assert_type(machine_actor.get_snapshot(), State[Context, AppEvent, Output])
 machine_actor.subscribe(observe)
-assert_type(machine_actor.system.get("child"), Actor[Any, Any, Any] | None)
+assert_type(machine_actor.parent, ActorRef[Any, Any] | None)
+assert_type(machine_actor.children, dict[str, ActorRef[Any, Any]])
+assert_type(machine_actor.system.get("child"), ActorRef[Any, Any] | None)
+machine_ref: ActorRef[EventInput[AppEvent], State[Context, AppEvent, Output]] = (
+    machine_actor
+)
 
 
 def promise(input: int) -> Output:
@@ -177,8 +185,42 @@ def promise(input: int) -> Output:
 promise_actor = create_actor(from_promise(promise), input=2)
 assert_type(promise_actor, Actor[object, ActorSnapshot[Output], Output])
 assert_type(to_promise(promise_actor), asyncio.Future[Output])
+promise_ref: ActorRef[object, ActorSnapshot[Output]] = promise_actor
+assert_type(to_promise(promise_ref), asyncio.Future[Output])
 spawned_promise = machine_actor.spawn(from_promise(promise), input=3)
 assert_type(spawned_promise, Actor[object, ActorSnapshot[Output], Output])
+
+
+class RefSubscription:
+    def unsubscribe(self) -> None:
+        return None
+
+
+class StructuralRef:
+    id = "structural"
+
+    def __init__(self) -> None:
+        self.snapshot: CompletionSnapshot[Output] = ActorSnapshot[Output](
+            "done", output={"total": 2}
+        )
+
+    def send(self, event: object) -> CompletionSnapshot[Output]:
+        _ = event
+        return self.snapshot
+
+    def get_snapshot(self) -> CompletionSnapshot[Output]:
+        return self.snapshot
+
+    def subscribe(
+        self,
+        listener: Callable[[CompletionSnapshot[Output]], None],
+    ) -> SubscriptionProtocol:
+        listener(self.snapshot)
+        return RefSubscription()
+
+
+structural_ref: ActorRef[object, CompletionSnapshot[Output]] = StructuralRef()
+assert_type(to_promise(structural_ref), asyncio.Future[Output])
 
 
 async def values(input: int) -> AsyncIterable[int]:

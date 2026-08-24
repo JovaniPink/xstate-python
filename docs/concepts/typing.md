@@ -74,7 +74,7 @@ at runtime.
 ## Setup and interpreters
 
 ```python
-from typing import assert_type
+from typing import Any, assert_type
 
 from xstate import AsyncInterpreter, Interpreter, MachineSetup, interpret, interpret_async, setup
 
@@ -104,9 +104,17 @@ Subscriptions receive the same typed `State`, so a listener can be declared as
 
 ```python
 import asyncio
-from typing import assert_type
+from typing import Any, assert_type
 
-from xstate import Actor, ActorSnapshot, EventInput, create_actor, from_promise, to_promise
+from xstate import (
+    Actor,
+    ActorRef,
+    ActorSnapshot,
+    EventInput,
+    create_actor,
+    from_promise,
+    to_promise,
+)
 
 machine_actor = create_actor(machine)
 assert_type(
@@ -126,11 +134,13 @@ def calculate(input: int) -> Output:
 promise_actor = create_actor(from_promise(calculate), input=3)
 assert_type(promise_actor, Actor[object, ActorSnapshot[Output], Output])
 assert_type(to_promise(promise_actor), asyncio.Future[Output])
+assert_type(machine_actor.system.get("child"), ActorRef[Any, Any] | None)
 ```
 
 Known machine, promise, callback, and observable logic preserves precise actor
-types. `ActorSystem.get()` is intentionally widened because one system may hold
-heterogeneous actors.
+types. Consumer-only boundaries can accept `ActorRef[SendEventT, SnapshotT]`
+without acquiring lifecycle control. `ActorSystem.get()` is intentionally
+widened because one system may hold heterogeneous actors.
 
 Raw JSON dictionaries, string events, and unparameterized machines remain valid.
 These annotations guide static consumers only; they do not generate code or add

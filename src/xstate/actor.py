@@ -42,7 +42,7 @@ import asyncio
 import inspect
 import threading
 from collections.abc import AsyncIterable, Awaitable, Callable
-from typing import Any, Literal, Protocol, cast, overload
+from typing import Any, Literal, Protocol, cast, overload, runtime_checkable
 
 from xstate.event import Event, EventInput
 from xstate.interpreter import NOT_STARTED, RUNNING, STOPPED, Interpreter, Subscription
@@ -56,8 +56,10 @@ __all__ = [
     "CallbackLogic",
     "ObservableLogic",
     "ActorSnapshot",
+    "CompletionSnapshot",
     "ActorSystem",
     "Actor",
+    "ActorRef",
     "ActorLogic",
     "ActorSnapshotValue",
     "SubscriptionProtocol",
@@ -72,6 +74,35 @@ __all__ = [
 
 class SubscriptionProtocol(Protocol):
     def unsubscribe(self) -> None: ...
+
+
+@runtime_checkable
+class ActorRef[SendEventT = Any, SnapshotT = Any](Protocol):
+    """Consumer-facing structural reference to actor capabilities."""
+
+    @property
+    def id(self) -> str: ...
+
+    def send(self, event: SendEventT) -> SnapshotT: ...
+
+    def get_snapshot(self) -> SnapshotT: ...
+
+    def subscribe(
+        self, listener: Callable[[SnapshotT], None]
+    ) -> SubscriptionProtocol: ...
+
+
+class CompletionSnapshot[OutputT = Any](Protocol):
+    """Structural snapshot contract consumed by :func:`to_promise`."""
+
+    @property
+    def status(self) -> Literal["active", "done", "error"]: ...
+
+    @property
+    def output(self) -> OutputT | None: ...
+
+    @property
+    def error(self) -> Any | None: ...
 
 
 # ---------------------------------------------------------------------------
@@ -609,7 +640,7 @@ class ActorSystem:
             if self._actors.get(actor_id) is actor:
                 del self._actors[actor_id]
 
-    def get(self, actor_id: str) -> Actor[Any, Any, Any] | None:
+    def get(self, actor_id: str) -> ActorRef[Any, Any] | None:
         """Return the actor registered under *actor_id*, or ``None``."""
         with self._lock:
             return self._actors.get(actor_id)
@@ -664,12 +695,15 @@ class Actor[SendEventT = Any, SnapshotT = Any, OutputT = Any]:
         return self._system
 
     @property
-    def parent(self) -> Actor[Any, Any, Any] | None:
+    def parent(self) -> ActorRef[Any, Any] | None:
         return self._parent
 
     @property
-    def children(self) -> dict[str, Actor[Any, Any, Any]]:
-        return dict(self._children)
+    def children(self) -> dict[str, ActorRef[Any, Any]]:
+        return {
+            actor_id: cast(ActorRef[Any, Any], actor)
+            for actor_id, actor in self._children.items()
+        }
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -1033,9 +1067,21 @@ def create_actor(
     )
 
 
+@overload
 def to_promise[OutputT](
     actor: Actor[Any, Any, OutputT],
-) -> asyncio.Future[OutputT]:
+) -> asyncio.Future[OutputT]: ...
+
+
+@overload
+def to_promise[OutputT](
+    actor: ActorRef[Any, CompletionSnapshot[OutputT]],
+) -> asyncio.Future[OutputT]: ...
+
+
+def to_promise(
+    actor: ActorRef[Any, Any],
+) -> asyncio.Future[Any]:
     """Adapt *actor* to an :class:`asyncio.Future` (XState v5 ``toPromise``).
 
     The future resolves with the actor's ``output`` when its snapshot reaches
@@ -1052,14 +1098,14 @@ def to_promise[OutputT](
             "async context, e.g. within asyncio.run(...)."
         ) from None
 
-    future: asyncio.Future[OutputT] = loop.create_future()
+    future: asyncio.Future[Any] = loop.create_future()
 
     def _settle(snapshot: Any) -> None:
         if future.done():
             return
         status = getattr(snapshot, "status", None)
         if status == "done":
-            future.set_result(cast(OutputT, getattr(snapshot, "output", None)))
+            future.set_result(getattr(snapshot, "output", None))
         elif status == "error":
             error = getattr(snapshot, "error", None)
             future.set_exception(
