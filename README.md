@@ -192,6 +192,13 @@ await service.stop()
 The pure transition and guard layer remains synchronous; only action execution,
 timers, and actor settlement are async-aware.
 
+Macrosteps can be bounded with `Machine(..., max_iterations=N)` or portable
+`options.maxIterations` configuration. `get_microsteps(...)` and
+`get_initial_microsteps(...)` return immutable intermediate trace records, and
+sync, async, and machine-backed actor runtimes accept an optional `inspect`
+callback for settled `MacrostepTrace` values. See
+[Runtime Choices](./docs/concepts/runtimes.md#bounded-execution-and-microstep-traces).
+
 ## Actors And `invoke`
 
 XState v5 treats running logic as actors. This library supports machine actors,

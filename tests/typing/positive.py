@@ -20,14 +20,20 @@ from xstate import (
     Interpreter,
     Machine,
     MachineConfig,
+    MachineOptionsConfig,
     MachineSetup,
     MachineSnapshot,
+    MacrostepTrace,
+    MicrostepTrace,
     OutputHandler,
     State,
+    TransitionTrace,
     create_actor,
     from_callback,
     from_observable,
     from_promise,
+    get_initial_microsteps,
+    get_microsteps,
     interpret,
     interpret_async,
     setup,
@@ -100,8 +106,10 @@ config: MachineConfig[Context, AppEvent, Output] = {
         "done": {"type": "final", "output": output_handler},
     },
 }
+options: MachineOptionsConfig = {"maxIterations": 10}
+config["options"] = options
 
-machine: Machine[Context, AppEvent, Output] = Machine(config)
+machine: Machine[Context, AppEvent, Output] = Machine(config, max_iterations=20)
 state = machine.initial_state
 assert_type(state, State[Context, AppEvent, Output])
 assert_type(state, MachineSnapshot[Context, AppEvent, Output])
@@ -109,8 +117,25 @@ state = machine.transition(state, {"type": "INCREMENT", "by": 2})
 assert_type(state.context, Context)
 assert_type(state.output, Output | None)
 assert_type(state.event, Event[AppEvent | Output | BaseException] | None)
+finish_event: FinishEvent = {"type": "FINISH"}
+assert_type(
+    get_microsteps(machine, state, finish_event),
+    tuple[MicrostepTrace[Context, AppEvent, Output], ...],
+)
+assert_type(
+    get_initial_microsteps(machine),
+    tuple[MicrostepTrace[Context, AppEvent, Output], ...],
+)
+transition_trace = TransitionTrace("FINISH", "counter.active", ("counter.done",))
+assert_type(transition_trace.target_ids, tuple[str, ...])
 
-service = interpret(machine)
+
+def inspect_trace(trace: MacrostepTrace[Context, AppEvent, Output]) -> None:
+    assert_type(trace.snapshot, State[Context, AppEvent, Output])
+    assert_type(trace.microsteps, tuple[MicrostepTrace[Context, AppEvent, Output], ...])
+
+
+service = interpret(machine, inspect=inspect_trace)
 assert_type(service, Interpreter[Context, AppEvent, Output])
 assert_type(
     service.send({"type": "INCREMENT", "by": 1}),
@@ -124,7 +149,7 @@ def observe(snapshot: State[Context, AppEvent, Output]) -> None:
 
 service.subscribe(observe)
 
-async_service = interpret_async(machine)
+async_service = interpret_async(machine, inspect=inspect_trace)
 assert_type(async_service, AsyncInterpreter[Context, AppEvent, Output])
 
 
@@ -135,7 +160,7 @@ async def use_async() -> None:
     )
 
 
-machine_actor = create_actor(machine)
+machine_actor = create_actor(machine, inspect=inspect_trace)
 assert_type(
     machine_actor,
     Actor[EventInput[AppEvent], State[Context, AppEvent, Output], Output],

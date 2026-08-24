@@ -2,27 +2,28 @@ from __future__ import annotations
 
 import functools
 import warnings
-from collections import deque
 from collections.abc import Callable
 from typing import Any, cast
 
 from xstate.action import INTERPRETER_TYPES, Action
 from xstate.algorithm import (
-    enter_states,
+    AlgorithmMicrostep,
+    MacrostepResult,
     get_configuration_from_state,
+    initial_event_loop,
     main_event_loop,
-    main_event_loop2,
 )
 from xstate.config_parser import StateNodeConfigParser
 from xstate.context import ContextAdapter, DeepCopyContextAdapter
-from xstate.event import Event, EventInput, to_event
+from xstate.event import Event, EventInput, RuntimeEventPayload, to_event
 from xstate.exceptions import InvalidConfigError, UnregisteredImplementationError
 from xstate.handlers import HandlerAdapter, adapt_handler
 from xstate.schema import MachineConfig
 from xstate.state import State
 from xstate.state_node import StateNode
+from xstate.trace import MacrostepTrace, MicrostepTrace, TransitionTrace
 
-__all__ = ["Machine"]
+__all__ = ["Machine", "get_microsteps", "get_initial_microsteps"]
 
 ActionCallable = Callable[[], Any]
 ResolvedAction = Action | ActionCallable
@@ -42,6 +43,7 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
     strict: bool
     context: ContextT
     context_adapter: ContextAdapter[ContextT]
+    max_iterations: int | None
 
     def __init__(
         self,
@@ -52,6 +54,7 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
         actors: dict[str, Any] | None = None,
         context_adapter: ContextAdapter[ContextT] | None = None,
         strict: bool = False,
+        max_iterations: int | None = None,
     ):
         if "id" not in config:
             raise InvalidConfigError(
@@ -63,6 +66,16 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
         self._order = 0
         self.strict = strict
         self.context_adapter = context_adapter or DeepCopyContextAdapter()
+        options = config.get("options")
+        if options is not None and not isinstance(options, dict):
+            raise InvalidConfigError("Machine options must be a dict.")
+        configured_limit = (
+            options.get("maxIterations") if isinstance(options, dict) else None
+        )
+        effective_limit = (
+            max_iterations if max_iterations is not None else configured_limit
+        )
+        self.max_iterations = self._validate_max_iterations(effective_limit)
         # Registries must be populated *before* the state tree is built: node and
         # transition construction resolves named actions against `self.actions`
         # (see action.build_action), so a named assign/raise/send is expanded to
@@ -81,6 +94,17 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
             ContextT,
             config.get("context") if config.get("context") is not None else {},
         )
+
+    @staticmethod
+    def _validate_max_iterations(value: Any) -> int | None:
+        if value is None:
+            return None
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise InvalidConfigError(
+                "options.maxIterations and max_iterations must be a non-negative "
+                "integer or None."
+            )
+        return cast(int, value)
 
     def _adapt_registry(self, registry: dict[str, Any], *, kind: str) -> dict[str, Any]:
         return {
@@ -106,7 +130,18 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
         state: State[ContextT, EventDataT, OutputT],
         event: EventInput[EventDataT],
     ) -> State[ContextT, EventDataT, OutputT]:
-        event = self._to_event(event)
+        next_state, _trace = self._transition_with_trace(state, event)
+        return next_state
+
+    def _transition_with_trace(
+        self,
+        state: State[ContextT, EventDataT, OutputT],
+        event: EventInput[EventDataT],
+    ) -> tuple[
+        State[ContextT, EventDataT, OutputT],
+        MacrostepTrace[ContextT, EventDataT, OutputT],
+    ]:
+        event_object = self._to_event(event)
         configuration = get_configuration_from_state(
             from_node=self.root, state_value=state.value, partial_configuration=set()
         )
@@ -114,20 +149,70 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
         history_value = {
             state_id: set(states) for state_id, states in state.history_value.items()
         }
-        configuration, _actions, context, output = main_event_loop(
-            configuration, event, context, history_value
+        result = main_event_loop(
+            configuration,
+            event_object,
+            context,
+            history_value=history_value,
+            context_snapshot=self.context_adapter.snapshot,
+            machine_id=self.id,
+            max_iterations=self.max_iterations,
         )
 
-        actions, unknown = self._get_actions(_actions, context, event)
+        actions, unknown = self._get_actions(
+            result.actions, result.context, event_object
+        )
         self._warn_unknown_actions(unknown)
 
-        return State[ContextT, EventDataT, OutputT](
-            configuration=configuration,
-            context=context,
+        next_state = State[ContextT, EventDataT, OutputT](
+            configuration=result.configuration,
+            context=result.context,
             actions=actions,
             history_value=history_value,
-            output=cast(OutputT | None, output),
+            output=result.output,
         )
+        trace = MacrostepTrace[ContextT, EventDataT, OutputT](
+            event=event_object,
+            previous_snapshot=state,
+            snapshot=next_state,
+            microsteps=self._build_microstep_traces(result.microsteps),
+        )
+        return next_state, trace
+
+    def _build_microstep_traces(
+        self,
+        microsteps: tuple[AlgorithmMicrostep[ContextT, Any], ...],
+    ) -> tuple[MicrostepTrace[ContextT, EventDataT, OutputT], ...]:
+        result: list[MicrostepTrace[ContextT, EventDataT, OutputT]] = []
+        for microstep in microsteps:
+            actions, _unknown = self._get_actions(
+                list(microstep.actions), microstep.context, microstep.event
+            )
+            snapshot = State[ContextT, EventDataT, OutputT](
+                configuration=microstep.configuration,
+                context=microstep.context,
+                actions=actions,
+                history_value=microstep.history_value,
+                output=cast(OutputT | None, microstep.output),
+            )
+            result.append(
+                MicrostepTrace[ContextT, EventDataT, OutputT](
+                    event=cast(
+                        Event[RuntimeEventPayload[EventDataT, OutputT]],
+                        microstep.event,
+                    ),
+                    snapshot=snapshot,
+                    transitions=tuple(
+                        TransitionTrace(
+                            event_type=transition.event or "",
+                            source_id=transition.source.id,
+                            target_ids=tuple(target.id for target in transition.target),
+                        )
+                        for transition in microstep.transitions
+                    ),
+                )
+            )
+        return tuple(result)
 
     def _get_actions(
         self, actions: list[Action], context: Any, event: Event | None
@@ -232,37 +317,59 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
 
     @property
     def initial_state(self) -> State[ContextT, EventDataT, OutputT]:
+        state, _trace = self._initial_transition()
+        return state
+
+    def _initial_transition(
+        self,
+    ) -> tuple[
+        State[ContextT, EventDataT, OutputT],
+        MacrostepTrace[ContextT, EventDataT, OutputT],
+    ]:
         context = self.context_adapter.snapshot(self.context)
         history_value: dict[str, Any] = {}
-        init_event = Event("xstate.init")
-        configuration, _actions, internal_queue, context, output = enter_states(
-            [self.root.initial],
-            configuration=set(),
+        result: MacrostepResult[ContextT, OutputT] = initial_event_loop(
+            self.root.initial,
+            context,
             history_value=history_value,
-            actions=[],
-            internal_queue=deque(),
-            context=context,
-            event=init_event,
-            output=None,
+            context_snapshot=self.context_adapter.snapshot,
+            machine_id=self.id,
+            max_iterations=self.max_iterations,
         )
+        init_event: Event[EventDataT] = Event("xstate.init")
 
-        configuration, _actions, context, output = main_event_loop2(
-            configuration=configuration,
-            actions=_actions,
-            internal_queue=internal_queue,
-            context=context,
-            event=init_event,
-            history_value=history_value,
-            output=output,
-        )
-
-        actions, unknown = self._get_actions(_actions, context, init_event)
+        actions, unknown = self._get_actions(result.actions, result.context, init_event)
         self._warn_unknown_actions(unknown)
 
-        return State[ContextT, EventDataT, OutputT](
-            configuration=configuration,
-            context=context,
+        state = State[ContextT, EventDataT, OutputT](
+            configuration=result.configuration,
+            context=result.context,
             actions=actions,
             history_value=history_value,
-            output=cast(OutputT | None, output),
+            output=result.output,
         )
+        trace = MacrostepTrace[ContextT, EventDataT, OutputT](
+            event=init_event,
+            previous_snapshot=None,
+            snapshot=state,
+            microsteps=self._build_microstep_traces(result.microsteps),
+        )
+        return state, trace
+
+
+def get_microsteps[ContextT, EventDataT, OutputT](
+    machine: Machine[ContextT, EventDataT, OutputT],
+    snapshot: State[ContextT, EventDataT, OutputT],
+    event: EventInput[EventDataT],
+) -> tuple[MicrostepTrace[ContextT, EventDataT, OutputT], ...]:
+    """Return immutable microstep traces for one pure machine transition."""
+    _state, trace = machine._transition_with_trace(snapshot, event)
+    return trace.microsteps
+
+
+def get_initial_microsteps[ContextT, EventDataT, OutputT](
+    machine: Machine[ContextT, EventDataT, OutputT],
+) -> tuple[MicrostepTrace[ContextT, EventDataT, OutputT], ...]:
+    """Return immutable microstep traces for machine initialization."""
+    _state, trace = machine._initial_transition()
+    return trace.microsteps

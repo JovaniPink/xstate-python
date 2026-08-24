@@ -46,5 +46,9 @@ def test_invalid_typing_contracts_are_rejected() -> None:
         'variable has type "GuardHandler[Context, IncrementEvent, Output]"',
         'variable has type "OutputHandler[Context, IncrementEvent, Output]"',
         'Argument 2 to "Event"',
+        'TypedDict item "maxIterations" has type "int"',
+        'Argument "max_iterations" to "Machine"',
+        'Argument "inspect" to "interpret"',
+        'variable has type "State[str, IncrementEvent, Output]"',
     ):
         assert expected in output
