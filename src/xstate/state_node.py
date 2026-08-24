@@ -61,21 +61,26 @@ class StateNode:
                 )
             return node
 
-        if self.parent is None:
-            state_node = self.states.get(target)
-            if state_node is not None:
-                return state_node
+        if target.startswith("."):
+            state_node = self
+            parts = target[1:].split(".")
+        else:
+            state_node = self.parent or self
+            parts = target.split(".")
+
+        if not parts or any(not part for part in parts):
             raise InvalidConfigError(
-                f"Cannot resolve relative target '{target}' from root state "
-                f"node '#{self.id}'"
+                f"Relative target '{target}' is invalid on state node '#{self.id}'"
             )
 
-        state_node = self.parent.states.get(target)
-        if state_node is None:
-            raise InvalidConfigError(
-                f"Relative state node '{target}' does not exist on state "
-                f"node '#{self.id}'"
-            )
+        for part in parts:
+            child = state_node.states.get(part)
+            if child is None:
+                raise InvalidConfigError(
+                    f"Relative target '{target}' does not exist from state "
+                    f"node '#{self.id}'"
+                )
+            state_node = child
         return state_node
 
     def __repr__(self) -> str:
