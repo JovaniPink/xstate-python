@@ -254,6 +254,11 @@ Actor helpers exported from `xstate` include:
 - `to_promise(actor)`
 - `send_parent(event)` and `send_to(actor_id, event)`
 
+Use `ActorRef[SendEventT, SnapshotT]` for consumer-only send, snapshot, and
+subscription boundaries. Concrete `Actor` values retain lifecycle and spawn
+methods, while `to_promise` also accepts references with a compatible
+`CompletionSnapshot[OutputT]`.
+
 ## `setup()` And Handler Signatures
 
 `setup(...)` mirrors XState v5's named implementation style and creates machines

@@ -30,7 +30,7 @@ import threading
 import warnings
 from collections import deque
 from collections.abc import Callable
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from xstate.action import CANCEL_TYPE, SEND_PARENT_TYPE, SEND_TO_TYPE, SEND_TYPE, Action
 from xstate.event import Event, EventInput, RuntimeEventPayload
@@ -39,6 +39,9 @@ from xstate.machine import Machine
 from xstate.scheduler import Clock, ThreadClock
 from xstate.state import State
 from xstate.trace import MacrostepTrace
+
+if TYPE_CHECKING:
+    from xstate.actor import ActorRef
 
 __all__ = [
     "NOT_STARTED",
@@ -334,7 +337,7 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
             return
         self._deliver_external(target, action)
 
-    def _deliver_external(self, target: Any, action: Action) -> None:
+    def _deliver_external(self, target: ActorRef[Any, Any], action: Action) -> None:
         """Deliver an event to another actor, immediately or after a delay."""
         event = action.data.get("event")
         delay = action.data.get("delay")

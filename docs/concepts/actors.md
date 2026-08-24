@@ -34,6 +34,24 @@ subscription.unsubscribe()
 The actor owns its interpreter and timers. Call `stop()` when its lifecycle is
 not already owned by a parent actor.
 
+Consumers that only send, read, and subscribe can depend on the structural
+`ActorRef[SendEventT, SnapshotT]` protocol. Concrete `Actor` values still own
+`start()`, `stop()`, and `spawn()`:
+
+```python
+from xstate import ActorRef, State
+
+
+def observe(ref: ActorRef[str, State]) -> None:
+    ref.subscribe(lambda snapshot: print(snapshot.value))
+    ref.send("START")
+```
+
+`ActorSystem.get()`, public parent references, and public child mappings return
+widened `ActorRef[Any, Any]` values because an actor system can contain
+heterogeneous logic. `create_actor()` and `spawn()` still return precise
+concrete `Actor` types when their logic is known.
+
 ## Invoked Actors
 
 An `invoke` declaration starts child logic while its state is active:
@@ -80,6 +98,10 @@ logic can produce `snapshot.invoke.<id>`.
 Promise input is resolved from `invoke.input` before the child starts. A
 resolved value completes the actor; an exception moves its snapshot to error
 and drives the parent's `onError` transition.
+
+`to_promise()` accepts concrete actors and structural actor references whose
+snapshots satisfy `CompletionSnapshot[OutputT]`. Output inference remains
+precise for both forms.
 
 See [fetch with retry](../examples/fetch_with_retry.py) for invoked promise
 logic, context assignment, guarded retry, and deterministic backoff.

@@ -10,12 +10,15 @@ from xstate.action import (  # noqa
 )
 from xstate.actor import (  # noqa
     Actor,
+    ActorRef,
     ActorSnapshot,
     ActorSystem,
     CallbackHandler,
     CallbackLogic,
+    CompletionSnapshot,
     ObservableLogic,
     PromiseLogic,
+    SubscriptionProtocol,
     create_actor,
     from_callback,
     from_observable,
@@ -92,7 +95,10 @@ __all__ = [
     # Actor model (v5)
     "create_actor",
     "Actor",
+    "ActorRef",
     "ActorSnapshot",
+    "CompletionSnapshot",
+    "SubscriptionProtocol",
     "ActorSystem",
     "PromiseLogic",
     "CallbackLogic",
