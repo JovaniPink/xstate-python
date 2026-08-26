@@ -2,13 +2,36 @@
 
 All notable changes to this project will be documented here.
 
-## 0.7.1 - 2026-08-21
+## 0.7.1 - Unreleased
 
 ### Added
 
-- Vendored the configured 56-case SCXML Test Framework fixture subset under
-  `tests/fixtures/scxml/`, including upstream provenance, license custody, and
-  an exact-inventory test.
+- Added generic typing across machine configuration, handlers, events,
+  snapshots, sync and async interpreters, actor logic, setup, and persistence
+  APIs while retaining unparameterized `Machine(config, ...)`, raw JSON data,
+  string events, and legacy handler compatibility.
+- Added XState v5 event descriptor selection for exact event names, partial
+  wildcards ending in `.*`, and the `*` catch-all, with exact and
+  longest-prefix candidates taking precedence while preserving guarded
+  fallthrough.
+- Added XState v5 transition target paths for sibling descendants and
+  dot-prefixed children, including multi-target arrays, while retaining
+  `#id` targets.
+- Added optional macrostep bounds through `max_iterations` and portable
+  `options.maxIterations` configuration. Exceeding the bound raises
+  `InfiniteLoopError` before another microstep runs, and interpreters retain
+  their last committed snapshot.
+- Added immutable `TransitionTrace`, `MicrostepTrace`, and `MacrostepTrace`
+  records, `get_initial_microsteps(...)` and `get_microsteps(...)` helpers, and
+  local inspection callbacks for sync and async interpreters and
+  machine-backed actors. This inspection surface does not implement the
+  `@statelyai/inspect` wire protocol.
+- Added the runtime-checkable structural `ActorRef` boundary, plus
+  `CompletionSnapshot` and `SubscriptionProtocol` typing contracts;
+  `to_promise(...)` now accepts compatible structural actor references.
+- Vendored the SCXML Test Framework fixtures exercised by the configured suite
+  under `tests/fixtures/scxml/`, including upstream provenance, license
+  custody, and an exact-inventory test.
 - Added the fixture-proven SCXML integer-data subset: non-negative integer
   initialization, same-variable `+ 1` assignment, and strict integer equality
   guards.
@@ -18,10 +41,16 @@ All notable changes to this project will be documented here.
 - Removed the SCXML fixture submodule so local, CI, and release validation use
   the same repository-owned test inputs without a separate checkout step.
 - Expanded the enabled `more-parallel` conformance subset from 13 to 15 cases;
-  the configured suite now covers 56 cases.
+  the configured suite now reports 57 passing cases.
+- Changed public actor-system lookup, parent, and child references to widened
+  `ActorRef` values while keeping `create_actor(...)` and `spawn(...)` return
+  types precise when actor logic is known.
 
 ### Fixed
 
+- Corrected macrostep ordering so state exits, transition actions, and state
+  entries execute in SCXML order while one FIFO internal queue carries raised
+  events across eventless and internal-event microsteps.
 - Corrected atomic self-transition handling inside parallel states so the
   source branch exits and re-enters without cycling active sibling regions.
 
