@@ -102,8 +102,14 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
         ) = None,
     ):
         self.machine = machine
-        self.state, self._initial_trace = machine._initial_transition()
         self._inspector = inspect
+        if inspect is None:
+            self.state = machine.initial_state
+            self._initial_trace: (
+                MacrostepTrace[ContextT, EventDataT, OutputT] | None
+            ) = None
+        else:
+            self.state, self._initial_trace = machine._initial_transition()
         self._status = NOT_STARTED
         self._listeners: set[Callable[[State[ContextT, EventDataT, OutputT]], None]] = (
             set()
@@ -112,9 +118,9 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
         self._processing = False
         self._processing_task: asyncio.Task[Any] | None = None
         # `after`-event name -> asyncio.Task running the delay
-        self._scheduled: dict[str, asyncio.Task] = {}
+        self._scheduled: dict[str, asyncio.Task[Any]] = {}
         # named `send(..., id=...)` (or the Task itself) -> delayed-send Task
-        self._send_timers: dict[Any, asyncio.Task] = {}
+        self._send_timers: dict[Any, asyncio.Task[Any]] = {}
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -130,35 +136,44 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
         self, initial_state: State[ContextT, EventDataT, OutputT] | None = None
     ) -> AsyncInterpreter[ContextT, EventDataT, OutputT]:
         """Start the service. Idempotent while already running."""
-        if self._status == RUNNING:
+        if self._status != NOT_STARTED:
             return self
         if initial_state is not None:
             self.state = initial_state
-            self._initial_trace = MacrostepTrace(
-                event=cast(Event[EventDataT], Event("xstate.init")),
-                previous_snapshot=None,
-                snapshot=initial_state,
-                microsteps=(),
+            self._initial_trace = (
+                MacrostepTrace(
+                    event=cast(Event[EventDataT], Event("xstate.init")),
+                    previous_snapshot=None,
+                    snapshot=initial_state,
+                    microsteps=(),
+                )
+                if self._inspector is not None
+                else None
             )
         self.state.event = Event("xstate.init")
         self._status = RUNNING
         self._sync_delays()
-        self._inspect_trace(self._initial_trace)
+        if self._initial_trace is not None:
+            self._inspect_trace(self._initial_trace)
         await self._execute(self.state)
-        self._notify(self.state)
+        if self._status == RUNNING:
+            self._notify(self.state)
         return self
 
     async def stop(self) -> AsyncInterpreter[ContextT, EventDataT, OutputT]:
         """Stop the service: cancel pending timers and drop all listeners."""
-        for task in self._scheduled.values():
+        tasks = set(self._scheduled.values()) | set(self._send_timers.values())
+        for task in tasks:
             task.cancel()
         self._scheduled.clear()
-        for task in self._send_timers.values():
-            task.cancel()
         self._send_timers.clear()
         self._listeners.clear()
         self._resolve_queued_events(self.state)
         self._status = STOPPED
+        current_task = asyncio.current_task()
+        pending = [task for task in tasks if task is not current_task]
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
         return self
 
     # -- events -------------------------------------------------------------
@@ -219,16 +234,22 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
                 future.exception()
 
     async def _process(self, event: EventInput[EventDataT]) -> None:
-        next_state, trace = self.machine._transition_with_trace(self.state, event)
+        trace: MacrostepTrace[ContextT, EventDataT, OutputT] | None = None
+        if self._inspector is None:
+            next_state = self.machine.transition(self.state, event)
+        else:
+            next_state, trace = self.machine._transition_with_trace(self.state, event)
         next_state.event = cast(
             Event[RuntimeEventPayload[EventDataT, OutputT]],
             self.machine._to_event(event),
         )
         self.state = next_state
         self._sync_delays()
-        self._inspect_trace(trace)
+        if trace is not None:
+            self._inspect_trace(trace)
         await self._execute(next_state)
-        self._notify(next_state)
+        if self._status == RUNNING:
+            self._notify(next_state)
 
     # -- subscriptions ------------------------------------------------------
 
@@ -273,6 +294,8 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
     async def _execute(self, state: State[ContextT, EventDataT, OutputT]) -> None:
         """Run resolved action callables; await any that return a coroutine."""
         for action in state.actions:
+            if self._status != RUNNING:
+                return
             if isinstance(action, Action):
                 action_type = action.type
                 method_name = (

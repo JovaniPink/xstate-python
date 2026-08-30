@@ -9,6 +9,8 @@ Covers:
   - the invoked actor is stopped when its state is exited before completing
 """
 
+import threading
+
 from xstate import (
     Machine,
     SimulatedClock,
@@ -286,3 +288,48 @@ def test_invoke_with_simulated_clock_timer():
     actor = create_actor(machine, clock=SimulatedClock()).start()
     assert actor.get_snapshot().value == "ready"
     assert actor.get_snapshot().context["value"] == 7
+
+
+def test_stop_blocks_late_invocation_reconciliation():
+    child_machine = Machine(
+        {"id": "late-child", "initial": "running", "states": {"running": {}}}
+    )
+    parent_machine = Machine(
+        {
+            "id": "late-parent",
+            "initial": "idle",
+            "states": {
+                "idle": {"on": {"GO": "active"}},
+                "active": {"invoke": {"id": "invoked-child", "src": "child"}},
+            },
+        },
+        actors={"child": child_machine},
+    )
+    parent = create_actor(parent_machine).start()
+    reconciliation_entered = threading.Event()
+    release_reconciliation = threading.Event()
+    original_sync = parent._sync_invocations
+
+    def delayed_sync() -> None:
+        reconciliation_entered.set()
+        assert release_reconciliation.wait(timeout=2.0)
+        original_sync()
+
+    parent._sync_invocations = delayed_sync
+    sender = threading.Thread(target=parent.send, args=("GO",))
+    sender.start()
+    assert reconciliation_entered.wait(timeout=2.0)
+
+    parent.stop()
+    release_reconciliation.set()
+    sender.join(timeout=2.0)
+
+    leaked_child = parent.system.get("invoked-child")
+    try:
+        assert not sender.is_alive()
+        assert parent.status == "stopped"
+        assert parent.children == {}
+        assert leaked_child is None
+    finally:
+        if leaked_child is not None:
+            leaked_child.stop()

@@ -9,7 +9,6 @@ from xstate.action import INTERPRETER_TYPES, Action
 from xstate.algorithm import (
     AlgorithmMicrostep,
     MacrostepResult,
-    get_configuration_from_state,
     initial_event_loop,
     main_event_loop,
 )
@@ -130,7 +129,9 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
         state: State[ContextT, EventDataT, OutputT],
         event: EventInput[EventDataT],
     ) -> State[ContextT, EventDataT, OutputT]:
-        next_state, _trace = self._transition_with_trace(state, event)
+        next_state, _event, _result = self._transition_core(
+            state, event, capture_microsteps=False
+        )
         return next_state
 
     def _transition_with_trace(
@@ -141,10 +142,34 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
         State[ContextT, EventDataT, OutputT],
         MacrostepTrace[ContextT, EventDataT, OutputT],
     ]:
-        event_object = self._to_event(event)
-        configuration = get_configuration_from_state(
-            from_node=self.root, state_value=state.value, partial_configuration=set()
+        next_state, event_object, result = self._transition_core(
+            state, event, capture_microsteps=True
         )
+        trace = MacrostepTrace[ContextT, EventDataT, OutputT](
+            event=event_object,
+            previous_snapshot=state,
+            snapshot=next_state,
+            microsteps=self._build_microstep_traces(result.microsteps),
+        )
+        return next_state, trace
+
+    def _transition_core(
+        self,
+        state: State[ContextT, EventDataT, OutputT],
+        event: EventInput[EventDataT],
+        *,
+        capture_microsteps: bool,
+    ) -> tuple[
+        State[ContextT, EventDataT, OutputT],
+        Event[EventDataT],
+        MacrostepResult[ContextT, Any],
+    ]:
+        event_object = self._to_event(event)
+        configuration = set(state.configuration)
+        if any(node.machine is not self for node in configuration):
+            raise InvalidConfigError(
+                f"State snapshot does not belong to machine '{self.id}'."
+            )
         context = self.context_adapter.snapshot(state.context)
         history_value = {
             state_id: set(states) for state_id, states in state.history_value.items()
@@ -157,6 +182,7 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
             context_snapshot=self.context_adapter.snapshot,
             machine_id=self.id,
             max_iterations=self.max_iterations,
+            capture_microsteps=capture_microsteps,
         )
 
         actions, unknown = self._get_actions(
@@ -171,13 +197,7 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
             history_value=history_value,
             output=result.output,
         )
-        trace = MacrostepTrace[ContextT, EventDataT, OutputT](
-            event=event_object,
-            previous_snapshot=state,
-            snapshot=next_state,
-            microsteps=self._build_microstep_traces(result.microsteps),
-        )
-        return next_state, trace
+        return next_state, event_object, result
 
     def _build_microstep_traces(
         self,
@@ -317,7 +337,7 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
 
     @property
     def initial_state(self) -> State[ContextT, EventDataT, OutputT]:
-        state, _trace = self._initial_transition()
+        state, _event, _result = self._initial_transition_core(capture_microsteps=False)
         return state
 
     def _initial_transition(
@@ -325,6 +345,24 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
     ) -> tuple[
         State[ContextT, EventDataT, OutputT],
         MacrostepTrace[ContextT, EventDataT, OutputT],
+    ]:
+        state, init_event, result = self._initial_transition_core(
+            capture_microsteps=True
+        )
+        trace = MacrostepTrace[ContextT, EventDataT, OutputT](
+            event=init_event,
+            previous_snapshot=None,
+            snapshot=state,
+            microsteps=self._build_microstep_traces(result.microsteps),
+        )
+        return state, trace
+
+    def _initial_transition_core(
+        self, *, capture_microsteps: bool
+    ) -> tuple[
+        State[ContextT, EventDataT, OutputT],
+        Event[EventDataT],
+        MacrostepResult[ContextT, OutputT],
     ]:
         context = self.context_adapter.snapshot(self.context)
         history_value: dict[str, Any] = {}
@@ -335,6 +373,7 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
             context_snapshot=self.context_adapter.snapshot,
             machine_id=self.id,
             max_iterations=self.max_iterations,
+            capture_microsteps=capture_microsteps,
         )
         init_event: Event[EventDataT] = Event("xstate.init")
 
@@ -348,13 +387,7 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
             history_value=history_value,
             output=result.output,
         )
-        trace = MacrostepTrace[ContextT, EventDataT, OutputT](
-            event=init_event,
-            previous_snapshot=None,
-            snapshot=state,
-            microsteps=self._build_microstep_traces(result.microsteps),
-        )
-        return state, trace
+        return state, init_event, result
 
 
 def get_microsteps[ContextT, EventDataT, OutputT](

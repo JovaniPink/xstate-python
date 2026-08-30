@@ -39,6 +39,28 @@ The serialized dictionary contains:
 Context and output must already be JSON-compatible if the payload is sent
 through `json.dumps()`.
 
+The returned dictionary owns independent copies of the snapshot value, context,
+and output. Mutating the serialized payload does not mutate the live snapshot.
+
+Use the optional context codec callbacks when an application context is not
+directly JSON-compatible. For example, an immutable dataclass context can be
+encoded and restored explicitly:
+
+```python
+from dataclasses import asdict
+
+data = serialize_snapshot(snapshot, context_serializer=asdict)
+restored = deserialize_snapshot(
+    machine,
+    data,
+    context_deserializer=lambda value: AppContext(**value),
+)
+```
+
+Without a codec, the deserializer passes the stored context through the
+machine's configured `ContextAdapter`. A codec is the application boundary for
+validating and reconstructing custom context types.
+
 ## Compatibility Boundary
 
 Restore only into the same machine definition, or a definition whose active

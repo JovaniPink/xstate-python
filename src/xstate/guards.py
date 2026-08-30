@@ -65,7 +65,7 @@ class _ComposableGuard:
         guard: Any,
         context: Any,
         event: Any,
-        registry: dict,
+        registry: dict[str, Any],
         state: Any | None = None,
     ) -> bool:
         if isinstance(guard, str):
@@ -89,7 +89,7 @@ class _ComposableGuard:
         self,
         context: Any,
         event: Any,
-        registry: dict,
+        registry: dict[str, Any],
         state: Any | None = None,
     ) -> bool:
         raise NotImplementedError
@@ -118,7 +118,7 @@ class _AndGuard(_ComposableGuard):
         self,
         context: Any,
         event: Any,
-        registry: dict,
+        registry: dict[str, Any],
         state: Any | None = None,
     ) -> bool:
         return all(
@@ -136,7 +136,7 @@ class _OrGuard(_ComposableGuard):
         self,
         context: Any,
         event: Any,
-        registry: dict,
+        registry: dict[str, Any],
         state: Any | None = None,
     ) -> bool:
         return any(
@@ -154,7 +154,7 @@ class _NotGuard(_ComposableGuard):
         self,
         context: Any,
         event: Any,
-        registry: dict,
+        registry: dict[str, Any],
         state: Any | None = None,
     ) -> bool:
         return not self._eval(
@@ -185,7 +185,7 @@ class _StateInGuard(_ComposableGuard):
         self,
         context: Any,
         event: Any,
-        registry: dict,
+        registry: dict[str, Any],
         state: Any | None = None,
     ) -> bool:
         if state is None:

@@ -72,6 +72,17 @@ async def test_events_dropped_before_start_and_after_stop():
     assert service.state.value == "active"
 
 
+async def test_start_after_stop_does_not_restart_service():
+    service = await interpret_async(_toggle_machine()).start()
+    await service.stop()
+
+    await service.start()
+    await service.send("TOGGLE")
+
+    assert service.status == "stopped"
+    assert service.state.value == "inactive"
+
+
 # ---------------------------------------------------------------------------
 # Awaitable action callables
 # ---------------------------------------------------------------------------
@@ -278,6 +289,65 @@ async def test_stop_cancels_pending_after():
     # Stopped service ignores the fired timer.
     assert service.state.value == "waiting"
     assert service.status == "stopped"
+
+
+async def test_stop_waits_for_owned_timer_tasks_to_finish_cancelling():
+    machine = Machine(
+        {
+            "id": "settled-stop",
+            "initial": "waiting",
+            "states": {
+                "waiting": {"after": {60_000: "fired"}},
+                "fired": {},
+            },
+        }
+    )
+    service = await interpret_async(machine).start()
+    tasks = tuple(service._scheduled.values())
+
+    await service.stop()
+
+    assert tasks
+    assert all(task.done() for task in tasks)
+    assert all(task.cancelled() for task in tasks)
+
+
+async def test_stop_during_action_prevents_later_runtime_actions():
+    action_started = asyncio.Event()
+    release_action = asyncio.Event()
+
+    async def blocking_action():
+        action_started.set()
+        await release_action.wait()
+
+    machine = Machine(
+        {
+            "id": "stop-during-action",
+            "initial": "active",
+            "states": {
+                "active": {
+                    "on": {
+                        "GO": {
+                            "actions": [
+                                blocking_action,
+                                _send("LATE", delay=60_000),
+                            ]
+                        }
+                    }
+                }
+            },
+        }
+    )
+    service = await interpret_async(machine).start()
+    send_task = asyncio.create_task(service.send("GO"))
+    await action_started.wait()
+
+    await service.stop()
+    release_action.set()
+    await send_task
+
+    assert service.status == "stopped"
+    assert service._send_timers == {}
 
 
 async def test_named_delay_resolved_from_machine_delays():

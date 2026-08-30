@@ -45,6 +45,11 @@ All notable changes to this project will be documented here.
 - Changed public actor-system lookup, parent, and child references to widened
   `ActorRef` values while keeping `create_actor(...)` and `spawn(...)` return
   types precise when actor logic is known.
+- Avoided trace-only context snapshots unless a trace helper or interpreter
+  inspector requests them, and cached transition exit sets during parallel
+  conflict resolution.
+- Changed `ThreadClock` from one thread per timer to one on-demand scheduler
+  thread per clock.
 
 ### Fixed
 
@@ -53,6 +58,15 @@ All notable changes to this project will be documented here.
   events across eventless and internal-event microsteps.
 - Corrected atomic self-transition handling inside parallel states so the
   source branch exits and re-enters without cycling active sibling regions.
+- Prevented actor stop and invocation reconciliation from leaving a running
+  child, and prevented late spawns from remaining registered after parent stop.
+- Made sync and async interpreter stop terminal, made async stop wait for owned
+  timer task cancellation to settle, and skipped later runtime actions after a
+  concurrent stop.
+- Made serialized snapshot value, context, and output data independent from the
+  live snapshot, added explicit custom context codecs, and kept the immutable
+  configuration authoritative if a caller mutates the derived state value.
+- Completed strict generic annotations across all 23 source files.
 
 ## 0.7.0 - 2026-07-02
 

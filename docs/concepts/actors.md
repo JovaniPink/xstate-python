@@ -116,6 +116,8 @@ the next snapshot.
 
 Actor IDs must be unique within a system. A parent owns the lifetime of its
 spawned and invoked children; stopping the parent stops those children as well.
+Calling `spawn()` after the parent has stopped returns a stopped child and does
+not leave that child registered in the actor system.
 
 ## Choosing An Actor Boundary
 

@@ -86,6 +86,17 @@ def test_stop_sets_stopped_and_drops_events():
     assert service.state.value == "green"
 
 
+def test_start_after_stop_does_not_restart_service():
+    service = interpret(make_light(), clock=SimulatedClock()).start()
+    service.stop()
+
+    service.start()
+    service.send("TIMER")
+
+    assert service.status == "stopped"
+    assert service.state.value == "green"
+
+
 def test_send_before_start_is_dropped():
     service = interpret(make_light(), clock=SimulatedClock())
     service.send("TIMER")  # before start → no-op
