@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterable, Callable
-from typing import Any, Literal, TypedDict, assert_type
+from typing import Any, Literal, TypedDict, assert_type, cast
 
 from xstate import (
     ActionHandler,
@@ -32,6 +32,7 @@ from xstate import (
     SubscriptionProtocol,
     TransitionTrace,
     create_actor,
+    deserialize_snapshot,
     from_callback,
     from_observable,
     from_promise,
@@ -39,6 +40,7 @@ from xstate import (
     get_microsteps,
     interpret,
     interpret_async,
+    serialize_snapshot,
     setup,
     to_promise,
 )
@@ -120,6 +122,14 @@ state = machine.transition(state, {"type": "INCREMENT", "by": 2})
 assert_type(state.context, Context)
 assert_type(state.output, Output | None)
 assert_type(state.event, Event[AppEvent | Output | BaseException] | None)
+serialized = serialize_snapshot(state, context_serializer=dict)
+assert_type(serialized, dict[str, Any])
+restored = deserialize_snapshot(
+    machine,
+    serialized,
+    context_deserializer=lambda value: cast(Context, value),
+)
+assert_type(restored, State[Context, AppEvent, Output])
 finish_event: FinishEvent = {"type": "FINISH"}
 assert_type(
     get_microsteps(machine, state, finish_event),

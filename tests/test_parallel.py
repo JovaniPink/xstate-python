@@ -2,6 +2,7 @@
 
 import pytest
 
+import xstate.algorithm as algorithm
 from xstate import Machine, interpret
 
 
@@ -323,3 +324,43 @@ def test_parallel_conflict_with_nested_target_reenters_sibling_initial_state():
             "b": {"b1": "b11"},
         }
     }
+
+
+def test_parallel_conflict_computes_each_exit_set_once(monkeypatch):
+    region_count = 16
+    regions = {
+        f"region_{index}": {
+            "initial": "a",
+            "states": {
+                "a": {"on": {"GO": "b"}},
+                "b": {},
+            },
+        }
+        for index in range(region_count)
+    }
+    machine = Machine(
+        {
+            "id": "wide-parallel",
+            "initial": "running",
+            "states": {
+                "running": {"type": "parallel", "states": regions},
+            },
+        }
+    )
+    state = machine.initial_state
+    original_compute_exit_set = algorithm.compute_exit_set
+    calls = 0
+
+    def counted_compute_exit_set(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original_compute_exit_set(*args, **kwargs)
+
+    monkeypatch.setattr(algorithm, "compute_exit_set", counted_compute_exit_set)
+
+    state = machine.transition(state, "GO")
+
+    assert all(value == "b" for value in state.value["running"].values())
+    # Conflict filtering computes one exit set per enabled transition. The
+    # selected transition set is computed once more when the microstep exits.
+    assert calls == region_count + 1

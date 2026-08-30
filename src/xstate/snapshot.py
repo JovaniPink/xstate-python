@@ -29,6 +29,8 @@ Usage::
 
 from __future__ import annotations
 
+import copy
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
@@ -38,30 +40,46 @@ if TYPE_CHECKING:
 
 def serialize_snapshot[ContextT, EventDataT, OutputT](
     snapshot: State[ContextT, EventDataT, OutputT],
+    *,
+    context_serializer: Callable[[ContextT], Any] | None = None,
 ) -> dict[str, Any]:
-    """Serialize *snapshot* to a JSON-compatible dict."""
+    """Serialize *snapshot* to an independent JSON-compatible dictionary.
+
+    ``context_serializer`` converts custom context values, such as dataclasses,
+    before the result is copied into the returned payload.
+    """
     history_value: dict[str, list[str]] = {}
     for hist_node_id, state_nodes in (snapshot.history_value or {}).items():
         history_value[hist_node_id] = sorted(node.id for node in state_nodes)
 
     error = snapshot.error
+    serialized_context = (
+        context_serializer(snapshot.context)
+        if context_serializer is not None
+        else snapshot.context
+    )
     return {
-        "value": snapshot.value,
-        "context": snapshot.context,
+        "value": copy.deepcopy(snapshot.value),
+        "context": copy.deepcopy(serialized_context),
         "status": snapshot.status,
         "history_value": history_value,
-        "output": snapshot.output,
+        "output": copy.deepcopy(snapshot.output),
         "error": repr(error) if error is not None else None,
     }
 
 
 def deserialize_snapshot[ContextT, EventDataT, OutputT](
-    machine: Machine[ContextT, EventDataT, OutputT], data: dict[str, Any]
+    machine: Machine[ContextT, EventDataT, OutputT],
+    data: dict[str, Any],
+    *,
+    context_deserializer: Callable[[Any], ContextT] | None = None,
 ) -> State[ContextT, EventDataT, OutputT]:
     """Reconstruct a :class:`~xstate.state.State` from a serialized dict.
 
     Pass the returned state to ``create_actor(machine, snapshot=...)`` or
     ``actor.start(initial_state=...)`` to resume execution.
+    ``context_deserializer`` reconstructs a custom context value before the
+    machine's context adapter applies its snapshot policy.
     """
     from xstate.state import State
 
@@ -73,9 +91,14 @@ def deserialize_snapshot[ContextT, EventDataT, OutputT](
         if nodes:
             history_value[hist_node_id] = nodes
 
+    raw_context = data.get("context")
+    if context_deserializer is not None:
+        context = context_deserializer(raw_context)
+    else:
+        context = cast(ContextT, raw_context if raw_context is not None else {})
     state = State[ContextT, EventDataT, OutputT](
         configuration=configuration,
-        context=cast(ContextT, dict(data.get("context") or {})),
+        context=machine.context_adapter.snapshot(context),
         history_value=history_value,
     )
     if data.get("status") == "error":

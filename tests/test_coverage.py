@@ -366,6 +366,23 @@ def test_thread_clock_clear_nonexistent_is_noop():
     clock.clear_timeout(9999)  # must not raise
 
 
+def test_thread_clock_uses_at_most_one_worker_for_many_timers():
+    clock = ThreadClock()
+    existing_threads = set(threading.enumerate())
+    timeout_ids = [clock.set_timeout(lambda: None, 60_000) for _ in range(20)]
+    worker_threads = tuple(
+        thread for thread in threading.enumerate() if thread not in existing_threads
+    )
+
+    for timeout_id in timeout_ids:
+        clock.clear_timeout(timeout_id)
+    for thread in worker_threads:
+        thread.join(timeout=1.0)
+
+    assert len(worker_threads) <= 1
+    assert all(not thread.is_alive() for thread in worker_threads)
+
+
 # ---------------------------------------------------------------------------
 # state.py — _matches_dict return-False branch
 # ---------------------------------------------------------------------------

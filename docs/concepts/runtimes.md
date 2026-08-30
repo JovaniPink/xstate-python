@@ -30,8 +30,10 @@ Calls to `send()` are serialized. An event sent while another event is being
 processed is queued until the active macrostep completes. This preserves
 run-to-completion even when an action sends another event.
 
-The default `ThreadClock` schedules real timers. Tests and deterministic tools
-should inject `SimulatedClock` and advance it explicitly:
+The default `ThreadClock` schedules all timers for one clock on a single
+on-demand daemon worker. The worker exits after the last timer fires or is
+canceled. Tests and deterministic tools should inject `SimulatedClock` and
+advance it explicitly:
 
 ```python
 from xstate import SimulatedClock, interpret
@@ -42,7 +44,8 @@ clock.increment(1_000)
 ```
 
 Stopping an interpreter cancels its active `after` timers and delayed sends,
-clears listeners, and drops later events.
+clears listeners, and drops later events. A stopped interpreter does not
+restart; create a new interpreter to run the machine again.
 
 ## Async Interpreter
 
@@ -64,6 +67,11 @@ async work from actions rather than subscription callbacks.
 
 Async `after` transitions use the running event loop. The pure transition and
 guard layer remains synchronous.
+
+`await service.stop()` cancels and waits for interpreter-owned timer tasks to
+settle before returning. An action that is already awaiting may finish in its
+caller's send task, but later runtime actions from that macrostep are skipped.
+The interpreter does not wait for application tasks created outside it.
 
 See [async workflow](../examples/async_workflow.py) for a complete program.
 
@@ -101,6 +109,9 @@ for step in steps:
 Each intermediate snapshot contains only that microstep's actions. The normal
 `Machine.transition` result still contains every macrostep action in execution
 order. Ignored events appear with an empty `transitions` tuple.
+
+Normal transitions do not build trace-only context snapshots. Those snapshots
+are collected only when a trace helper or interpreter inspector requests them.
 
 Sync and async interpreters accept an `inspect` callback. It receives one
 `MacrostepTrace` for initialization and one for each external event after the

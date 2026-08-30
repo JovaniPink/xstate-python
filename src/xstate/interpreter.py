@@ -119,8 +119,14 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
     ):
         self.machine = machine
         self.clock = clock if clock is not None else ThreadClock()
-        self.state, self._initial_trace = machine._initial_transition()
         self._inspector = inspect
+        if inspect is None:
+            self.state = machine.initial_state
+            self._initial_trace: (
+                MacrostepTrace[ContextT, EventDataT, OutputT] | None
+            ) = None
+        else:
+            self.state, self._initial_trace = machine._initial_transition()
         self._status = NOT_STARTED
         self._lock = threading.RLock()
         self._listeners: set[Callable[[State[ContextT, EventDataT, OutputT]], None]] = (
@@ -151,22 +157,27 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
     ) -> Interpreter[ContextT, EventDataT, OutputT]:
         """Start the service.  Idempotent while already running."""
         with self._lock:
-            if self._status == RUNNING:
+            if self._status != NOT_STARTED:
                 return self
             if initial_state is not None:
                 self.state = initial_state
-                self._initial_trace = MacrostepTrace(
-                    event=cast(Event[EventDataT], Event("xstate.init")),
-                    previous_snapshot=None,
-                    snapshot=initial_state,
-                    microsteps=(),
+                self._initial_trace = (
+                    MacrostepTrace(
+                        event=cast(Event[EventDataT], Event("xstate.init")),
+                        previous_snapshot=None,
+                        snapshot=initial_state,
+                        microsteps=(),
+                    )
+                    if self._inspector is not None
+                    else None
                 )
             self.state.event = Event("xstate.init")
             self._status = RUNNING
             self._sync_delays()
             state = self.state
             initial_trace = self._initial_trace
-        self._inspect_trace(initial_trace)
+        if initial_trace is not None:
+            self._inspect_trace(initial_trace)
         self._execute(state)
         self._notify(state)
         return self
@@ -226,7 +237,11 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
                 return
             state = self.state
 
-        next_state, trace = self.machine._transition_with_trace(state, event)
+        trace: MacrostepTrace[ContextT, EventDataT, OutputT] | None = None
+        if self._inspector is None:
+            next_state = self.machine.transition(state, event)
+        else:
+            next_state, trace = self.machine._transition_with_trace(state, event)
         next_state.event = cast(
             Event[RuntimeEventPayload[EventDataT, OutputT]],
             self.machine._to_event(event),
@@ -238,7 +253,8 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
             self.state = next_state
             self._sync_delays()
 
-        self._inspect_trace(trace)
+        if trace is not None:
+            self._inspect_trace(trace)
         self._execute(next_state)
         self._notify(next_state)
 

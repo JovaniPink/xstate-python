@@ -148,6 +148,17 @@ def test_stopping_parent_stops_children():
     assert parent.system.get("kid") is None
 
 
+def test_spawning_after_parent_stop_does_not_leak_child():
+    parent = create_actor(_toggle_machine(), id="parent").start()
+    parent.stop()
+
+    child = parent.spawn(_toggle_machine(), id="late-child")
+
+    assert child.status == "stopped"
+    assert parent.children == {}
+    assert parent.system.get("late-child") is None
+
+
 def test_spawn_into_explicit_shared_system():
     system = ActorSystem()
     parent = create_actor(_toggle_machine(), id="p", system=system).start()

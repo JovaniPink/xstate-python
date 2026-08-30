@@ -224,7 +224,7 @@ def from_observable(
     return ObservableLogic(fn)
 
 
-def _ensure_future(awaitable: Any) -> asyncio.Task:
+def _ensure_future(awaitable: Any) -> asyncio.Task[Any]:
     """Schedule *awaitable* on the running loop, with a clear error if none.
 
     Async actor logic (coroutine ``from_promise`` / ``from_observable``) can
@@ -417,7 +417,7 @@ class _PromiseBackend(_ListenerBackend):
     def __init__(self, actor: Actor, logic: PromiseLogic, input: Any):
         super().__init__(actor, input)
         self._fn = logic.fn
-        self._task: asyncio.Task | None = None
+        self._task: asyncio.Task[Any] | None = None
 
     def start(self, initial_state: State | None = None) -> None:
         if self._status != NOT_STARTED:
@@ -438,7 +438,7 @@ class _PromiseBackend(_ListenerBackend):
             self._snapshot = ActorSnapshot("done", output=result)
             self._notify()
 
-    def _on_resolved(self, task: asyncio.Task) -> None:
+    def _on_resolved(self, task: asyncio.Task[Any]) -> None:
         if self._status == STOPPED or task.cancelled():
             return
         exc = task.exception()
@@ -507,7 +507,7 @@ class _ObservableBackend(_ListenerBackend):
     def __init__(self, actor: Actor, logic: ObservableLogic, input: Any):
         super().__init__(actor, input)
         self._fn = logic.fn
-        self._task: asyncio.Task | None = None
+        self._task: asyncio.Task[Any] | None = None
 
     def start(self, initial_state: State | None = None) -> None:
         if self._status != NOT_STARTED:
@@ -536,7 +536,7 @@ class _ObservableBackend(_ListenerBackend):
             self._notify()
         return last
 
-    def _on_finished(self, task: asyncio.Task) -> None:
+    def _on_finished(self, task: asyncio.Task[Any]) -> None:
         if self._status == STOPPED or task.cancelled():
             return
         exc = task.exception()
@@ -668,6 +668,8 @@ class Actor[SendEventT = Any, SnapshotT = Any, OutputT = Any]:
         inspect: Callable[[MacrostepTrace], None] | None = None,
     ) -> None:
         self._system = system if system is not None else ActorSystem()
+        self._lifecycle_lock = threading.RLock()
+        self._stopping = False
         with self._system._lock:
             self._id = id if id is not None else self._system._next_id_unlocked()
             self._parent = parent
@@ -700,10 +702,11 @@ class Actor[SendEventT = Any, SnapshotT = Any, OutputT = Any]:
 
     @property
     def children(self) -> dict[str, ActorRef[Any, Any]]:
-        return {
-            actor_id: cast(ActorRef[Any, Any], actor)
-            for actor_id, actor in self._children.items()
-        }
+        with self._lifecycle_lock:
+            return {
+                actor_id: cast(ActorRef[Any, Any], actor)
+                for actor_id, actor in self._children.items()
+            }
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -714,45 +717,59 @@ class Actor[SendEventT = Any, SnapshotT = Any, OutputT = Any]:
     def start(
         self, initial_state: SnapshotT | None = None
     ) -> Actor[SendEventT, SnapshotT, OutputT]:
-        if self._backend.status == STOPPED:
-            # Match XState: a stopped actor does not restart.
+        with self._lifecycle_lock:
+            if self._stopping or self._backend.status == STOPPED:
+                # Match XState: a stopped actor does not restart.
+                return self
+            effective = initial_state if initial_state is not None else self._snapshot
+            self._backend.start(cast(Any, effective))
+            # For machine actors that declare any `invoke:`, reconcile child actors
+            # on every state change (the immediate subscribe call handles the
+            # initial state). Invoke-free machines skip this entirely.
+            if (
+                self._backend.is_machine
+                and getattr(self._backend, "has_invoke", False)
+                and self._invocation_sub is None
+            ):
+                self._invocation_sub = self._backend.subscribe(
+                    lambda _snapshot: self._sync_invocations()
+                )
             return self
-        effective = initial_state if initial_state is not None else self._snapshot
-        self._backend.start(cast(Any, effective))
-        # For machine actors that declare any `invoke:`, reconcile child actors
-        # on every state change (the immediate subscribe call handles the
-        # initial state). Invoke-free machines skip this entirely.
-        if (
-            self._backend.is_machine
-            and getattr(self._backend, "has_invoke", False)
-            and self._invocation_sub is None
-        ):
-            self._invocation_sub = self._backend.subscribe(
-                lambda _snapshot: self._sync_invocations()
-            )
-        return self
 
     def stop(self) -> Actor[SendEventT, SnapshotT, OutputT]:
-        if self._backend.status == STOPPED:
-            return self
-        # Stop children (including invoked ones) before tearing down self.
-        for child in list(self._children.values()):
-            child.stop()
-        self._children.clear()
-        self._invoked.clear()
-        if self._invocation_sub is not None:
-            self._invocation_sub.unsubscribe()
-            self._invocation_sub = None
-        self._backend.stop()
-        if self._parent is not None:
-            self._parent._children.pop(self.id, None)
-        self._system._unregister(self)
+        parent: Actor[Any, Any, Any] | None = None
+        with self._lifecycle_lock:
+            if self._stopping or self._backend.status == STOPPED:
+                return self
+            self._stopping = True
+            try:
+                if self._invocation_sub is not None:
+                    self._invocation_sub.unsubscribe()
+                    self._invocation_sub = None
+                # Stop children (including invoked ones) before tearing down self.
+                for child in list(self._children.values()):
+                    child.stop()
+                self._children.clear()
+                self._invoked.clear()
+                self._backend.stop()
+                parent = self._parent
+                self._system._unregister(self)
+            finally:
+                self._stopping = False
+        # Do not hold this actor's lock while acquiring its parent's lock. A
+        # concurrent parent stop acquires those locks in the opposite order.
+        if parent is not None:
+            with parent._lifecycle_lock:
+                parent._children.pop(self.id, None)
         return self
 
     # -- messaging ----------------------------------------------------------
 
     def send(self, event: SendEventT) -> SnapshotT:
         """Deliver *event* to this actor (run-to-completion for machines)."""
+        with self._lifecycle_lock:
+            if self._stopping or self._backend.status == STOPPED:
+                return self.get_snapshot()
         self._backend.send(event)
         return self.get_snapshot()
 
@@ -838,18 +855,22 @@ class Actor[SendEventT = Any, SnapshotT = Any, OutputT = Any]:
         """Create a child actor from *logic* in this actor's system.
 
         The child is registered as a child of this actor and shares the system,
-        but is not started — call :meth:`Actor.start` on the returned actor.
+        but is not started - call :meth:`Actor.start` on the returned actor.
         """
-        child = Actor(
-            logic,
-            id=id,
-            clock=clock if clock is not None else self._clock,
-            system=self._system,
-            parent=self,
-            input=input,
-        )
-        self._children[child.id] = child
-        return child
+        with self._lifecycle_lock:
+            child = Actor(
+                logic,
+                id=id,
+                clock=clock if clock is not None else self._clock,
+                system=self._system,
+                parent=self,
+                input=input,
+            )
+            if self._stopping or self._backend.status == STOPPED:
+                child.stop()
+            else:
+                self._children[child.id] = child
+            return child
 
     # -- invoke reconciliation ----------------------------------------------
 
@@ -862,19 +883,29 @@ class Actor[SendEventT = Any, SnapshotT = Any, OutputT = Any]:
         Runs to a fixed point so that a child resolving synchronously (which can
         transition this actor again) is reconciled within one call.
         """
-        if not self._backend.is_machine or self._syncing:
-            return
-        self._syncing = True
-        try:
-            while self._reconcile_invocations_once():
-                pass
-        finally:
-            self._syncing = False
+        with self._lifecycle_lock:
+            if (
+                not self._backend.is_machine
+                or self._stopping
+                or self._backend.status != RUNNING
+                or self._syncing
+            ):
+                return
+            self._syncing = True
+            try:
+                while (
+                    not self._stopping
+                    and self._backend.status == RUNNING
+                    and self._reconcile_invocations_once()
+                ):
+                    pass
+            finally:
+                self._syncing = False
 
     def _reconcile_invocations_once(self) -> bool:
         backend = cast(_MachineBackend, self._backend)
         configuration = backend.snapshot.configuration
-        wanted: dict[str, dict] = {}
+        wanted: dict[str, dict[str, Any]] = {}
         for node in configuration:
             for invocation in getattr(node, "invoke", []):
                 wanted[invocation["id"]] = invocation

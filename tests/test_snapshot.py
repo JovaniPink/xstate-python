@@ -8,7 +8,16 @@ Covers:
   - Error-status snapshots round-trip
 """
 
-from xstate import Machine, create_actor, deserialize_snapshot, serialize_snapshot
+import json
+from dataclasses import asdict, dataclass
+
+from xstate import (
+    Machine,
+    create_actor,
+    dataclass_context,
+    deserialize_snapshot,
+    serialize_snapshot,
+)
 
 
 def _toggle_machine():
@@ -91,13 +100,121 @@ def test_serialize_error_is_none_for_active():
 
 
 def test_serialize_produces_json_compatible_types():
-    import json
-
     actor = create_actor(_counter_machine()).start()
     actor.send("INC")
     data = serialize_snapshot(actor.get_snapshot())
     # Should not raise
     json.dumps(data)
+
+
+def test_serialized_payload_is_independent_from_live_snapshot():
+    machine = Machine(
+        {
+            "id": "independent",
+            "context": {"nested": {"count": 1}},
+            "initial": "outer",
+            "states": {
+                "outer": {
+                    "initial": "a",
+                    "states": {"a": {}, "b": {}},
+                }
+            },
+        }
+    )
+    snapshot = machine.initial_state
+
+    data = serialize_snapshot(snapshot)
+    data["context"]["nested"]["count"] = 99
+    data["value"]["outer"] = "b"
+
+    assert snapshot.context == {"nested": {"count": 1}}
+    assert snapshot.value == {"outer": "a"}
+
+
+def test_serialized_output_is_independent_from_live_snapshot():
+    machine = Machine(
+        {
+            "id": "independent-output",
+            "initial": "done",
+            "states": {
+                "done": {
+                    "type": "final",
+                    "output": {"nested": {"count": 1}},
+                }
+            },
+        }
+    )
+    snapshot = machine.initial_state
+
+    data = serialize_snapshot(snapshot)
+    data["output"]["nested"]["count"] = 99
+
+    assert snapshot.output == {"nested": {"count": 1}}
+
+
+def test_restored_context_is_independent_from_serialized_payload():
+    machine = Machine(
+        {
+            "id": "independent-restore",
+            "context": {"nested": {"count": 1}},
+            "initial": "active",
+            "states": {"active": {}},
+        }
+    )
+    data = serialize_snapshot(machine.initial_state)
+
+    restored = deserialize_snapshot(machine, data)
+    data["context"]["nested"]["count"] = 99
+
+    assert restored.context == {"nested": {"count": 1}}
+
+
+def test_mutating_state_value_does_not_change_transition_configuration():
+    machine = Machine(
+        {
+            "id": "configuration-authority",
+            "initial": "outer",
+            "states": {
+                "outer": {
+                    "initial": "a",
+                    "states": {"a": {}, "b": {}},
+                }
+            },
+        }
+    )
+    snapshot = machine.initial_state
+    snapshot.value["outer"] = "b"
+
+    next_snapshot = machine.transition(snapshot, "MISSING")
+
+    assert next_snapshot.value == {"outer": "a"}
+
+
+@dataclass(frozen=True, slots=True)
+class DataclassContext:
+    count: int
+
+
+def test_dataclass_context_round_trip_uses_explicit_codec():
+    machine = Machine(
+        {
+            "id": "dataclass-persistence",
+            "context": DataclassContext(count=3),
+            "initial": "active",
+            "states": {"active": {}},
+        },
+        context_adapter=dataclass_context(),
+    )
+
+    data = serialize_snapshot(machine.initial_state, context_serializer=asdict)
+    encoded = json.loads(json.dumps(data))
+    restored = deserialize_snapshot(
+        machine,
+        encoded,
+        context_deserializer=lambda value: DataclassContext(**value),
+    )
+
+    assert restored.context == DataclassContext(count=3)
 
 
 # ---------------------------------------------------------------------------

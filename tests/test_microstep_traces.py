@@ -104,6 +104,50 @@ def test_machine_transition_keeps_all_macrostep_actions():
     assert len(state.actions) == 3
 
 
+def test_untraced_transitions_do_not_capture_trace_only_context_snapshots():
+    class CountingContextAdapter:
+        def __init__(self) -> None:
+            self.snapshot_calls = 0
+
+        def snapshot(self, context: dict[str, int]) -> dict[str, int]:
+            self.snapshot_calls += 1
+            return dict(context)
+
+        def apply(
+            self, context: dict[str, int], updates: dict[str, object]
+        ) -> dict[str, int]:
+            next_context = dict(context)
+            next_context.update(updates)
+            return next_context
+
+    adapter = CountingContextAdapter()
+    machine = Machine(
+        {
+            "id": "trace-capture-policy",
+            "context": {"count": 0},
+            "initial": "a",
+            "states": {
+                "a": {"on": {"GO": "b"}},
+                "b": {},
+            },
+        },
+        context_adapter=adapter,
+    )
+
+    state = machine.initial_state
+    assert adapter.snapshot_calls == 1
+
+    adapter.snapshot_calls = 0
+    next_state = machine.transition(state, "GO")
+    assert next_state.value == "b"
+    assert adapter.snapshot_calls == 1
+
+    adapter.snapshot_calls = 0
+    microsteps = get_microsteps(machine, state, "GO")
+    assert microsteps[-1].snapshot.value == "b"
+    assert adapter.snapshot_calls >= 2
+
+
 def test_get_initial_microsteps_includes_initial_and_eventless_steps():
     machine = Machine(
         {

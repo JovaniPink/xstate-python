@@ -748,25 +748,24 @@ def remove_conflicting_transitions(
     history_value: ReadOnlyHistoryValue,
 ) -> TransitionSequence:
     ordered = sorted(enabled_transitions, key=lambda t: t.order)
+    exit_sets = {
+        transition: frozenset(
+            compute_exit_set(
+                enabled_transitions=[transition],
+                configuration=configuration,
+                history_value=history_value,
+            )
+        )
+        for transition in ordered
+    }
 
     filtered_transitions: TransitionSequence = []
     for t1 in ordered:
         t1_preempted = False
         transitions_to_remove: set[Transition] = set()
-        t1_exit_set = compute_exit_set(
-            enabled_transitions=[t1],
-            configuration=configuration,
-            history_value=history_value,
-        )
+        t1_exit_set = exit_sets[t1]
         for t2 in filtered_transitions:
-            t2_exit_set = compute_exit_set(
-                enabled_transitions=[t2],
-                configuration=configuration,
-                history_value=history_value,
-            )
-            intersection = [value for value in t1_exit_set if value in t2_exit_set]
-
-            if intersection:
+            if not t1_exit_set.isdisjoint(exit_sets[t2]):
                 if is_descendent(t1.source, t2.source):
                     transitions_to_remove.add(t2)
                 else:
@@ -824,6 +823,7 @@ def initial_event_loop[ContextT, OutputT](
     context_snapshot: Callable[[ContextT], ContextT],
     machine_id: str,
     max_iterations: int | None,
+    capture_microsteps: bool = True,
 ) -> MacrostepResult[ContextT, OutputT]:
     init_event: Event[Any] = Event("xstate.init")
     iterations = _consume_iteration(
@@ -842,18 +842,20 @@ def initial_event_loop[ContextT, OutputT](
         event=init_event,
         output=None,
     )
-    microsteps: list[AlgorithmMicrostep[ContextT, OutputT]] = [
-        _capture_algorithm_microstep(
-            event=init_event,
-            transitions=[initial_transition],
-            configuration=configuration,
-            actions=actions,
-            context=context,
-            history_value=history_value,
-            output=output,
-            context_snapshot=context_snapshot,
+    microsteps: list[AlgorithmMicrostep[ContextT, OutputT]] = []
+    if capture_microsteps:
+        microsteps.append(
+            _capture_algorithm_microstep(
+                event=init_event,
+                transitions=[initial_transition],
+                configuration=configuration,
+                actions=actions,
+                context=context,
+                history_value=history_value,
+                output=output,
+                context_snapshot=context_snapshot,
+            )
         )
-    ]
     return main_event_loop2(
         configuration=configuration,
         actions=actions,
@@ -867,6 +869,7 @@ def initial_event_loop[ContextT, OutputT](
         max_iterations=max_iterations,
         iterations=iterations,
         microsteps=microsteps,
+        capture_microsteps=capture_microsteps,
     )
 
 
@@ -879,6 +882,7 @@ def main_event_loop[ContextT](
     context_snapshot: Callable[[ContextT], ContextT],
     machine_id: str,
     max_iterations: int | None,
+    capture_microsteps: bool = True,
 ) -> MacrostepResult[ContextT, Any]:
     enabled_transitions = select_transitions(
         event=event,
@@ -903,18 +907,20 @@ def main_event_loop[ContextT](
         event=event,
         output=None,
     )
-    microsteps: list[AlgorithmMicrostep[ContextT, Any]] = [
-        _capture_algorithm_microstep(
-            event=event,
-            transitions=enabled_transitions,
-            configuration=configuration,
-            actions=actions,
-            context=context,
-            history_value=history_value,
-            output=output,
-            context_snapshot=context_snapshot,
+    microsteps: list[AlgorithmMicrostep[ContextT, Any]] = []
+    if capture_microsteps:
+        microsteps.append(
+            _capture_algorithm_microstep(
+                event=event,
+                transitions=enabled_transitions,
+                configuration=configuration,
+                actions=actions,
+                context=context,
+                history_value=history_value,
+                output=output,
+                context_snapshot=context_snapshot,
+            )
         )
-    ]
     return main_event_loop2(
         configuration=configuration,
         actions=actions,
@@ -928,6 +934,7 @@ def main_event_loop[ContextT](
         max_iterations=max_iterations,
         iterations=iterations,
         microsteps=microsteps,
+        capture_microsteps=capture_microsteps,
     )
 
 
@@ -945,6 +952,7 @@ def main_event_loop2[ContextT, OutputT](
     max_iterations: int | None,
     iterations: int,
     microsteps: list[AlgorithmMicrostep[ContextT, OutputT]],
+    capture_microsteps: bool,
 ) -> MacrostepResult[ContextT, OutputT]:
     enabled_transitions: TransitionSequence = []
     macrostep_done = False
@@ -968,7 +976,7 @@ def main_event_loop2[ContextT, OutputT](
                     context=context,
                     history_value=history_value,
                 )
-                if not enabled_transitions:
+                if not enabled_transitions and capture_microsteps:
                     microsteps.append(
                         _capture_algorithm_microstep(
                             event=internal_event,
@@ -1001,18 +1009,19 @@ def main_event_loop2[ContextT, OutputT](
                 output=output,
             )
             actions.extend(new_actions)
-            microsteps.append(
-                _capture_algorithm_microstep(
-                    event=effective_event,
-                    transitions=enabled_transitions,
-                    configuration=configuration,
-                    actions=new_actions,
-                    context=context,
-                    history_value=history_value,
-                    output=output,
-                    context_snapshot=context_snapshot,
+            if capture_microsteps:
+                microsteps.append(
+                    _capture_algorithm_microstep(
+                        event=effective_event,
+                        transitions=enabled_transitions,
+                        configuration=configuration,
+                        actions=new_actions,
+                        context=context,
+                        history_value=history_value,
+                        output=output,
+                        context_snapshot=context_snapshot,
+                    )
                 )
-            )
 
     return MacrostepResult(configuration, actions, context, output, tuple(microsteps))
 
