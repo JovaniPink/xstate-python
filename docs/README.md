@@ -14,5 +14,8 @@ match the runtime boundary you need:
   restoration, compatibility, and operational limits.
 - [SCXML import](./concepts/scxml.md): path-based loading, converted elements,
   parallel execution, safe conditions, and current limits.
+- [Google ADK and Agent Skills](./integrations/adk-and-agent-skills.md): an
+  honest proposed boundary between deterministic statecharts, durable agent
+  workflows, and progressively loaded Skill instructions.
 - [Runnable examples](./examples/README.md): complete programs exercised by the
   test suite.
