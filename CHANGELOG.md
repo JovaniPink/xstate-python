@@ -6,6 +6,8 @@ All notable changes to this project will be documented here.
 
 ### Added
 
+- Added optional snapshot annotations to `to_mermaid(machine, snapshot=...)`,
+  marking active state captions while preserving configured initial arrows.
 - Added generic typing across machine configuration, handlers, events,
   snapshots, sync and async interpreters, actor logic, setup, and persistence
   APIs while retaining unparameterized `Machine(config, ...)`, raw JSON data,

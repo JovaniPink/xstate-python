@@ -382,6 +382,11 @@ from xstate import to_mermaid
 print(to_mermaid(machine))
 ```
 
+Pass `snapshot=service.state` to append `[active]` to active state captions,
+including nested captions. Initial arrows still show the chart's configured
+initial states. Snapshots containing nodes from another machine raise
+`InvalidConfigError`.
+
 This is intentionally lightweight: it covers state hierarchy, initial states,
 transition arrows, and targetless-transition comments without adding Graphviz or
 browser-rendering dependencies.
