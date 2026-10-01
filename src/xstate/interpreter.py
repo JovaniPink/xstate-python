@@ -173,13 +173,25 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
                 )
             self.state.event = Event("xstate.init")
             self._status = RUNNING
-            self._sync_delays()
+            # Startup is a processing boundary too: timers and user callbacks
+            # may send before initial entry actions have finished.
+            self._processing = True
             state = self.state
             initial_trace = self._initial_trace
-        if initial_trace is not None:
-            self._inspect_trace(initial_trace)
-        self._execute(state)
-        self._notify(state)
+        try:
+            with self._lock:
+                if self._status == RUNNING:
+                    self._sync_delays()
+            if initial_trace is not None:
+                self._inspect_trace(initial_trace)
+            self._execute(state)
+            self._notify(state)
+        except BaseException:
+            with self._lock:
+                self._event_queue.clear()
+                self._processing = False
+            raise
+        self._drain_event_queue()
         return self
 
     def stop(self) -> Interpreter[ContextT, EventDataT, OutputT]:
@@ -225,7 +237,7 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
                 next_event = self._event_queue.popleft()
             try:
                 self._process(next_event)
-            except Exception:
+            except BaseException:
                 with self._lock:
                     self._event_queue.clear()
                     self._processing = False
@@ -275,6 +287,9 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
         with self._lock:
             listeners = tuple(self._listeners)
         for listener in listeners:
+            with self._lock:
+                if self._status != RUNNING:
+                    return
             listener(state)
 
     def _inspect_trace(
@@ -303,6 +318,9 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
     def _execute(self, state: State[ContextT, EventDataT, OutputT]) -> None:
         """Run resolved action callables and handle interpreter-owned actions."""
         for action in state.actions:
+            with self._lock:
+                if self._status != RUNNING:
+                    return
             if isinstance(action, Action):
                 action_type = action.type
                 method_name = (

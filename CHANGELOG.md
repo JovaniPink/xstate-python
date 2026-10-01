@@ -53,6 +53,10 @@ All notable changes to this project will be documented here.
 
 ### Fixed
 
+- Queued events sent during interpreter startup until initial actions and the
+  initial notification finish, in both runtimes and machine-backed actors.
+  Startup failures and async cancellation now release queue ownership and
+  settle waiting callers; stopping skips remaining actions and notifications.
 - Corrected macrostep ordering so state exits, transition actions, and state
   entries execute in SCXML order while one FIFO internal queue carries raised
   events across eventless and internal-event microsteps.
