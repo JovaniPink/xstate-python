@@ -115,3 +115,8 @@ Use `state.matches(...)`, `state.can(...)`, `state.has_tag(...)`, and
 The [traffic intersection](../examples/traffic_intersection.py) loads its state
 structure from [XState JSON](../examples/traffic_intersection.json), then binds
 named actions, guards, and delays in Python.
+
+The [docking controller](../examples/docking_controller.py) demonstrates bound
+methods, typed event mappings, an immutable dataclass context, named phase
+timeouts, and a typed application facade around a data-only JSON chart.
+Its [integration guide](controllers.md) explains periodic control and replay.

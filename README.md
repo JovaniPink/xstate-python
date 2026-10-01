@@ -130,6 +130,67 @@ Prefer XState v5 keys such as `guard`, `output`, and `always`. Older `cond`,
 `data`, and `on: {"": ...}` forms remain supported for compatibility and may
 emit deprecation warnings.
 
+## A Python Application Controller
+
+The [docking controller](docs/examples/docking_controller.py) wraps a
+[JSON chart](docs/examples/docking_controller.json) in typed `start(goal)`,
+`tick(sample)`, and `cancel()` methods. It explicitly registers class-bound
+actions such as `"stage": self._stage`, `"scan": self._scan`, and
+`"dock": self._dock`. The controller owns the drive resource; snapshot context
+contains only a small immutable value.
+
+From a source checkout, run a familiar application loop:
+
+```python
+from docs.examples.docking_controller import (
+    DockingController, DockingGoal, FakeDrive, TickSample,
+)
+from xstate import SimulatedClock
+
+clock = SimulatedClock()
+controller = DockingController(FakeDrive(), clock=clock)
+try:
+    controller.start(DockingGoal("bay-7"))
+    samples = (
+        TickSample(staged=True),
+        TickSample(target_visible=True),
+        TickSample(docked=True),
+    )
+    for sample in samples:
+        controller.tick(sample)
+        controller.advance_time(100)
+    print(controller.phase)  # completed
+finally:
+    controller.close()
+```
+
+Each `TICK` controls the current phase once. A transition to the next phase
+waits for another tick before running that phase's control action. The flat
+chart's Enum view is local to this example; general statecharts can have nested
+and parallel state values. See the [controller guide](docs/concepts/controllers.md)
+for integration, failure semantics, and context policy.
+
+Facade calls and timer delivery serialize through the controller. `close()`
+waits for in-flight commands and retries unfinished drive cleanup, even after
+a terminal chart decision. Drive calls can run on caller or timer threads;
+this example does not provide fixed thread affinity.
+
+Generate a bounded Markdown replay after deterministic execution:
+
+```bash
+poetry run python docs/examples/docking_controller.py --trace-md /tmp/docking.md
+poetry run python docs/examples/docking_controller.py --scenario timeout
+poetry run python docs/examples/docking_controller.py --scenario cancel
+poetry run python -m scripts.benchmark_runtime --samples 3000
+```
+
+Replay diagrams annotate active states, with tables of all selected
+transitions. Frames observe chart state before side effects finish; context
+and payload contents are omitted. Capture retains at most 200 frames and
+reports truncation. The benchmark separates ordinary transitions, tracing,
+capture, and report formatting; it supplies local observations without timing
+thresholds or real-time guarantees.
+
 ## Running A Machine
 
 `interpret(machine)` turns a pure machine into a stateful service with

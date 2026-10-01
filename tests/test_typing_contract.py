@@ -27,7 +27,9 @@ def run_mypy(fixture: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-@pytest.mark.parametrize("fixture", ["positive.py", "compatibility.py"])
+@pytest.mark.parametrize(
+    "fixture", ["positive.py", "compatibility.py", "controller_positive.py"]
+)
 def test_valid_typing_contracts(fixture: str) -> None:
     result = run_mypy(fixture)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -52,5 +54,19 @@ def test_invalid_typing_contracts_are_rejected() -> None:
         'variable has type "State[str, IncrementEvent, Output]"',
         'TypedDict item "type" has type "Literal[\'INCREMENT\']"',
         'variable has type "ActorSnapshot[Output',
+    ):
+        assert expected in output
+
+
+def test_invalid_controller_facade_arguments_are_rejected() -> None:
+    result = run_mypy("controller_negative.py")
+    output = result.stdout + result.stderr
+    assert result.returncode != 0
+    for expected in (
+        'Argument 1 to "start" of "DockingController"',
+        'Argument 1 to "tick" of "DockingController"',
+        'Argument 1 to "advance_time" of "DockingController"',
+        'expression has type "Phase", variable has type "int"',
+        'variable has type "str"',
     ):
         assert expected in output

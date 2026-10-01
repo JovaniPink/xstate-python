@@ -1,0 +1,47 @@
+{
+  "id": "docking",
+  "initial": "ready",
+  "context": {"goal_id": ""},
+  "options": {"maxIterations": 100},
+  "states": {
+    "ready": {
+      "on": {"START": {"target": "staging", "actions": ["rememberGoal", "begin"]}}
+    },
+    "staging": {
+      "on": {
+        "TICK": [
+          {"target": "failed", "guard": "fault"},
+          {"target": "scanning", "guard": "staged", "actions": "stage"},
+          {"actions": "stage"}
+        ],
+        "CANCEL": "cancelled"
+      },
+      "after": {"phaseTimeout": "failed"}
+    },
+    "scanning": {
+      "on": {
+        "TICK": [
+          {"target": "failed", "guard": "fault"},
+          {"target": "docking", "guard": "targetVisible", "actions": "scan"},
+          {"actions": "scan"}
+        ],
+        "CANCEL": "cancelled"
+      },
+      "after": {"phaseTimeout": "failed"}
+    },
+    "docking": {
+      "on": {
+        "TICK": [
+          {"target": "failed", "guard": "fault"},
+          {"target": "completed", "guard": "docked", "actions": "dock"},
+          {"actions": "dock"}
+        ],
+        "CANCEL": "cancelled"
+      },
+      "after": {"phaseTimeout": "failed"}
+    },
+    "completed": {"type": "final", "entry": "halt"},
+    "failed": {"type": "final", "entry": "halt"},
+    "cancelled": {"type": "final", "entry": "halt"}
+  }
+}
