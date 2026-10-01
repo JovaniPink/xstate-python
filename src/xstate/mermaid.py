@@ -2,22 +2,40 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from xstate.exceptions import InvalidConfigError
+
 if TYPE_CHECKING:
     from xstate.machine import Machine
+    from xstate.state import State
     from xstate.state_node import StateNode
     from xstate.transition import Transition
 
 __all__ = ["to_mermaid"]
 
 
-def to_mermaid(machine: Machine) -> str:
-    """Return a dependency-free Mermaid ``stateDiagram-v2`` representation."""
-    return _MermaidExporter(machine).render()
+def to_mermaid[ContextT, EventDataT, OutputT](
+    machine: Machine[ContextT, EventDataT, OutputT],
+    *,
+    snapshot: State[ContextT, EventDataT, OutputT] | None = None,
+) -> str:
+    """Return a dependency-free Mermaid ``stateDiagram-v2`` representation.
+
+    A snapshot adds ``[active]`` to active state captions. Initial arrows
+    continue to describe the configured chart, independent of the snapshot.
+    """
+    if snapshot is not None and any(
+        node.machine is not machine for node in snapshot.configuration
+    ):
+        raise InvalidConfigError(
+            f"State snapshot does not belong to machine '{machine.id}'."
+        )
+    return _MermaidExporter(machine, snapshot).render()
 
 
 class _MermaidExporter:
-    def __init__(self, machine: Machine) -> None:
+    def __init__(self, machine: Machine, snapshot: State | None) -> None:
         self.machine = machine
+        self.active = snapshot.configuration if snapshot is not None else frozenset()
         self.aliases: dict[StateNode, str] = {}
 
     def render(self) -> str:
@@ -43,9 +61,8 @@ class _MermaidExporter:
 
     def _emit_states(self, node: StateNode, lines: list[str], *, indent: str) -> None:
         for child in node.states.values():
-            lines.append(
-                f'{indent}state "{_escape(child.key)}" as {self._alias(child)}'
-            )
+            caption = f"{child.key} [active]" if child in self.active else child.key
+            lines.append(f'{indent}state "{_escape(caption)}" as {self._alias(child)}')
             if child.states:
                 lines.append(f"{indent}state {self._alias(child)} {{")
                 self._emit_initial(child, lines, indent=f"{indent}  ")

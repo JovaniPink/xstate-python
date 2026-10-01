@@ -1,4 +1,6 @@
-from xstate import Machine, to_mermaid
+import pytest
+
+from xstate import InvalidConfigError, Machine, to_mermaid
 
 
 def _alias(state_id):
@@ -103,3 +105,52 @@ def test_to_mermaid_preserves_distinct_aliases_for_similar_ids():
     assert f'state "a-b" as {dashed}' in diagram
     assert f'state "a_b" as {underscored}' in diagram
     assert f"{dashed} --> {underscored}: GO" in diagram
+
+
+def test_snapshot_annotations_preserve_legacy_output_and_initial_arrows():
+    machine = Machine(
+        {"id": "flat", "initial": "a", "states": {"a": {"on": {"GO": "b"}}, "b": {}}}
+    )
+    legacy = to_mermaid(machine)
+    assert legacy == (
+        "stateDiagram-v2\n"
+        "  [*] --> s_666c61742e61\n"
+        '  state "a" as s_666c61742e61\n'
+        '  state "b" as s_666c61742e62\n'
+        "  s_666c61742e61 --> s_666c61742e62: GO\n"
+    )
+    assert to_mermaid(machine, snapshot=None) == legacy
+    snapshot = machine.transition(machine.initial_state, "GO")
+    assert to_mermaid(machine, snapshot=snapshot) == legacy.replace(
+        'state "b"', 'state "b [active]"'
+    )
+
+
+@pytest.mark.parametrize("parallel", [False, True])
+def test_snapshot_annotations_include_nested_and_parallel_captions(parallel):
+    config = {
+        "id": "nested",
+        "initial": "left",
+        "states": {
+            "left": {"initial": "a", "states": {"a": {}, "b": {}}},
+            "right": {"initial": "c", "states": {"c": {}, "d": {}}},
+        },
+    }
+    if parallel:
+        config.pop("initial")
+        config["type"] = "parallel"
+    machine = Machine(config)
+    snapshot = machine.initial_state
+    legacy = to_mermaid(machine)
+    expected = legacy
+    for caption in ["left", "a", "right", "c"] if parallel else ["left", "a"]:
+        expected = expected.replace(f'state "{caption}"', f'state "{caption} [active]"')
+    assert to_mermaid(machine, snapshot=snapshot) == expected
+    assert to_mermaid(machine) == legacy
+
+
+def test_snapshot_annotations_reject_foreign_nodes_even_with_matching_ids():
+    config = {"id": "same", "initial": "a", "states": {"a": {}}}
+    machine, other = Machine(config), Machine(config)
+    with pytest.raises(InvalidConfigError, match="does not belong"):
+        to_mermaid(machine, snapshot=other.initial_state)
