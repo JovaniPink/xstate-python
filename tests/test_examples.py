@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
         "async_workflow.py",
         "snapshot_resume.py",
         "scxml_toggle.py",
+        "docking_controller.py",
     ],
 )
 def test_documented_example_runs(example: str) -> None:

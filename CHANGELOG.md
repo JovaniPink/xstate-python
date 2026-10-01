@@ -6,6 +6,10 @@ All notable changes to this project will be documented here.
 
 ### Added
 
+- Added a typed docking controller facade over a JSON chart, deterministic
+  success/timeout/cancellation demos, bounded structural Markdown trace replay,
+  failure and context-policy guidance, and a dependency-free local benchmark
+  separating transitions, trace capture, and report formatting.
 - Added optional snapshot annotations to `to_mermaid(machine, snapshot=...)`,
   marking active state captions while preserving configured initial arrows.
 - Added generic typing across machine configuration, handlers, events,
