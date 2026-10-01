@@ -31,6 +31,7 @@ def test_benchmark_reports_separate_workloads_and_environment():
     assert [row["workload"] for row in report["results"]] == [
         "pure_empty",
         "sync_empty",
+        "controller_serialized_tick",
         "pure_list_1000",
         "pure_immutable_tuple_1000",
         "pure_microstep_trace",

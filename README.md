@@ -158,7 +158,7 @@ try:
     )
     for sample in samples:
         controller.tick(sample)
-        clock.increment(100)
+        controller.advance_time(100)
     print(controller.phase)  # completed
 finally:
     controller.close()
@@ -169,6 +169,11 @@ waits for another tick before running that phase's control action. The flat
 chart's Enum view is local to this example; general statecharts can have nested
 and parallel state values. See the [controller guide](docs/concepts/controllers.md)
 for integration, failure semantics, and context policy.
+
+Facade calls and timer delivery serialize through the controller. `close()`
+waits for in-flight commands and retries unfinished drive cleanup, even after
+a terminal chart decision. Drive calls can run on caller or timer threads;
+this example does not provide fixed thread affinity.
 
 Generate a bounded Markdown replay after deterministic execution:
 

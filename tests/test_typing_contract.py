@@ -65,6 +65,8 @@ def test_invalid_controller_facade_arguments_are_rejected() -> None:
     for expected in (
         'Argument 1 to "start" of "DockingController"',
         'Argument 1 to "tick" of "DockingController"',
+        'Argument 1 to "advance_time" of "DockingController"',
         'expression has type "Phase", variable has type "int"',
+        'variable has type "str"',
     ):
         assert expected in output

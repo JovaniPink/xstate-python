@@ -18,13 +18,47 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TypedDict
 
-from docs.examples.docking_controller import TraceReplay
-from xstate import Machine, MacrostepTrace, dataclass_context, get_microsteps, interpret
+from docs.examples.docking_controller import (
+    DockingController,
+    DockingGoal,
+    TickSample,
+    TraceReplay,
+)
+from xstate import (
+    Machine,
+    MacrostepTrace,
+    SimulatedClock,
+    dataclass_context,
+    get_microsteps,
+    interpret,
+)
 
 
 @dataclass(frozen=True)
 class ImmutableContext:
     values: tuple[int, ...]
+
+
+@dataclass
+class CountingDrive:
+    """Constant-memory bookkeeping; no application I/O or command retention."""
+
+    commands: int = 0
+
+    def begin(self, goal_id: str) -> None:
+        self.commands += 1
+
+    def stage(self, sample: TickSample) -> None:
+        self.commands += 1
+
+    def scan(self, sample: TickSample) -> None:
+        self.commands += 1
+
+    def dock(self, sample: TickSample) -> None:
+        self.commands += 1
+
+    def stop(self) -> None:
+        self.commands += 1
 
 
 class Result(TypedDict):
@@ -121,6 +155,25 @@ def benchmark(samples: int, warmup: int, format_samples: int) -> list[Result]:
         )
     finally:
         service.stop()
+    controller = DockingController(CountingDrive(), clock=SimulatedClock())
+    sample = TickSample()
+    try:
+        controller.start(DockingGoal("benchmark"))
+
+        def controller_cycle() -> None:
+            controller.tick(sample)
+            controller.tick(sample)
+
+        results.append(
+            _measure(
+                "controller_serialized_tick",
+                controller_cycle,
+                samples=samples,
+                warmup=warmup,
+            )
+        )
+    finally:
+        controller.close()
     for name, machine in (
         ("pure_list_1000", _machine(large_list=True)),
         ("pure_immutable_tuple_1000", _machine(immutable=True)),

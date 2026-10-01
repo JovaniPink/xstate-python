@@ -9,8 +9,8 @@ clients, and mutable resources stay on the controller object.
 
 `start(DockingGoal(...))` creates a fresh interpreter and sends `START`.
 `tick(TickSample(...))` sends a typed `TICK` mapping and returns a `Phase`.
-`cancel()` sends `CANCEL`; `close()` stops timers and performs drive cleanup
-when an operation is still active. Use `try/finally` around every operation.
+`cancel()` sends `CANCEL`; `close()` stops timers and performs unfinished drive
+cleanup, independently of the chart phase. Use `try/finally` around every operation.
 After a terminal or closed operation, another `start` creates a fresh
 interpreter rather than resetting the previous one. Starting while an
 operation is active raises `RuntimeError`.
@@ -40,6 +40,36 @@ drive. A fault selects `failed` before a control command and runs terminal
 cleanup. Each active phase has a fresh named `phaseTimeout` of 1,000 ms in the
 demo, removed when that phase exits.
 
+Call `controller.advance_time(milliseconds)` to advance an injected
+`SimulatedClock` under the controller boundary; the return is a `Phase`.
+Negative or nonfinite values raise `ValueError`; other clock types raise
+`RuntimeError`. Zero is permitted. Own the injected clock exclusively and do
+not call its scheduling or advancement methods outside the facade.
+
+## Concurrent Callers And Timer Delivery
+
+The controller serializes `start`, `tick`, `cancel`, `close`, and timer delivery
+with one reentrant lock, held through actions, inspection, and notification.
+Calls admitted from another thread wait for the current operation to finish.
+Admission follows lock acquisition, with no caller FIFO guarantee. A facade
+call returns its phase after its operation has completed. The runtime's own
+queued-send contract remains unchanged.
+
+The private clock adapter takes the controller lock before entering the
+interpreter and invalidates cancelled callbacks, including callbacks already
+dispatched by the underlying scheduler but waiting for admission. Default
+`ThreadClock` timeouts run on its scheduler thread. Controller-issued drive
+calls never overlap, but can execute on different threads. A resource that
+requires fixed thread ownership needs an application-specific dispatch policy.
+
+Callbacks may read `phase` and the typed `snapshot` property. During admitted
+controller work, calling a mutating facade method from a drive, inspection,
+or subscriber callback raises
+`RuntimeError` before changing state. Callbacks must not wait for another
+thread to reenter the controller: that thread is waiting for the callback to
+finish. `service` remains available for advanced diagnostics; direct
+interpreter mutation bypasses the facade's concurrency guarantees.
+
 An `always` chain may traverse several states during one macrostep. That is
 useful for immediate chart decisions, but it is not another periodic poll.
 Sending a follow-up event from an action queues it until the current actions
@@ -54,8 +84,22 @@ method exception propagates and can leave both the destination snapshot and
 earlier external mutations in place. Later actions and notifications are
 skipped. `close()` cancels the interpreter's timers and attempts drive cleanup;
 it cannot undo external work or interrupt a drive method already executing.
-The application must decide how to handle failures from both commands and
-cleanup. A `completed` observation therefore represents a chart decision,
+Cleanup is marked pending before `begin`, including when `begin` partially
+fails. Only a successful `drive.stop()` clears it. Terminal `halt` and `close`
+share this cleanup operation, so a failing final docking command cannot
+suppress cleanup merely because the snapshot is `completed`. Repeated
+successful closes do not issue another stop. A failed cleanup remains pending
+for another close or the next start; start cannot begin another operation
+until prior cleanup succeeds. The interpreter is stopped in `finally`, even
+when drive cleanup raises.
+
+`close()` and cancellation wait for admitted commands; they cannot forcibly
+interrupt a blocked drive method. When startup and its automatic cleanup both
+fail, the cleanup exception is raised with the startup exception as its
+explicit cause. Simulated-clock callback exceptions propagate from
+`advance_time`; real `ThreadClock` callback exceptions follow its existing
+traceback reporting behavior. The application must handle command and cleanup
+failures. A `completed` observation therefore represents a chart decision,
 not independent proof that every external command succeeded.
 
 If external completion should authorize the next domain state, model it with
@@ -134,7 +178,12 @@ Event workloads time warmed `GO` / `BACK` cycles and divide by two, reporting
 microseconds per event-equivalent. They include pure and sync operation with
 empty context, a 1,000-integer mutable list under the default adapter, an
 immutable dataclass with a 1,000-integer tuple, pure microstep tracing, and
-sync inspection with a rolling 200-record deque. No application I/O is timed.
+sync inspection with a rolling 200-record deque. A separate
+`controller_serialized_tick` workload measures the full untraced facade over
+two staging ticks, using a constant-memory counting drive and simulated time
+that stays fixed. It includes synchronization, guards, context handling, and
+drive dispatch; it does not isolate lock cost or measure contention.
+No application I/O is timed.
 
 Capture uses a rolling deque to include retention work for every event.
 Formatting uses the actual example recorder and is measured separately over

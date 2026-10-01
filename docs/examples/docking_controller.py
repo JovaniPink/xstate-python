@@ -10,9 +10,13 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import math
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
+from threading import RLock
 from typing import Any, Literal, Protocol, TypedDict
 
 from xstate import (
@@ -23,6 +27,7 @@ from xstate import (
     MacrostepTrace,
     SimulatedClock,
     State,
+    ThreadClock,
     TransitionTrace,
     assign,
     dataclass_context,
@@ -234,8 +239,54 @@ def _remember_goal(args: ControllerArgs) -> dict[str, object]:
     raise ValueError("START requires a docking goal")
 
 
+@dataclass
+class _Timeout:
+    underlying_id: int | None = None
+
+
+class _SerializedClock(Clock):
+    """Admit timer delivery before interpreter entry; invalidate cancelled work."""
+
+    def __init__(
+        self,
+        clock: Clock,
+        lock: RLock,
+        deliver: Callable[[Callable[[], Any]], None],
+    ) -> None:
+        self._clock, self._lock, self._deliver = clock, lock, deliver
+        self._next_id = 0
+        self._timeouts: dict[int, _Timeout] = {}
+
+    def set_timeout(self, fn: Callable[[], Any], delay_ms: float) -> int:
+        with self._lock:
+            timer_id = self._next_id
+            self._next_id += 1
+            token = _Timeout()
+            self._timeouts[timer_id] = token
+
+            def callback() -> None:
+                with self._lock:
+                    if self._timeouts.get(timer_id) is not token:
+                        return
+                    del self._timeouts[timer_id]
+                    self._deliver(fn)
+
+            try:
+                token.underlying_id = self._clock.set_timeout(callback, delay_ms)
+            except BaseException:
+                self._timeouts.pop(timer_id, None)
+                raise
+            return timer_id
+
+    def clear_timeout(self, timeout_id: int) -> None:
+        with self._lock:
+            token = self._timeouts.pop(timeout_id, None)
+            if token is not None and token.underlying_id is not None:
+                self._clock.clear_timeout(token.underlying_id)
+
+
 class DockingController:
-    """Single application-loop owner; each operation gets a fresh interpreter."""
+    """Serialized callers and timers; each operation gets a fresh interpreter."""
 
     def __init__(
         self,
@@ -245,8 +296,12 @@ class DockingController:
         replay: TraceReplay[ControllerContext, ControllerEvent, None] | None = None,
     ) -> None:
         self.drive = drive
-        self.clock = clock
+        self.clock = clock if clock is not None else ThreadClock()
         self.replay = replay
+        self._lock = RLock()
+        self._executing = False
+        self._cleanup_pending = False
+        self._runtime_clock = _SerializedClock(self.clock, self._lock, self._deliver)
         config = json.loads(Path(__file__).with_suffix(".json").read_text())
         config["context"] = ControllerContext()
         self.machine: Machine[ControllerContext, ControllerEvent, None] = Machine(
@@ -275,59 +330,113 @@ class DockingController:
 
     @property
     def service(self) -> Interpreter[ControllerContext, ControllerEvent, None]:
-        if self._service is None:
-            raise RuntimeError("Start an operation first")
-        return self._service
+        """Advanced diagnostics; direct mutation bypasses facade serialization."""
+        with self._lock:
+            if self._service is None:
+                raise RuntimeError("Start an operation first")
+            return self._service
+
+    @property
+    def snapshot(self) -> State[ControllerContext, ControllerEvent, None]:
+        with self._lock:
+            return self.service.state
 
     @property
     def phase(self) -> Phase:
-        if self._service is None:
-            return Phase.READY
-        value = self._service.state.value
-        if not isinstance(value, str):
-            raise TypeError("This example requires a flat chart")
-        return Phase(value)
+        with self._lock:
+            if self._service is None:
+                return Phase.READY
+            value = self._service.state.value
+            if not isinstance(value, str):
+                raise TypeError("This example requires a flat chart")
+            return Phase(value)
+
+    def _require_idle(self) -> None:
+        if self._executing:
+            raise RuntimeError("Controller callbacks cannot reenter mutating methods")
+
+    @contextmanager
+    def _execution(self) -> Iterator[None]:
+        with self._lock:
+            self._require_idle()
+            self._executing = True
+            try:
+                yield
+            finally:
+                self._executing = False
+
+    def _deliver(self, callback: Callable[[], Any]) -> None:
+        with self._execution():
+            callback()
 
     def start(self, goal: DockingGoal) -> Phase:
-        if self._service is not None:
-            if self._service.status == "running" and self.phase in ACTIVE_PHASES:
-                raise RuntimeError("An operation is already active")
-            self.close()
-        self._service = interpret(
-            self.machine,
-            clock=self.clock,
-            inspect=self.replay.capture if self.replay is not None else None,
-        )
-        try:
-            self._service.start()
-            event: StartEvent = {"type": "START", "goal": goal}
-            self._service.send(event)
-        except BaseException:
-            self.close()
-            raise
-        return self.phase
+        with self._execution():
+            if self._service is not None:
+                if self._service.status == "running" and self.phase in ACTIVE_PHASES:
+                    raise RuntimeError("An operation is already active")
+                self._close_current()
+            self._service = interpret(
+                self.machine,
+                clock=self._runtime_clock,
+                inspect=self.replay.capture if self.replay is not None else None,
+            )
+            try:
+                self._service.start()
+                event: StartEvent = {"type": "START", "goal": goal}
+                self._service.send(event)
+            except BaseException as startup_error:
+                try:
+                    self._close_current()
+                except BaseException as cleanup_error:
+                    raise cleanup_error from startup_error
+                raise
+            return self.phase
 
     def tick(self, sample: TickSample) -> Phase:
-        if self.service.status != "running" or self.phase not in ACTIVE_PHASES:
-            raise RuntimeError("Tick requires an active operation")
-        event: TickEvent = {"type": "TICK", "sample": sample}
-        self.service.send(event)
-        return self.phase
+        with self._execution():
+            if self.service.status != "running" or self.phase not in ACTIVE_PHASES:
+                raise RuntimeError("Tick requires an active operation")
+            event: TickEvent = {"type": "TICK", "sample": sample}
+            self.service.send(event)
+            return self.phase
 
     def cancel(self) -> Phase:
-        event: CancelEvent = {"type": "CANCEL"}
-        self.service.send(event)
-        return self.phase
+        with self._execution():
+            event: CancelEvent = {"type": "CANCEL"}
+            self.service.send(event)
+            return self.phase
+
+    def advance_time(self, milliseconds: float) -> Phase:
+        """Advance the exclusively owned simulated clock under the same lock."""
+        with self._lock:
+            self._require_idle()
+            if not isinstance(self.clock, SimulatedClock):
+                raise RuntimeError("Time advancement requires a SimulatedClock")
+            if not math.isfinite(milliseconds) or milliseconds < 0:
+                raise ValueError("Use finite, nonnegative milliseconds")
+            # Increment delivers callbacks inline. Each callback owns its own
+            # execution boundary while this outer lock prevents other callers.
+            self.clock.increment(milliseconds)
+            return self.phase
 
     def close(self) -> None:
-        if self._service is not None:
-            try:
-                if self._service.status == "running" and self.phase in ACTIVE_PHASES:
-                    self.drive.stop()
-            finally:
+        with self._execution():
+            self._close_current()
+
+    def _close_current(self) -> None:
+        try:
+            self._stop_drive()
+        finally:
+            if self._service is not None:
                 self._service.stop()
 
+    def _stop_drive(self) -> None:
+        if self._cleanup_pending:
+            self.drive.stop()
+            self._cleanup_pending = False
+
     def _begin(self, args: ControllerArgs) -> None:
+        self._cleanup_pending = True
         self.drive.begin(args.context.goal_id)
 
     def _stage(self, args: ControllerArgs) -> None:
@@ -340,7 +449,7 @@ class DockingController:
         self.drive.dock(_sample(args))
 
     def _halt(self, args: ControllerArgs) -> None:
-        self.drive.stop()
+        self._stop_drive()
 
     def _fault(self, args: ControllerArgs) -> bool:
         return _sample(args).fault
@@ -381,10 +490,10 @@ def main() -> None:
                 TickSample(docked=True),
             ):
                 controller.tick(sample)
-                clock.increment(100)
+                controller.advance_time(100)
         elif options.scenario == "timeout":
             controller.tick(TickSample())
-            clock.increment(1_000)
+            controller.advance_time(1_000)
         else:
             controller.tick(TickSample())
             controller.cancel()
