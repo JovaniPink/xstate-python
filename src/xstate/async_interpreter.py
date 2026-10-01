@@ -152,12 +152,22 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
             )
         self.state.event = Event("xstate.init")
         self._status = RUNNING
-        self._sync_delays()
-        if self._initial_trace is not None:
-            self._inspect_trace(self._initial_trace)
-        await self._execute(self.state)
-        if self._status == RUNNING:
-            self._notify(self.state)
+        self._processing = True
+        self._processing_task = asyncio.current_task()
+        state = self.state
+        try:
+            self._sync_delays()
+            if self._initial_trace is not None:
+                self._inspect_trace(self._initial_trace)
+            await self._execute(state)
+            self._notify(state)
+            await self._drain_event_queue()
+        except BaseException as exc:
+            self._fail_queued_events(exc)
+            raise
+        finally:
+            self._processing = False
+            self._processing_task = None
         return self
 
     async def stop(self) -> AsyncInterpreter[ContextT, EventDataT, OutputT]:
@@ -201,22 +211,27 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
         self._processing = True
         self._processing_task = asyncio.current_task()
         try:
-            while self._event_queue:
-                next_event, event_done = self._event_queue.popleft()
-                try:
-                    await self._process(next_event)
-                except Exception as exc:
-                    if not event_done.done():
-                        event_done.set_exception(exc)
-                        event_done.exception()
-                    self._fail_queued_events(exc)
-                    raise
-                if not event_done.done():
-                    event_done.set_result(self.state)
+            await self._drain_event_queue()
         finally:
             self._processing = False
             self._processing_task = None
         return future.result()
+
+    async def _drain_event_queue(self) -> None:
+        while self._status == RUNNING and self._event_queue:
+            next_event, event_done = self._event_queue.popleft()
+            try:
+                await self._process(next_event)
+            except BaseException as exc:
+                # Cancellation must settle concurrent callers just like an
+                # action failure, including the event removed from the queue.
+                if not event_done.done():
+                    event_done.set_exception(exc)
+                    event_done.exception()
+                self._fail_queued_events(exc)
+                raise
+            if not event_done.done():
+                event_done.set_result(self.state)
 
     def _resolve_queued_events(
         self, state: State[ContextT, EventDataT, OutputT]
@@ -268,6 +283,8 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
 
     def _notify(self, state: State[ContextT, EventDataT, OutputT]) -> None:
         for listener in list(self._listeners):
+            if self._status != RUNNING:
+                return
             listener(state)
 
     def _inspect_trace(
