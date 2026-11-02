@@ -10,6 +10,18 @@ smallest one that owns the behavior your application needs.
 | `interpret_async(machine)` | Actions are awaitable or events are coordinated by asyncio |
 | `create_actor(machine)` | The machine participates in an actor tree or invokes child logic |
 
+| Capability | `interpret` | `interpret_async` | Machine-backed `create_actor` |
+|---|---|---|---|
+| Await machine actions | No | Yes | No |
+| Start invoked children | No | No | Yes |
+| Route `send_parent` / `send_to` | No actor tree | No actor tree | Yes, when the target exists |
+| Run async promise or observable child logic | No invoked children | No invoked children | Yes, with a loop on the starting thread |
+
+This is a choice between runtime capabilities, not a durable execution or
+authorization boundary. Guards and assignment functions execute during
+transition computation and are deterministic only if the supplied functions
+and inputs are deterministic.
+
 ## Synchronous Interpreter
 
 The synchronous interpreter owns the current snapshot and executes actions:
@@ -40,6 +52,12 @@ processing drains the queue before it returns.
 Callbacks run outside the synchronous mutation lock. `stop()` cancels queued
 work and prevents later actions and notifications; it does not interrupt an
 action already executing.
+
+If an action returns an awaitable, the synchronous interpreter emits a
+`RuntimeWarning` and does not await, close, or cancel it. An application-owned
+task may run independently; an unowned coroutine can additionally produce
+Python's usual never-awaited warning. Use `interpret_async` when the machine's
+actions must be awaited.
 
 The default `ThreadClock` schedules all timers for one clock on a single
 on-demand daemon worker. The worker exits after the last timer fires or is
@@ -75,6 +93,18 @@ Actions that return awaitables are executed in declaration order and awaited
 before that event's `send()` completes. Concurrent callers receive completion
 for their own queued event. Subscribers remain synchronous observers; launch
 async work from actions rather than subscription callbacks.
+
+`interpret_async` does not create an actor tree. Constructing it for a machine
+with any declared `invoke`, including one in an inactive state, emits a
+`RuntimeWarning`; entering that state will not start its child. Executing
+`send_parent` or `send_to` also emits a warning and does not route the message.
+An application can still send an event explicitly. For actor invocation and
+messaging, use a machine-backed `create_actor`; its machine actions must be
+synchronous even when an invoked promise resolves asynchronously.
+
+Warnings can be filtered or configured as errors by Python. If an action
+warning becomes an error, the snapshot has already been committed, as with
+other action failures described below.
 
 This completion rule also applies during startup. A same-task reentrant
 `await send()` returns the current snapshot after enqueueing, so the active
@@ -185,5 +215,13 @@ choose a single edge to represent the entire event. See the
 the right boundary for parent/child relationships, `invoke`, spawning,
 `send_parent`, and `send_to`. Machine actors use the synchronous interpreter
 internally; promise and observable actor logic can settle asynchronously.
+
+Starting async child logic requires a running asyncio loop on the thread that
+starts that child. A loop in another thread is insufficient. In particular,
+the default `ThreadClock` fires timers on its worker thread; if such a timer
+enters a state that invokes async logic, child startup can fail even when the
+application has a loop on its main thread. A failing startup can leave the
+destination snapshot committed. The host must arrange for that invocation to
+start on the event-loop thread; this runtime does not marshal it there.
 
 Actor and persistence behavior is documented in dedicated concept guides.

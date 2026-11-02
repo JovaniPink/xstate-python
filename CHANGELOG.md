@@ -52,6 +52,10 @@ All notable changes to this project will be documented here.
 
 ### Changed
 
+- Clarified the async interpreter and machine actor capability boundary.
+  `AsyncInterpreter` warns about declared invocations and executed actor
+  messages; the synchronous interpreter warns when an action returns an
+  awaitable without closing or canceling it. See the runtime guide for details.
 - Removed the SCXML fixture submodule so local, CI, and release validation use
   the same repository-owned test inputs without a separate checkout step.
 - Expanded the enabled `more-parallel` conformance subset from 13 to 15 cases;

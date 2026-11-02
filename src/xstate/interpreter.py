@@ -26,6 +26,7 @@ Example::
 from __future__ import annotations
 
 import functools
+import inspect
 import threading
 import warnings
 from collections import deque
@@ -331,7 +332,16 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
                 if method_name:
                     getattr(self, method_name)(action)
             elif callable(action):
-                action()
+                result = action()
+                if inspect.isawaitable(result):
+                    warnings.warn(
+                        "The synchronous interpreter does not await action results; "
+                        "use interpret_async(machine) for async actions. "
+                        "Machine-backed create_actor() uses the synchronous "
+                        "interpreter.",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
 
     def _execute_send(self, action: Action) -> None:
         event = action.data.get("event")
