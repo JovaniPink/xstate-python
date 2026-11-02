@@ -108,6 +108,9 @@ or receive no positional arguments. Wrap a function in a zero-argument callable
 when its own default should be used instead. An explicitly named `input`
 parameter keeps its existing keyword binding when that satisfies the function
 signature. A `**kwargs`-only handler still receives `input` as a keyword.
+When a callable's signature cannot be inspected, as with some built-ins, input
+is passed positionally. Wrap an uninspectable zero-argument or keyword-only
+callable in a Python function to make its intended signature visible.
 
 `to_promise()` accepts concrete actors and structural actor references whose
 snapshots satisfy `CompletionSnapshot[OutputT]`. Output inference remains

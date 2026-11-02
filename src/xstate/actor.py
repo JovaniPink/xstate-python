@@ -282,7 +282,10 @@ def _call_promise(fn: Callable[..., Any], input_value: Any) -> Any:
     try:
         signature = inspect.signature(fn)
     except (TypeError, ValueError):
-        return _call_with_supported_kwargs(fn, input=input_value)
+        # Some ordinary builtins (for example int and dict) expose no
+        # signature. Honor the typed unary callable contract without invoking
+        # the callable speculatively or retrying it after an exception.
+        return fn(input_value)
 
     # An explicitly named input has an established keyword-based contract.
     parameter = signature.parameters.get("input")

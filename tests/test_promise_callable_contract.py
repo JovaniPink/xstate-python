@@ -52,6 +52,40 @@ def test_bound_method_and_partial_accept_actor_input():
             actor.stop()
 
 
+@pytest.mark.parametrize(
+    ("fn", "input_value", "expected"),
+    [(int, "42", 42), (dict, {"answer": 42}, {"answer": 42})],
+)
+def test_uninspectable_builtin_receives_positional_input(fn, input_value, expected):
+    actor = create_actor(from_promise(fn), input=input_value).start()
+    try:
+        assert actor.get_snapshot().status == "done"
+        assert actor.get_snapshot().output == expected
+    finally:
+        actor.stop()
+
+
+def test_uninspectable_handler_error_is_not_retried():
+    calls = []
+
+    class Opaque:
+        @property
+        def __signature__(self):
+            raise ValueError("no signature")
+
+        def __call__(self, value):
+            calls.append(value)
+            raise TypeError("inside opaque handler")
+
+    actor = create_actor(from_promise(Opaque()), input=42).start()
+    try:
+        assert calls == [42]
+        assert actor.get_snapshot().status == "error"
+        assert str(actor.get_snapshot().error) == "inside opaque handler"
+    finally:
+        actor.stop()
+
+
 def test_legacy_named_input_zero_argument_and_keyword_forms_remain_supported():
     def named(input):
         return input
