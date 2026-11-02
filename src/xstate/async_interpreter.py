@@ -7,9 +7,9 @@ running a statechart inside an event loop so it composes with async Python
 
 What is and isn't async
 -----------------------
-The *pure* transition computation stays synchronous: ``machine.transition`` is a
-side-effect-free function from ``(state, event)`` to a new state, and guards /
-assigners run inside it.  The async layer wraps only the **runtime**:
+Transition computation stays synchronous: ``machine.transition`` computes a
+new state from ``(state, event)``, calling application guards and assigners.
+The async layer wraps only the **runtime**:
 
 * ``await start()`` / ``await send(event)`` / ``await stop()``;
 * a run-to-completion event queue (events sent while one is being processed are
@@ -20,9 +20,12 @@ assigners run inside it.  The async layer wraps only the **runtime**:
   :func:`asyncio.create_task` and cancelled when their state is exited or the
   service stops.
 
-This boundary mirrors XState, which keeps logic pure and pushes effects to the
-actor/runtime edge.  Keeping guards synchronous means the SCXML algorithm core
-is shared unchanged between the sync and async runtimes.
+It does not start invoked actors or route ``send_parent`` / ``send_to``.
+Machine-backed ``create_actor`` supplies those capabilities using the
+synchronous interpreter, which does not await machine action results.
+
+Keeping guards synchronous means the SCXML algorithm core is shared unchanged
+between the sync and async runtimes.
 
 Example::
 
@@ -47,7 +50,7 @@ from collections import deque
 from collections.abc import Awaitable, Callable
 from typing import Any, cast
 
-from xstate.action import CANCEL_TYPE, SEND_TYPE, Action
+from xstate.action import CANCEL_TYPE, SEND_PARENT_TYPE, SEND_TO_TYPE, SEND_TYPE, Action
 from xstate.event import Event, EventInput, RuntimeEventPayload
 from xstate.interpreter import NOT_STARTED, RUNNING, STOPPED, resolve_delay_ms
 from xstate.machine import Machine
@@ -84,10 +87,9 @@ class AsyncSubscription[ContextT = Any, EventDataT = Any, OutputT = Any]:
 class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
     """An asyncio-native running instance of a :class:`~xstate.machine.Machine`.
 
-    Lifecycle and messaging are coroutines (``start`` / ``send`` / ``stop``);
+    Lifecycle and event delivery are coroutines (``start`` / ``send`` / ``stop``);
     observation (``subscribe``) and the current ``state`` are synchronous, since
-    snapshots are plain values.  Delayed transitions are scheduled on whichever
-    loop is running when the service is started.
+    snapshots are plain values. Delayed transitions use the running event loop.
     """
 
     machine: Machine[ContextT, EventDataT, OutputT]
@@ -101,6 +103,14 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
             Callable[[MacrostepTrace[ContextT, EventDataT, OutputT]], None] | None
         ) = None,
     ):
+        if any(node.invoke for node in machine._id_map.values()):
+            warnings.warn(
+                "AsyncInterpreter does not start invoked actors; use "
+                "create_actor(machine) for invoke. Machine-backed actors use "
+                "synchronous machine actions.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         self.machine = machine
         self._inspector = inspect
         if inspect is None:
@@ -322,6 +332,13 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
                 )
                 if method_name:
                     await getattr(self, method_name)(action)
+                elif action_type in (SEND_PARENT_TYPE, SEND_TO_TYPE):
+                    warnings.warn(
+                        "AsyncInterpreter cannot route actor messages; use "
+                        "create_actor(machine) for send_parent and send_to.",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
             elif callable(action):
                 result = action()
                 if inspect.isawaitable(result):

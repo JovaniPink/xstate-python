@@ -264,8 +264,12 @@ await service.send("SEARCH")
 await service.stop()
 ```
 
-The pure transition and guard layer remains synchronous; only action execution,
-timers, and actor settlement are async-aware.
+Transition computation, guards, and assignments remain synchronous.
+`interpret_async` awaits actions and manages asyncio timers, but it does not
+start invoked actors or route actor messages. `create_actor(machine)` supports
+those actor capabilities through the synchronous interpreter, so its machine
+actions are not awaited. See the [runtime capability matrix](./docs/concepts/runtimes.md)
+for warnings, async child logic, and the complete boundary.
 
 Macrosteps can be bounded with `Machine(..., max_iterations=N)` or portable
 `options.maxIterations` configuration. `get_microsteps(...)` and

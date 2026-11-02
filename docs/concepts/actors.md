@@ -138,3 +138,9 @@ Use `interpret(machine)` for a standalone synchronous service. Use
 `create_actor(machine)` when identity, parent/child ownership, invocation, or
 actor messaging is part of the design. Both preserve the same machine
 configuration and transition semantics.
+
+Machine-backed actors execute machine actions synchronously; they do not await
+action results. An invoked promise or observable can still run asynchronously
+when its starting thread has a running event loop. `interpret_async` awaits
+machine actions but does not start invoked actors or route actor messages. See the
+[runtime capability matrix](runtimes.md) for the warnings and tradeoffs.
