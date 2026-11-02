@@ -171,7 +171,10 @@ def from_promise(fn: Callable[..., Any]) -> PromiseLogic[Any, Any]:
     """Create promise actor logic from ``fn`` (XState v5 ``fromPromise``).
 
     ``fn`` may be synchronous (resolves eagerly on start) or an ``async def``
-    coroutine function (resolved on the running event loop).
+    coroutine function (resolved on the running event loop). An ordinary
+    positional parameter receives actor input regardless of its name. A
+    zero-argument function remains supported, as do keyword-only ``input`` and
+    ``**kwargs`` handlers.
     """
     return PromiseLogic(fn)
 
@@ -268,6 +271,42 @@ def _call_with_supported_kwargs(fn: Callable[..., Any], **kwargs: Any) -> Any:
             else:
                 kwargs_to_pass[name] = kwargs[name]
     return fn(*args, **kwargs_to_pass)
+
+
+def _call_promise(fn: Callable[..., Any], input_value: Any) -> Any:
+    """Bind promise input before calling, retaining supported keyword forms.
+
+    ``Signature.bind`` inspects compatibility without executing the function;
+    exceptions from the handler itself must never trigger a second call.
+    """
+    try:
+        signature = inspect.signature(fn)
+    except (TypeError, ValueError):
+        return _call_with_supported_kwargs(fn, input=input_value)
+
+    # An explicitly named input has an established keyword-based contract.
+    parameter = signature.parameters.get("input")
+    if parameter is not None and parameter.kind in (
+        parameter.POSITIONAL_OR_KEYWORD,
+        parameter.KEYWORD_ONLY,
+    ):
+        try:
+            signature.bind(input=input_value)
+        except TypeError:
+            pass
+        else:
+            return fn(input=input_value)
+
+    # The public callable overload accepts any unary positional callable,
+    # including bound methods, partials, and variadic positional functions.
+    try:
+        signature.bind(input_value)
+    except TypeError:
+        pass
+    else:
+        return fn(input_value)
+
+    return _call_with_supported_kwargs(fn, input=input_value)
 
 
 # ---------------------------------------------------------------------------
@@ -424,7 +463,7 @@ class _PromiseBackend(_ListenerBackend):
             return
         self._status = RUNNING
         try:
-            result = _call_with_supported_kwargs(self._fn, input=self._input)
+            result = _call_promise(self._fn, self._input)
         except Exception as exc:  # noqa: BLE001 - surfaced as actor error
             self._snapshot = ActorSnapshot("error", error=exc)
             self._notify()

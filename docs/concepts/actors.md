@@ -99,6 +99,16 @@ Promise input is resolved from `invoke.input` before the child starts. A
 resolved value completes the actor; an exception moves its snapshot to error
 and drives the parent's `onError` transition.
 
+A promise function can receive its input through an ordinary positional
+parameter with any name, such as `def fetch(user_id): ...`. No-argument
+functions and handlers using keyword-only `input` or `**kwargs` also work.
+Optional and variadic positional parameters now receive actor input, even when
+the function also accepts `**kwargs`; previously they could keep their default
+or receive no positional arguments. Wrap a function in a zero-argument callable
+when its own default should be used instead. An explicitly named `input`
+parameter keeps its existing keyword binding when that satisfies the function
+signature. A `**kwargs`-only handler still receives `input` as a keyword.
+
 `to_promise()` accepts concrete actors and structural actor references whose
 snapshots satisfy `CompletionSnapshot[OutputT]`. Output inference remains
 precise for both forms.

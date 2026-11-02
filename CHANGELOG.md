@@ -67,6 +67,12 @@ All notable changes to this project will be documented here.
 
 ### Fixed
 
+- Promise actors now pass their input to ordinary positional parameters even
+  when the parameter is not named `input`, matching the public callable type.
+  Optional and variadic positional parameters now receive actor input, even
+  alongside `**kwargs`. Wrap a function in a zero-argument callable to retain
+  its own default; `**kwargs`-only handlers continue receiving `input`.
+
 - Queued events sent during interpreter startup until initial actions and the
   initial notification finish, in both runtimes and machine-backed actors.
   Startup failures and async cancellation now release queue ownership and
