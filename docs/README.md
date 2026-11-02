@@ -17,5 +17,7 @@ match the runtime boundary you need:
 - [Google ADK and Agent Skills](./integrations/adk-and-agent-skills.md): an
   honest proposed boundary between deterministic statecharts, durable agent
   workflows, and progressively loaded Skill instructions.
+- [Local fetch inspector](./concepts/local-inspector.md): operate a synthetic
+  retry workflow, inspect microsteps, and reproduce direct-execution comparisons.
 - [Runnable examples](./examples/README.md): complete programs exercised by the
   test suite.

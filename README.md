@@ -191,6 +191,20 @@ reports truncation. The benchmark separates ordinary transitions, tracing,
 capture, and report formatting; it supplies local observations without timing
 thresholds or real-time guarantees.
 
+## Explore A Fetch And Retry Workflow
+
+From a source checkout, launch the optional [local inspector](docs/concepts/local-inspector.md):
+
+```bash
+poetry run python docs/examples/local_inspector.py
+```
+
+Open the printed loopback URL, send `FETCH`, and advance time twice by 1,000 ms.
+The synthetic fetch fails twice and then succeeds. Explore the active chart,
+snapshot, and expandable microstep history; export the run as JSON. The example
+uses the existing Python actor runtime, an XState JSON chart, and only standard
+library modules for its local server.
+
 ## Running A Machine
 
 `interpret(machine)` turns a pure machine into a stateful service with

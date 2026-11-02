@@ -58,6 +58,8 @@ jobs:
         run: poetry run ruff check src/ tests/ scripts/ docs/examples/
       - name: Run type checks
         run: poetry run mypy src/xstate/
+      - name: Type check local inspector example
+        run: poetry run mypy --explicit-package-bases docs/examples/fetch_with_retry.py docs/examples/local_inspector.py
       - name: Check package metadata
         run: poetry check --lock
       - name: Build and validate distribution

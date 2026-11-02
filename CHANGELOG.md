@@ -6,6 +6,11 @@ All notable changes to this project will be documented here.
 
 ### Added
 
+- Added an optional standard-library local inspector for the JSON fetch/retry
+  example, with event and simulated-time controls, active-state visualization,
+  bounded microstep history, synthetic scenarios, JSON export, and equivalence
+  tests against direct actor execution.
+
 - Added a typed docking controller facade over a JSON chart, deterministic
   success/timeout/cancellation demos, bounded structural Markdown trace replay,
   failure and context-policy guidance, and a dependency-free local benchmark
