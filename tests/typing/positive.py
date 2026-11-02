@@ -195,6 +195,14 @@ def promise(input: int) -> Output:
 promise_actor = create_actor(from_promise(promise), input=2)
 assert_type(promise_actor, Actor[object, ActorSnapshot[Output], Output])
 assert_type(to_promise(promise_actor), asyncio.Future[Output])
+
+
+def promise_with_positional_value(value: int) -> Output:
+    return {"total": value}
+
+
+positional_promise = create_actor(from_promise(promise_with_positional_value), input=2)
+assert_type(positional_promise, Actor[object, ActorSnapshot[Output], Output])
 promise_ref: ActorRef[object, ActorSnapshot[Output]] = promise_actor
 assert_type(to_promise(promise_ref), asyncio.Future[Output])
 spawned_promise = machine_actor.spawn(from_promise(promise), input=3)
