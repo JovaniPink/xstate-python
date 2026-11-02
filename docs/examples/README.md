@@ -78,9 +78,12 @@ What to look for:
 | Guards | `canRetry` and `exhausted` choose the retry path |
 | Delayed retry | `after: {"backoff": ...}` |
 
-This example is intentionally a Python dict because it contains live callables
-for `input`, guards, actions, and the promise actor. Pure state structure can
-still live in JSON when those live pieces are referenced by name.
+The chart lives in [`fetch_with_retry.json`](./fetch_with_retry.json). Named
+actions, guards, delays, and the promise actor are supplied by the Python factory.
+Invoke input is the literal synthetic user ID 42. Each run owns its attempt counter.
+
+Use the [optional local inspector](../concepts/local-inspector.md) to send events,
+advance simulated time, inspect ordered microsteps, and export a run.
 
 ## Async Workflow
 

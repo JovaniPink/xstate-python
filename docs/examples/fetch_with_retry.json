@@ -1,0 +1,21 @@
+{
+  "id": "fetcher",
+  "initial": "idle",
+  "context": {"user_id": 42, "data": null, "error": null, "retries": 0, "max_retries": 3},
+  "states": {
+    "idle": {"on": {"FETCH": "loading"}},
+    "loading": {
+      "invoke": {
+        "id": "getUser", "src": "fetchUser", "input": {"user_id": 42},
+        "onDone": {"target": "success", "actions": "rememberData"},
+        "onError": {"target": "retrying", "actions": "rememberError"}
+      }
+    },
+    "retrying": {
+      "always": [{"target": "failure", "guard": "exhausted"}],
+      "after": {"backoff": {"target": "loading", "guard": "canRetry"}}
+    },
+    "success": {"type": "final"},
+    "failure": {"type": "final"}
+  }
+}
