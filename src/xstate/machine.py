@@ -13,6 +13,7 @@ from xstate.algorithm import (
     main_event_loop,
 )
 from xstate.config_parser import StateNodeConfigParser
+from xstate.config_validation import find_config_issues
 from xstate.context import ContextAdapter, DeepCopyContextAdapter
 from xstate.event import Event, EventInput, RuntimeEventPayload, to_event
 from xstate.exceptions import InvalidConfigError, UnregisteredImplementationError
@@ -60,6 +61,13 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
                 "Machine config must include an 'id' key. "
                 "Example: Machine({'id': 'myMachine', 'initial': ..., 'states': {...}})"
             )
+        if strict:
+            issues = find_config_issues(cast(dict[str, Any], config))
+            if issues:
+                raise InvalidConfigError(
+                    "Strict machine config check failed:\n"
+                    + "\n".join(f"  - {issue.message}" for issue in issues)
+                )
         self.id = config["id"]
         self._id_map = {}
         self._order = 0
