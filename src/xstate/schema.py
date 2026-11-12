@@ -53,6 +53,7 @@ class TransitionConfig[ContextT = Any, EventDataT = Any, OutputT = Any](
     guard: HandlerSpec[ContextT, EventDataT, OutputT]
     cond: HandlerSpec[ContextT, EventDataT, OutputT]
     type: Literal["internal", "external"]
+    reenter: bool
 
 
 class InvokeConfig[ContextT = Any, EventDataT = Any, OutputT = Any](

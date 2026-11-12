@@ -22,7 +22,8 @@ actor.stop()
 
 `start()` is idempotent while the actor is running. `send()` processes an event
 through the machine's run-to-completion queue. Events sent before start or after
-stop are dropped by the machine runtime.
+stop or completion are dropped by the machine runtime. A stopped or completed
+machine actor does not restart.
 
 Subscribe when another part of the application needs snapshot notifications:
 
@@ -51,6 +52,26 @@ def observe(ref: ActorRef[str, State]) -> None:
 widened `ActorRef[Any, Any]` values because an actor system can contain
 heterogeneous logic. `create_actor()` and `spawn()` still return precise
 concrete `Actor` types when their logic is known.
+
+### Machine Completion
+
+A machine actor that reaches a final snapshot reports runtime status `"done"`.
+It releases its timers, stops all owned children, including root invocations and
+manually spawned actors, and unregisters from the actor system before the final
+notification. Its final snapshot and output remain readable. Explicit `stop()`
+reports `"stopped"`; calling it after completion keeps the final snapshot and
+output. Neither lifecycle outcome permits restart.
+
+Terminal effects run before cleanup. If one raises, cleanup still runs and the
+committed final snapshot is preserved while the action exception propagates;
+later effects and the final notification are skipped. See
+[runtime completion](runtimes.md#final-completion).
+
+If a child cleanup raises during parent completion or explicit stop, teardown
+still attempts the remaining children, clears ownership, and unregisters the
+actors. Cleanup-only failure propagates the first cleanup exception; an action
+failure remains primary if both fail. A callback's cleanup is consumed even
+when it raises, so repeating `stop()` does not run it again.
 
 ## Invoked Actors
 
@@ -81,10 +102,18 @@ machine = Machine(
 )
 ```
 
-The child is reconciled with the active configuration. Entering the invoking
-state starts it; leaving that state stops it. Completion produces
+The child is reconciled after the macrostep's actions and before public snapshot
+notifications. Retaining its owning state keeps the child. Exiting that state
+stops it; exiting and re-entering replaces it even when the final configuration
+looks unchanged. A state entered and left within one macrostep does not start
+its transient invocation. Completion produces
 `done.invoke.<id>`, failure produces `error.platform.<id>`, and snapshot-capable
 logic can produce `snapshot.invoke.<id>`.
+
+Ordinary `invoke.input` expressions read the committed snapshot's context and
+outer event. They do not use an entry action's captured arguments. JavaScript
+child-startup and entry-effect ordering can differ; the checked lifecycle cases
+do not establish general ordering or invocation-input parity.
 
 ## Actor Logic Helpers
 
@@ -129,8 +158,21 @@ the next snapshot.
 
 Actor IDs must be unique within a system. A parent owns the lifetime of its
 spawned and invoked children; stopping the parent stops those children as well.
-Calling `spawn()` after the parent has stopped returns a stopped child and does
-not leave that child registered in the actor system.
+Completing a machine parent also stops its children. Calling `spawn()` after
+the parent has stopped or completed returns a stopped child and does not leave
+that child registered in the actor system.
+
+For a callback child, messages admitted before it stops remain valid queued
+events, including messages sent by its cleanup while the parent is still
+active. A later call through the old child's `send_back` is ignored after that
+child has stopped. Completion/error emissions from a replaced invocation are
+accepted only from the current child instance; events already queued are not
+filtered again when dequeued. Parent completion still discards its pending work.
+
+Python removes a completed machine actor's children from its child registry.
+XState can retain stopped root-invocation references in its completed snapshot.
+The [comparison contract](xstate-compatibility.md#re-entry-and-completion)
+records this representation difference separately from the matching cleanup.
 
 ## Choosing An Actor Boundary
 
