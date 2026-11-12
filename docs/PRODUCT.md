@@ -2,8 +2,7 @@
 
 Research snapshot: June 2026. External ecosystem numbers are approximate and
 should be refreshed before publication or fundraising use. Repo capability notes
-reflect the current `master` branch after the 0.7.1 SCXML conformance
-milestone.
+describe this source revision of the unreleased 0.7.1 candidate.
 
 ## Product Thesis
 
@@ -18,7 +17,7 @@ The short pitch:
 The [compatibility contract](concepts/xstate-compatibility.md) pins the reference
 runtime and records exact observations. Its synthetic fixtures do not yet prove
 that representative Stately exports run unchanged. That remains an adoption
-gate, alongside action arguments, actor lifecycles, and snapshot behavior.
+gate, alongside the remaining actor lifecycle, completion, and snapshot limits.
 
 The bet is not to out-feature every Python FSM package. The bet is to own the
 bridge between XState's JSON ecosystem and Python backends.
@@ -31,9 +30,10 @@ bridge between XState's JSON ecosystem and Python backends.
 | Core transition API | `Machine(config).transition(state, event)` |
 | XState JSON | Dict/JSON boundary with a pinned, fixture-level compatibility contract and explicit known differences |
 | Parser architecture | Typed schema + normalization/parser layer |
-| Handler adaptation | Build-time `HandlerAdapter`; legacy signatures still supported |
+| Handler adaptation | Setup-time `HandlerAdapter` for declared handlers; dynamic `pure` results normalize during computation; legacy signatures still supported |
+| Action arguments | Deferred effects capture context at their action position and retain the effective event/parameter references; the causal fixture is required parity |
 | Setup API | `setup(...).create_machine(...)` exists for stricter named implementations |
-| Context policy | Default deep-copy adapter plus immutable dataclass adapter |
+| Context policy | Default deep-copy adapter for snapshots and each deferred action; immutable dataclass adapter avoids copying |
 | Snapshots | `MachineSnapshot = State`; immutable public containers |
 | Snapshot queries | Active `tags`, `meta`, `has_tag`/`hasTag`, and `state_in`/`stateIn` guard helpers are present |
 | Diagrams | Dependency-free Mermaid `stateDiagram-v2` export is present |
@@ -114,9 +114,9 @@ sharing the chart does not make arbitrary JavaScript functions portable.
 
 | Priority | Work |
 |---|---|
-| Immediate | Land the numeric JSON delay fix and pinned comparison contract; retain exact known-divergence fixtures |
-| Next | Repair causal action arguments, then re-entry/completion lifecycle, using those fixtures as acceptance gates |
-| Next | Validate one representative shared chart with a consumer; measure unchanged structure and matching observable behavior |
+| Immediate | Repair re-entry and final completion lifecycle, with explicit child cleanup/replacement, timer reset, and terminal behavior acceptance gates |
+| Next | Validate one representative shared chart with a consumer; measure unchanged structure, observable behavior, and context-capture cost |
+| Ongoing | Preserve required parity for numeric JSON delays and causal action arguments; keep four known differences explicit and promote cases only after reviewed fixes |
 | High | Resolve the package-index name and prove publication ownership before enabling release publishing |
 | High | Expand SCXML coverage beyond the configured subset without adding JavaScript evaluation |
 | Medium | Inspector protocol compatibility |

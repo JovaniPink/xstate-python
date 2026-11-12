@@ -56,6 +56,13 @@ All notable changes to this project will be documented here.
 
 ### Changed
 
+- The default context adapter now deep-copies context for each deferred action.
+  **Migration:** use `assign` for chart updates; mutating an action's context
+  changes neither committed state nor other effects' contexts. Custom adapters
+  retain control of context ownership. Event payloads and action parameters
+  retain reference semantics, callable action parameters are not evaluated,
+  and action `HandlerArgs.state` remains `None`. See the
+  [handler contract and copying costs](docs/concepts/machines-and-implementations.md#action-arguments-and-migration).
 - Clarified the async interpreter and machine actor capability boundary.
   `AsyncInterpreter` warns about declared invocations and executed actor
   messages; the synchronous interpreter warns when an action returns an
@@ -74,6 +81,17 @@ All notable changes to this project will be documented here.
   thread per clock.
 
 ### Fixed
+
+- Deferred action handlers now receive context captured at their action
+  position and the effective event, including internal/eventless steps.
+  Named/inline, entry/exit, and `choose`/`pure` effects use the same captures in
+  macrostep results and microstep traces. The causal comparison fixture now
+  requires parity with its unchanged XState expectations.
+- Named delays on synchronous `send`, `send_parent`, and `send_to`, and async
+  self-sends, now receive the send action's captured context/event. Evaluation
+  still occurs after snapshot commit; `after` reconciliation is unchanged.
+- Actions returned by `pure` now reuse parser normalization, including nested
+  named actions, guards, `choose`/`pure`, and custom context adapters.
 
 - Numeric JSON `after` keys now schedule millisecond delays in both runtimes.
   Finite nonnegative decimal/exponent spellings are supported; overflowing

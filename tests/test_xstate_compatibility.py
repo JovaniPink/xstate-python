@@ -37,7 +37,7 @@ def test_duplicate_ids_cannot_overwrite_reference_results():
 
 @pytest.mark.parametrize("key", ["expected", "expected_python"])
 def test_every_command_requires_an_expected_observation(key):
-    fixture = deepcopy(FIXTURES["causal-action-arguments"])
+    fixture = deepcopy(FIXTURES["callback-child-reentry"])
     fixture[key].pop()
     with pytest.raises(ValueError, match=f"{key} must contain one observation"):
         comparison.validate_fixtures([fixture])
@@ -53,14 +53,14 @@ def test_same_wrong_result_from_both_runtimes_is_rejected():
     assert all("snapshot.value expected='done' actual='waiting'" in f for f in failures)
 
 
-def test_known_action_argument_drift_names_the_field():
+def test_causal_action_argument_drift_names_the_field():
     fixture = FIXTURES["causal-action-arguments"]
-    changed = deepcopy(fixture["expected_python"])
-    changed[2]["actions"][2]["event"]["type"] = "INNER"
+    changed = deepcopy(fixture["expected"])
+    changed[2]["actions"][2]["event"]["type"] = "GO"
     failures = comparison.check_fixture(fixture, changed, fixture["expected"])
     assert len(failures) == 1
     assert "causal-action-arguments command[2] Python" in failures[0]
-    assert "snapshot.actions[2].event.type expected='GO' actual='INNER'" in failures[0]
+    assert "snapshot.actions[2].event.type expected='INNER' actual='GO'" in failures[0]
 
 
 def test_fixed_known_gap_requires_explicit_promotion():
@@ -75,7 +75,7 @@ def test_action_order_is_not_normalized_away():
     fixture = FIXTURES["causal-action-arguments"]
     changed = deepcopy(fixture["expected"])
     changed[2]["actions"].reverse()
-    failures = comparison.check_fixture(fixture, fixture["expected_python"], changed)
+    failures = comparison.check_fixture(fixture, fixture["expected"], changed)
     assert len(failures) == 1
     assert "command[2] XState: snapshot.actions[0]" in failures[0]
 

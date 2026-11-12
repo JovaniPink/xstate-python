@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from xstate.event import Event
+
 # Action type markers used internally by the engine.
 ASSIGN_TYPE = "xstate.assign"
 RAISE_TYPE = "xstate:raise"
@@ -57,6 +59,15 @@ class Action:
 
     def __repr__(self) -> str:
         return f"Action(type={self.type!r})"
+
+
+class _BoundAction(Action):
+    """Runtime-owned action with the context/event of its emitted occurrence."""
+
+    def __init__(self, action: Action, context: Any, event: Event | None) -> None:
+        super().__init__(action.type, exec=action.exec, data=dict(action.data))
+        self.context = context
+        self.event = event
 
 
 def build_action(raw: Any, registry: dict[str, Any] | None = None) -> Action:

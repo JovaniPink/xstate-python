@@ -33,7 +33,14 @@ from collections import deque
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
-from xstate.action import CANCEL_TYPE, SEND_PARENT_TYPE, SEND_TO_TYPE, SEND_TYPE, Action
+from xstate.action import (
+    CANCEL_TYPE,
+    SEND_PARENT_TYPE,
+    SEND_TO_TYPE,
+    SEND_TYPE,
+    Action,
+    _BoundAction,
+)
 from xstate.event import Event, EventInput, RuntimeEventPayload
 from xstate.exceptions import UnregisteredImplementationError
 from xstate.machine import Machine
@@ -348,7 +355,7 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
         delay = action.data.get("delay")
         send_id = action.data.get("id")
         if delay is not None:
-            delay_ms = self._resolve_delay(delay)
+            delay_ms = self._resolve_delay(delay, action=action)
             tid = self.clock.set_timeout(
                 functools.partial(self.send, cast(EventInput[EventDataT], event)),
                 delay_ms,
@@ -387,7 +394,7 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
         delay = action.data.get("delay")
         send_id = action.data.get("id")
         if delay is not None:
-            delay_ms = self._resolve_delay(delay)
+            delay_ms = self._resolve_delay(delay, action=action)
             tid = self.clock.set_timeout(
                 functools.partial(target.send, event), delay_ms
             )
@@ -397,12 +404,12 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
 
     # -- delayed transitions ------------------------------------------------
 
-    def _resolve_delay(self, delay_spec: Any) -> float:
+    def _resolve_delay(self, delay_spec: Any, *, action: Action | None = None) -> float:
         return resolve_delay_ms(
             self.machine,
             delay_spec,
-            self.state.context,
-            getattr(self.state, "event", None),
+            action.context if isinstance(action, _BoundAction) else self.state.context,
+            action.event if isinstance(action, _BoundAction) else self.state.event,
         )
 
     def _sync_delays(self) -> None:
