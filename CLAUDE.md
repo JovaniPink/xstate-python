@@ -144,7 +144,7 @@ boundary.
 | 0.6.0 | Setup & parity | `setup()`, composable guards (`and_`/`or_`/`not_`), snapshot serialization |
 | 0.7.0 | Snapshot and action parity | State `tags` + `meta`, `hasTag()`, `stateIn` guard, `choose`/`pure` actions, Mermaid diagrams |
 | 0.7.1 | SCXML release hardening | Vendored fixture subset, expanded parallel conformance, safe integer-data subset |
-| 0.8.0+ | Next parity + internals | `enqueueActions`, `reenter`, `stopChild`, dynamic `sendTo`, graph/test helpers, inspector protocol, `ParamSpec` handler typing |
+| 0.8.0+ | Next parity + internals | `enqueueActions`, `stopChild`, dynamic `sendTo`, graph/test helpers, inspector protocol, `ParamSpec` handler typing |
 
 The differentiating niche: **XState / Stately.ai JSON compatibility** — neither `transitions`
 nor `python-statemachine` accepts XState JSON natively.
@@ -182,6 +182,7 @@ Targets drawn from XState v5 (https://stately.ai/docs/xstate) and the Python sta
 landscape (`transitions`, `python-statemachine`, `Sismic`). Ranked by parity value × differentiation.
 
 **Already on master:**
+- **XState v5 comparison contract, JSON numeric delays, causal action arguments, `reenter`, terminal completion** — ✅ PRs 60–62 (2026-11-16): pinned XState 5.33.4 / Node 24.22.1 comparison corpus (`tests/compatibility/xstate_v5/`, own CI job); `after: {"1000": ...}` is a duration; each deferred action sees the context/event at its position; Boolean transition `reenter` (default `false`; legacy `type: internal/external` kept); timers/children reconciled from actual exits; a `done` root is terminal. See CHANGELOG for migration notes.
 - **Wildcard event descriptors** — ✅ in 0.7.1: exact names, partial `UPDATE.*`, and `*` catch-all with exact/longest-prefix precedence.
 - **Traces, target paths, `ActorRef`, bounded macrosteps** — ✅ in 0.7.1: `TransitionTrace`/`MicrostepTrace`/`MacrostepTrace`, sibling-descendant target paths, structural `ActorRef`, and `max_iterations` macrostep bounds (see CHANGELOG).
 - **State `tags`** — ✅ in 0.7.0: `tags: ["loading"]` in config; `state.has_tag("loading")` and `state.hasTag("loading")` on `MachineSnapshot`.
@@ -193,7 +194,6 @@ landscape (`transitions`, `python-statemachine`, `Sismic`). Ranked by parity val
 
 **Remaining XState v5 parity gaps:**
 - **`enqueueActions`** — batch/queue actions imperatively inside an action body.
-- **Transition `reenter: true`** — re-enter the source state on a self-transition (vs. internal).
 - **`stopChild` action** — explicitly stop a spawned/invoked actor.
 - **Dynamic `sendTo` targets** — `to=` resolved from `(context, event)`.
 
@@ -242,11 +242,15 @@ poetry run python scripts/validate_distribution.py
 ## Known behaviors to keep in mind
 
 - **Unsupported config keys are silently ignored** (verified 2026-11-12): unknown top-level,
-  state, or transition keys — including the real but unimplemented XState key `reenter` —
-  neither raise nor warn. Invalid targets, `initial`, and state `type` raise
-  `InvalidConfigError` at construction; unregistered guards raise at transition time;
-  unregistered actions only warn; unknown `invoke.src` and `after` delay names are not checked.
-  A construction-time strictness/lint pass is planned (Tier 1); do not change this silently.
+  state, transition, or invoke keys (including the real but unimplemented invoke key
+  `autoForward`) neither raise nor warn. Invalid targets, `initial`, state `type`, and
+  non-Boolean `reenter` raise `InvalidConfigError` at construction; unregistered guards raise
+  at transition time; unregistered actions only warn; unknown `invoke.src` names are not
+  checked at construction. `Machine(config, strict=True)` (and `setup(...)`) reject unknown and
+  unsupported keys via `config_validation.find_config_issues`; the default permissive boundary
+  is intentionally unchanged. `tests/test_config_validation.py` asserts every chart in the
+  XState comparison corpus passes strict validation — update `config_validation.py` when a
+  parity PR adds a config key.
 - **Coverage:** CI runs `pytest --cov` with `fail_under = 90`; actual is ~91.7%. When running from a
   git worktree with an editable install pointing at another checkout, coverage double-counts
   both source trees and reports ~79% — run with `PYTHONPATH=src` to measure the worktree.

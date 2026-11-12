@@ -26,6 +26,7 @@ from xstate.actor import (  # noqa
     to_promise,
 )
 from xstate.async_interpreter import AsyncInterpreter, interpret_async  # noqa
+from xstate.config_validation import ConfigIssue, find_config_issues  # noqa
 from xstate.context import (  # noqa
     ContextAdapter,
     DataclassContextAdapter,
@@ -138,6 +139,9 @@ __all__ = [
     "StateNodeConfig",
     "MachineConfig",
     "MachineOptionsConfig",
+    # Static config validation
+    "ConfigIssue",
+    "find_config_issues",
     # Exceptions
     "XStateError",
     "InvalidConfigError",
