@@ -246,7 +246,7 @@ poetry run python scripts/validate_distribution.py
   neither raise nor warn. Invalid targets, `initial`, and state `type` raise
   `InvalidConfigError` at construction; unregistered guards raise at transition time;
   unregistered actions only warn; unknown `invoke.src` and `after` delay names are not checked.
-  A construction-time strictness/lint pass is planned (Tier 1); do not change this silently.
+  `Machine(config, strict=True)` (and `setup(...)`) now reject these via `config_validation.find_config_issues`; the default permissive boundary is intentionally unchanged.
 - **Coverage:** CI runs `pytest --cov` with `fail_under = 90`; actual is ~91.7%. When running from a
   git worktree with an editable install pointing at another checkout, coverage double-counts
   both source trees and reports ~79% — run with `PYTHONPATH=src` to measure the worktree.

@@ -6,6 +6,11 @@ All notable changes to this project will be documented here.
 
 ### Added
 
+- Added `find_config_issues(config)` and `ConfigIssue`, and extended
+  `Machine(..., strict=True)` (and therefore `setup(...)`) to reject unknown
+  config keys and real-but-unimplemented XState keys (`reenter`, invoke
+  `autoForward`) with an aggregated `InvalidConfigError`. The default
+  permissive `Machine(config)` boundary is unchanged.
 - Added an optional standard-library local inspector for the JSON fetch/retry
   example, with event and simulated-time controls, active-state visualization,
   bounded microstep history, synthetic scenarios, JSON export, and equivalence
