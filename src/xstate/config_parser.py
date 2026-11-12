@@ -304,7 +304,7 @@ class StateNodeConfigParser:
                 order=-1,
                 target_nodes=[target],
             )
-        elif node.type == "parallel":
+        elif node.type == "parallel" or (node.type == "final" and node.parent is None):
             node.initial_transition = Transition(
                 event=None,
                 source=node,
@@ -343,6 +343,7 @@ class StateNodeConfigParser:
         cond = None
         in_state = None
         transition_type: Literal["internal", "external"] = "external"
+        reenter: bool | None = False
         actions: list[Action] = []
         target_spec = raw_transition
 
@@ -363,6 +364,14 @@ class StateNodeConfigParser:
                 raw_transition.get("type", "external"),
                 self._path(path, "type"),
             )
+            if "reenter" in raw_transition:
+                if not isinstance(raw_transition["reenter"], bool):
+                    raise InvalidConfigError(
+                        f"{self._path(path, 'reenter')} must be a boolean."
+                    )
+                reenter = raw_transition["reenter"]
+            elif "type" in raw_transition:
+                reenter = None
             actions = self._build_actions(
                 raw_transition.get("actions"),
                 self._path(path, "actions"),
@@ -380,6 +389,7 @@ class StateNodeConfigParser:
             cond=cond,
             in_state=in_state,
             type=transition_type,
+            reenter=reenter,
         )
 
     def _resolve_transition_type(

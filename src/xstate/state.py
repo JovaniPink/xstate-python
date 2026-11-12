@@ -67,6 +67,9 @@ class State[ContextT = Any, EventDataT = Any, OutputT = Any]:
         )
         self.error = None
         self.event = None
+        # Actual exit occurrences, including reentry and transient states. This
+        # runtime-only metadata is independent of optional inspection traces.
+        self._exited_states: tuple[StateNode, ...] = ()
 
         # A machine is "done" when the root state has reached a final
         # configuration. is_in_final_state handles both compound roots (a
@@ -80,10 +83,14 @@ class State[ContextT = Any, EventDataT = Any, OutputT = Any]:
                 (
                     s
                     for s in self.configuration
-                    if s.type == "final" and s.parent is root
+                    if root.type == "compound"
+                    and s.type == "final"
+                    and s.parent is root
                 ),
                 None,
             )
+            if root.type == "final":
+                final_child = root
             if output is not _OUTPUT_UNSET:
                 self.output = cast(OutputT | None, output)
             elif final_child is None or callable(final_child.donedata):
@@ -128,6 +135,8 @@ class State[ContextT = Any, EventDataT = Any, OutputT = Any]:
         """
         from xstate.algorithm import select_transitions
 
+        if self.status == "done":
+            return False
         transitions = select_transitions(
             event=to_event(event),
             configuration=self.configuration,

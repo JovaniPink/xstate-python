@@ -8,7 +8,9 @@ All notable changes to this project will be documented here.
 
 - Added a development-only comparison contract using shared JSON, pinned
   XState 5.33.4 and Node 24.22.1, independent expected observations, and exact
-  known-divergence cases. A separate CI job runs the comparison.
+  known-divergence cases. A separate CI job runs the comparison. The corpus
+  now covers 18 scenarios / 66 commands, with 14 required parity cases and four
+  exact known differences, including completed child-reference representation.
 
 - Added an optional standard-library local inspector for the JSON fetch/retry
   example, with event and simulated-time controls, active-state visualization,
@@ -56,6 +58,16 @@ All notable changes to this project will be documented here.
 
 ### Changed
 
+- JSON transitions now default to `reenter: false`; explicit `reenter` accepts
+  only Booleans. **Migration:** charts relying on implicit external self or
+  descendant transitions need `reenter: true` for a modern reset, or an explicit
+  legacy `type: external` to retain the earlier transition-domain policy.
+  Explicit legacy `type` remains supported when `reenter` is absent; SCXML
+  import preserves its external default. Modern and SCXML parallel domains are
+  not claimed to be equivalent. See the
+  [re-entry guide](docs/concepts/machines-and-implementations.md#re-entry-and-migration).
+- Renamed the comparison field `children.active` to `children.ids`, preserving
+  each runtime's reference keys without filtering stopped JavaScript references.
 - The default context adapter now deep-copies context for each deferred action.
   **Migration:** use `assign` for chart updates; mutating an action's context
   changes neither committed state nor other effects' contexts. Custom adapters
@@ -82,6 +94,27 @@ All notable changes to this project will be documented here.
 
 ### Fixed
 
+- Reconciled timers and invocations from actual macrostep exits. Retained owners
+  keep their resources; exited and re-entered owners cancel/reset timers and
+  replace children. Transient states do not start new timers or invocations.
+  The child-reentry fixture now requires parity with its unchanged XState oracle.
+- Moved machine-actor invocation reconciliation after actions and before public
+  snapshot notifications, so lifecycle work no longer depends on subscriber
+  ordering. Late callback emissions after stop and completion emissions from
+  replaced invocation instances are ignored; valid messages already queued,
+  including during cleanup, retain their queue semantics.
+- Completed machines now include final active-state exit effects in reverse
+  document order and preserve their final snapshot/output while ignoring
+  remaining raised/eventless work and later external events. Pure transitions
+  from a done snapshot return no actions, and `can(event)` returns false.
+- Machine runtimes now enter terminal `done` status, release owned timers and
+  children, unregister completed actors, and prevent restart. Terminal-effect
+  failure still triggers cleanup without rolling back the committed snapshot.
+  Async completion settles queued callers and awaits cancelled timer tasks
+  without cancelling or awaiting the task currently completing the machine.
+- Actor completion and explicit stop now attempt all child teardown and clear
+  ownership before surfacing cleanup errors. A failing callback cleanup is not
+  repeated by a later stop attempt.
 - Deferred action handlers now receive context captured at their action
   position and the effective event, including internal/eventless steps.
   Named/inline, entry/exit, and `choose`/`pure` effects use the same captures in
@@ -89,7 +122,8 @@ All notable changes to this project will be documented here.
   requires parity with its unchanged XState expectations.
 - Named delays on synchronous `send`, `send_parent`, and `send_to`, and async
   self-sends, now receive the send action's captured context/event. Evaluation
-  still occurs after snapshot commit; `after` reconciliation is unchanged.
+  still occurs after snapshot commit; `after` expressions continue to use the
+  committed context and outer event.
 - Actions returned by `pure` now reuse parser normalization, including nested
   named actions, guards, `choose`/`pure`, and custom context adapters.
 
@@ -115,7 +149,7 @@ All notable changes to this project will be documented here.
 - Corrected macrostep ordering so state exits, transition actions, and state
   entries execute in SCXML order while one FIFO internal queue carries raised
   events across eventless and internal-event microsteps.
-- Corrected atomic self-transition handling inside parallel states so the
+- Corrected legacy atomic self-transition handling inside parallel states so the
   source branch exits and re-enters without cycling active sibling regions.
 - Prevented actor stop and invocation reconciliation from leaving a running
   child, and prevented late spawns from remaining registered after parent stop.

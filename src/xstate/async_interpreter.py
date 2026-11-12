@@ -59,7 +59,7 @@ from xstate.action import (
     _BoundAction,
 )
 from xstate.event import Event, EventInput, RuntimeEventPayload
-from xstate.interpreter import NOT_STARTED, RUNNING, STOPPED, resolve_delay_ms
+from xstate.interpreter import DONE, NOT_STARTED, RUNNING, STOPPED, resolve_delay_ms
 from xstate.machine import Machine
 from xstate.state import State
 from xstate.trace import MacrostepTrace
@@ -176,8 +176,7 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
             self._sync_delays()
             if self._initial_trace is not None:
                 self._inspect_trace(self._initial_trace)
-            await self._execute(state)
-            self._notify(state)
+            await self._finish_snapshot(state)
             await self._drain_event_queue()
         except BaseException as exc:
             self._fail_queued_events(exc)
@@ -189,19 +188,23 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
 
     async def stop(self) -> AsyncInterpreter[ContextT, EventDataT, OutputT]:
         """Stop the service: cancel pending timers and drop all listeners."""
-        tasks = set(self._scheduled.values()) | set(self._send_timers.values())
-        for task in tasks:
-            task.cancel()
-        self._scheduled.clear()
-        self._send_timers.clear()
+        self._status = STOPPED
+        await self._cancel_timers()
         self._listeners.clear()
         self._resolve_queued_events(self.state)
-        self._status = STOPPED
+        return self
+
+    async def _cancel_timers(self) -> None:
+        tasks = set(self._scheduled.values()) | set(self._send_timers.values())
         current_task = asyncio.current_task()
+        for task in tasks:
+            if task is not current_task:
+                task.cancel()
+        self._scheduled.clear()
+        self._send_timers.clear()
         pending = [task for task in tasks if task is not current_task]
         if pending:
             await asyncio.gather(*pending, return_exceptions=True)
-        return self
 
     # -- events -------------------------------------------------------------
 
@@ -209,7 +212,7 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
         self, event: EventInput[EventDataT]
     ) -> State[ContextT, EventDataT, OutputT]:
         """Send an event. Events sent during processing are queued (RTC)."""
-        if self._status != RUNNING:
+        if self._status != RUNNING or self.state.status == "done":
             # Match XState: events before start / after stop are dropped.
             return self.state
 
@@ -279,9 +282,38 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
         self._sync_delays()
         if trace is not None:
             self._inspect_trace(trace)
-        await self._execute(next_state)
-        if self._status == RUNNING:
-            self._notify(next_state)
+        await self._finish_snapshot(next_state)
+
+    async def _finish_snapshot(
+        self, state: State[ContextT, EventDataT, OutputT]
+    ) -> None:
+        terminal = state.status == "done"
+        try:
+            try:
+                await self._execute(state)
+            except BaseException as effect_error:
+                if terminal:
+                    try:
+                        await self._complete()
+                    except BaseException as cleanup_error:
+                        raise effect_error from cleanup_error
+                raise
+            if terminal:
+                await self._complete()
+            self._notify(state)
+        finally:
+            if terminal:
+                try:
+                    await self._complete()
+                finally:
+                    self._listeners.clear()
+
+    async def _complete(self) -> None:
+        if self._status != RUNNING:
+            return
+        self._status = DONE
+        self._resolve_queued_events(self.state)
+        await self._cancel_timers()
 
     # -- subscriptions ------------------------------------------------------
 
@@ -300,7 +332,7 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
 
     def _notify(self, state: State[ContextT, EventDataT, OutputT]) -> None:
         for listener in list(self._listeners):
-            if self._status != RUNNING:
+            if self._status not in (RUNNING, DONE):
                 return
             listener(state)
 
@@ -403,14 +435,22 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
         Each delay fires once per entry (a still-active state is not rescheduled).
         """
         wanted: dict[str, object] = {}
-        for node in self.state.configuration:
+        reset = {
+            event_name
+            for node in self.state._exited_states
+            for _delay_spec, event_name in node.after
+        }
+        nodes = self.state.configuration if self.state.status != "done" else ()
+        for node in sorted(nodes, key=lambda item: item.order):
             for delay_spec, event_name in getattr(node, "after", []):
                 wanted[event_name] = delay_spec
 
         # Cancel timers whose state is no longer active.
         for event_name in list(self._scheduled):
-            if event_name not in wanted:
-                self._scheduled.pop(event_name).cancel()
+            if event_name not in wanted or event_name in reset:
+                task = self._scheduled.pop(event_name)
+                if task is not asyncio.current_task():
+                    task.cancel()
 
         # Schedule timers for newly entered delayed transitions.
         for event_name, delay_spec in wanted.items():

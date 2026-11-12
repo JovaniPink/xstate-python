@@ -74,7 +74,8 @@ clock.increment(1_000)
 
 Stopping an interpreter cancels its active `after` timers and delayed sends,
 clears listeners, and drops later events. A stopped interpreter does not
-restart; create a new interpreter to run the machine again.
+restart; create a new interpreter to run the machine again. Reaching a final
+snapshot also terminates its runtime; see [final completion](#final-completion).
 
 ## Async Interpreter
 
@@ -112,12 +113,12 @@ action can return and let the queue drain. Another task awaits completion of
 its own event. Do not await a separately created send task from the action
 that owns processing: that task is waiting for the action to finish.
 
-If startup fails or its task is cancelled, queued callers receive the same
-failure or cancellation, queued work is discarded, and processing ownership
-is released. Committed snapshots and lifecycle status remain in place unless
-`stop()` changed the status. Normal processing cancellation likewise settles
-queued callers. Stopping resolves dropped async sends with the current
-snapshot; that resolution does not imply their events were processed.
+If startup fails or its task is cancelled before terminal completion, queued
+callers receive the same failure or cancellation, queued work is discarded,
+and processing ownership is released. Committed snapshots remain in place.
+Normal processing cancellation likewise settles queued callers. Stopping or
+completing resolves dropped async sends with the current snapshot; that
+resolution does not imply their events were processed or effects succeeded.
 
 Async `after` transitions use the running event loop. The pure transition and
 guard layer remains synchronous.
@@ -128,6 +129,23 @@ caller's send task, but later runtime actions from that macrostep are skipped.
 The interpreter does not wait for application tasks created outside it.
 
 See [async workflow](../examples/async_workflow.py) for a complete program.
+
+## Re-entry And Resource Ownership
+
+Resource reconciliation uses the states actually exited during a macrostep,
+including a state left and re-entered before the final configuration settles.
+It does not require an inspector or trace capture. Retained states keep their
+existing timer deadlines and invoked children. An exited and re-entered state
+cancels its previous timers, schedules fresh deadlines, and replaces its
+invoked children. States entered and left within the macrostep do not start
+new timers or invoked children.
+
+Timers reconcile when the computed snapshot is installed. Machine actors
+reconcile invocations after the macrostep's actions and before public snapshot
+notifications. Subscribers therefore observe the reconciled child tree;
+they do not control reconciliation through subscription order. The
+[configuration guide](machines-and-implementations.md#re-entry-and-migration)
+explains `reenter`, its default, and migration from legacy transition behavior.
 
 ## Action Arguments And Committed State
 
@@ -144,14 +162,42 @@ Named delays on `send` use the send action's captured context/event when the
 runtime executes that action, after committing the snapshot. The same rule
 applies to `send_parent` and `send_to` in the synchronous actor runtime and to
 self-sends in the async runtime. State `after` timers continue to be reconciled
-from the committed configuration, context, and outer event; this action-binding
-change does not alter their lifecycle or reset behavior.
+from the committed configuration; their delay expressions use committed context
+and the outer event. Ordinary `invoke.input` expressions also use that committed
+snapshot, rather than an entry-action argument capture. These expression
+boundaries do not establish general XState argument-timing parity.
 
 Use `assign` for chart updates. The default adapter isolates each action's
 context from the committed snapshot and other effects; event payloads and
 parameters remain references. The
 [handler and context guide](machines-and-implementations.md#action-arguments-and-migration)
 describes migration, custom adapters, and the cost of copying mutable context.
+
+## Final Completion
+
+When the root machine completes, its remaining active states contribute exit
+effects in reverse document order. The machine retains the final configuration
+and output, stops processing raised and eventless work, and ignores later
+external events. Initially final machines follow the same rule. A later pure
+transition returns no actions, so completion effects are not replayed.
+
+After attempting the terminal effects, the runtime becomes `"done"`, cancels
+owned `after` timers and delayed sends, and discards queued events. A completed
+machine actor also stops invoked and manually spawned children, clears its
+child registry, and unregisters from its actor system before the final public
+notification. The terminal snapshot remains readable. `start()` does not
+restart a done runtime; create a new instance. Explicit `stop()` reports
+`"stopped"` and likewise prevents restart.
+
+Async completion cancels and awaits the other interpreter-owned timer tasks.
+When a timer task itself completes the machine, it is allowed to finish rather
+than cancelling or awaiting itself. Pending sends discarded by completion
+resolve to the final snapshot. Their events have not been processed.
+
+If a terminal effect raises, cleanup still runs, the final snapshot and output
+remain committed, and the action exception remains primary even if cleanup also
+fails. Later effects and the final notification are skipped. Completion is a
+chart lifecycle result, not proof that every external effect succeeded.
 
 ## Action Failure And External Completion
 

@@ -175,16 +175,19 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
         history_value = {
             state_id: set(states) for state_id, states in state.history_value.items()
         }
-        result = main_event_loop(
-            configuration,
-            event_object,
-            context,
-            history_value=history_value,
-            context_snapshot=self.context_adapter.snapshot,
-            machine_id=self.id,
-            max_iterations=self.max_iterations,
-            capture_microsteps=capture_microsteps,
-        )
+        if state.status == "done":
+            result = MacrostepResult(configuration, [], context, state.output, ())
+        else:
+            result = main_event_loop(
+                configuration,
+                event_object,
+                context,
+                history_value=history_value,
+                context_snapshot=self.context_adapter.snapshot,
+                machine_id=self.id,
+                max_iterations=self.max_iterations,
+                capture_microsteps=capture_microsteps,
+            )
 
         actions, unknown = self._get_actions(result.actions)
         self._warn_unknown_actions(unknown)
@@ -196,6 +199,7 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
             history_value=history_value,
             output=result.output,
         )
+        next_state._exited_states = result.exited_states
         return next_state, event_object, result
 
     def _build_microstep_traces(
@@ -396,6 +400,7 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
             history_value=history_value,
             output=result.output,
         )
+        state._exited_states = result.exited_states
         return state, init_event, result
 
 

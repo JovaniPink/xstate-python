@@ -32,9 +32,9 @@
       }
     ],
     "expected": [
-      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 999, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 1000, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 999, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 1000, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []}
     ]
   },
   {
@@ -70,9 +70,9 @@
       }
     ],
     "expected": [
-      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 0.25, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 0.5, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 0.25, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 0.5, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []}
     ]
   },
   {
@@ -108,9 +108,9 @@
       }
     ],
     "expected": [
-      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 999, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 1000, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 999, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 1000, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []}
     ]
   },
   {
@@ -142,8 +142,8 @@
       }
     ],
     "expected": [
-      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 0, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 0, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []}
     ]
   },
   {
@@ -182,9 +182,9 @@
       }
     ],
     "expected": [
-      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 999, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 1000, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 999, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 1000, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []}
     ]
   },
   {
@@ -244,11 +244,11 @@
       }
     ],
     "expected": [
-      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 500, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 500, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [{"time": 500, "context": {"n": 0}, "event": {"type": "PING", "source": "outside"}, "params": {"label": "ping"}}], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 749, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 750, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 500, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 500, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [{"time": 500, "context": {"n": 0}, "event": {"type": "PING", "source": "outside"}, "params": {"label": "ping"}}], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 749, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 750, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []}
     ]
   },
   {
@@ -305,9 +305,9 @@
       }
     ],
     "expected": [
-      {"time": 0, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 0, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 0, "value": "done", "context": {"n": 1}, "status": "done", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+      {"time": 0, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 0, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 0, "value": "done", "context": {"n": 1}, "status": "done", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []}
     ]
   },
   {
@@ -390,9 +390,9 @@
       }
     ],
     "expected": [
-      {"time": 0, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 250, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 250, "value": "done", "context": {"n": 1}, "status": "done", "output": null, "actions": [{"time": 250, "context": {"n": 0}, "event": {"type": "GO", "allow": true, "source": "outside"}, "params": {"label": "before"}}, {"time": 250, "context": {"n": 1}, "event": {"type": "GO", "allow": true, "source": "outside"}, "params": {"label": "after"}}, {"time": 250, "context": {"n": 1}, "event": {"type": "INNER"}, "params": {"label": "raised"}}, {"time": 250, "context": {"n": 1}, "event": {"type": "INNER"}, "params": {"label": "eventless"}}], "children": {"active": [], "events": []}, "errors": []}
+      {"time": 0, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 250, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 250, "value": "done", "context": {"n": 1}, "status": "done", "output": null, "actions": [{"time": 250, "context": {"n": 0}, "event": {"type": "GO", "allow": true, "source": "outside"}, "params": {"label": "before"}}, {"time": 250, "context": {"n": 1}, "event": {"type": "GO", "allow": true, "source": "outside"}, "params": {"label": "after"}}, {"time": 250, "context": {"n": 1}, "event": {"type": "INNER"}, "params": {"label": "raised"}}, {"time": 250, "context": {"n": 1}, "event": {"type": "INNER"}, "params": {"label": "eventless"}}], "children": {"ids": [], "events": []}, "errors": []}
     ]
   },
   {
@@ -444,18 +444,11 @@
         }
       }
     ],
-    "known_difference": "WP4: explicit state reentry does not restart Python invoked children; a later real exit does stop the existing child.",
     "expected": [
-      {"time": 0, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": ["worker"], "events": [{"time": 0, "kind": "start", "generation": 1, "input": {"label": "worker"}}]}, "errors": []},
-      {"time": 25, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": ["worker"], "events": []}, "errors": []},
-      {"time": 25, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": ["worker"], "events": [{"time": 25, "kind": "stop", "generation": 1}, {"time": 25, "kind": "start", "generation": 2, "input": {"label": "worker"}}]}, "errors": []},
-      {"time": 25, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": [{"time": 25, "kind": "stop", "generation": 2}]}, "errors": []}
-    ],
-    "expected_python": [
-      {"time": 0, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": ["worker"], "events": [{"time": 0, "kind": "start", "generation": 1, "input": {"label": "worker"}}]}, "errors": []},
-      {"time": 25, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": ["worker"], "events": []}, "errors": []},
-      {"time": 25, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": ["worker"], "events": []}, "errors": []},
-      {"time": 25, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": [{"time": 25, "kind": "stop", "generation": 1}]}, "errors": []}
+      {"time": 0, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": ["worker"], "events": [{"time": 0, "kind": "start", "generation": 1, "input": {"label": "worker"}}]}, "errors": []},
+      {"time": 25, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": ["worker"], "events": []}, "errors": []},
+      {"time": 25, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": ["worker"], "events": [{"time": 25, "kind": "stop", "generation": 1}, {"time": 25, "kind": "start", "generation": 2, "input": {"label": "worker"}}]}, "errors": []},
+      {"time": 25, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": [{"time": 25, "kind": "stop", "generation": 2}]}, "errors": []}
     ]
   },
   {
@@ -495,14 +488,14 @@
     ],
     "known_difference": "JavaScript Object.keys puts canonical integer keys before named keys; Python preserves JSON declaration order. Equal-deadline transitions therefore select different targets.",
     "expected": [
-      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 999, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 1000, "value": "numeric", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 999, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 1000, "value": "numeric", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []}
     ],
     "expected_python": [
-      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 999, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 1000, "value": "named", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 999, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 1000, "value": "named", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []}
     ]
   },
   {
@@ -538,12 +531,12 @@
     ],
     "known_difference": "Native SimulatedClock semantics differ: JS advances now before firing, scheduling the next delay from 1500; Python fires at each deadline and reaches the second deadline at 1500.",
     "expected": [
-      {"time": 0, "value": "first", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 1500, "value": "second", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+      {"time": 0, "value": "first", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 1500, "value": "second", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []}
     ],
     "expected_python": [
-      {"time": 0, "value": "first", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 1500, "value": "third", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+      {"time": 0, "value": "first", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 1500, "value": "third", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []}
     ]
   },
   {
@@ -572,10 +565,432 @@
     ],
     "known_difference": "An unregistered descriptive delay fails explicitly in Python. XState 5.33.4 queues the after event immediately when its delay resolves to undefined. This is a diagnostic boundary, not requested parity.",
     "expected": [
-      {"time": 0, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+      {"time": 0, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []}
     ],
     "expected_python": [
-      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": [{"type": "UnregisteredImplementationError", "message": "Delay 'MISSING' is not configured. Pass it via Machine(config, delays={'MISSING': ...})."}]}
+      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": [{"type": "UnregisteredImplementationError", "message": "Delay 'MISSING' is not configured. Pass it via Machine(config, delays={'MISSING': ...})."}]}
+    ]
+  },
+  {
+    "id": "after-explicit-reentry-reset",
+    "chart": {
+      "id": "reentry-timer",
+      "context": {
+        "n": 0
+      },
+      "initial": "active",
+      "states": {
+        "active": {
+          "after": {
+            "1000": "elapsed"
+          },
+          "on": {
+            "RESET": {
+              "target": "active",
+              "reenter": true
+            }
+          }
+        },
+        "elapsed": {}
+      }
+    },
+    "commands": [
+      {
+        "type": "start"
+      },
+      {
+        "type": "advance",
+        "ms": 400
+      },
+      {
+        "type": "send",
+        "event": {
+          "type": "RESET"
+        }
+      },
+      {
+        "type": "advance",
+        "ms": 600
+      },
+      {
+        "type": "advance",
+        "ms": 399
+      },
+      {
+        "type": "advance",
+        "ms": 1
+      }
+    ],
+    "expected": [
+      {"time": 0, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 400, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 400, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 1000, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 1399, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 1400, "value": "elapsed", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []}
+    ]
+  },
+  {
+    "id": "after-retained-targetless-and-self",
+    "chart": {
+      "id": "retained-timer",
+      "context": {
+        "n": 0
+      },
+      "initial": "active",
+      "states": {
+        "active": {
+          "invoke": {
+            "id": "worker",
+            "src": "worker",
+            "input": {
+              "label": "retained"
+            }
+          },
+          "after": {
+            "1000": "elapsed"
+          },
+          "on": {
+            "PING": {
+              "actions": "increment"
+            },
+            "SELF": {
+              "target": "active",
+              "reenter": false,
+              "actions": "increment"
+            }
+          }
+        },
+        "elapsed": {}
+      }
+    },
+    "commands": [
+      {
+        "type": "start"
+      },
+      {
+        "type": "advance",
+        "ms": 400
+      },
+      {
+        "type": "send",
+        "event": {
+          "type": "PING"
+        }
+      },
+      {
+        "type": "send",
+        "event": {
+          "type": "SELF"
+        }
+      },
+      {
+        "type": "advance",
+        "ms": 599
+      },
+      {
+        "type": "advance",
+        "ms": 1
+      }
+    ],
+    "expected": [
+      {"time": 0, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": ["worker"], "events": [{"time": 0, "kind": "start", "generation": 1, "input": {"label": "retained"}}]}, "errors": []},
+      {"time": 400, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": ["worker"], "events": []}, "errors": []},
+      {"time": 400, "value": "active", "context": {"n": 1}, "status": "active", "output": null, "actions": [], "children": {"ids": ["worker"], "events": []}, "errors": []},
+      {"time": 400, "value": "active", "context": {"n": 2}, "status": "active", "output": null, "actions": [], "children": {"ids": ["worker"], "events": []}, "errors": []},
+      {"time": 999, "value": "active", "context": {"n": 2}, "status": "active", "output": null, "actions": [], "children": {"ids": ["worker"], "events": []}, "errors": []},
+      {"time": 1000, "value": "elapsed", "context": {"n": 2}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": [{"time": 1000, "kind": "stop", "generation": 1}]}, "errors": []}
+    ]
+  },
+  {
+    "id": "after-retained-parent-on-child-transition",
+    "chart": {
+      "id": "retained-parent-timer",
+      "context": {
+        "n": 0
+      },
+      "initial": "active",
+      "states": {
+        "active": {
+          "invoke": {
+            "id": "worker",
+            "src": "worker",
+            "input": {
+              "label": "retained-parent"
+            }
+          },
+          "after": {
+            "1000": "elapsed"
+          },
+          "initial": "first",
+          "states": {
+            "first": {},
+            "second": {}
+          },
+          "on": {
+            "MOVE": {
+              "target": ".second",
+              "reenter": false,
+              "actions": "increment"
+            }
+          }
+        },
+        "elapsed": {}
+      }
+    },
+    "commands": [
+      {
+        "type": "start"
+      },
+      {
+        "type": "advance",
+        "ms": 400
+      },
+      {
+        "type": "send",
+        "event": {
+          "type": "MOVE"
+        }
+      },
+      {
+        "type": "advance",
+        "ms": 599
+      },
+      {
+        "type": "advance",
+        "ms": 1
+      }
+    ],
+    "expected": [
+      {"time": 0, "value": {"active": "first"}, "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": ["worker"], "events": [{"time": 0, "kind": "start", "generation": 1, "input": {"label": "retained-parent"}}]}, "errors": []},
+      {"time": 400, "value": {"active": "first"}, "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": ["worker"], "events": []}, "errors": []},
+      {"time": 400, "value": {"active": "second"}, "context": {"n": 1}, "status": "active", "output": null, "actions": [], "children": {"ids": ["worker"], "events": []}, "errors": []},
+      {"time": 999, "value": {"active": "second"}, "context": {"n": 1}, "status": "active", "output": null, "actions": [], "children": {"ids": ["worker"], "events": []}, "errors": []},
+      {"time": 1000, "value": "elapsed", "context": {"n": 1}, "status": "active", "output": null, "actions": [], "children": {"ids": [], "events": [{"time": 1000, "kind": "stop", "generation": 1}]}, "errors": []}
+    ]
+  },
+  {
+    "id": "final-completion-stops-work",
+    "chart": {
+      "id": "terminal",
+      "context": {
+        "n": 0
+      },
+      "initial": "working",
+      "after": {
+        "1000": {
+          "actions": "increment"
+        }
+      },
+      "on": {
+        "PING": {
+          "actions": [
+            "increment",
+            {
+              "type": "record",
+              "params": {
+                "label": "unexpected-ping"
+              }
+            }
+          ]
+        },
+        "REOPEN": {
+          "target": ".working",
+          "actions": "increment"
+        }
+      },
+      "states": {
+        "working": {
+          "invoke": {
+            "id": "worker",
+            "src": "worker",
+            "input": {
+              "label": "completion"
+            }
+          },
+          "on": {
+            "FINISH": {
+              "target": "done",
+              "actions": {
+                "type": "record",
+                "params": {
+                  "label": "finishing"
+                }
+              }
+            }
+          }
+        },
+        "done": {
+          "type": "final",
+          "entry": {
+            "type": "record",
+            "params": {
+              "label": "finished"
+            }
+          }
+        }
+      }
+    },
+    "commands": [
+      {
+        "type": "start"
+      },
+      {
+        "type": "advance",
+        "ms": 25
+      },
+      {
+        "type": "send",
+        "event": {
+          "type": "FINISH"
+        }
+      },
+      {
+        "type": "send",
+        "event": {
+          "type": "PING"
+        }
+      },
+      {
+        "type": "advance",
+        "ms": 975
+      },
+      {
+        "type": "send",
+        "event": {
+          "type": "REOPEN"
+        }
+      }
+    ],
+    "expected": [
+      {"time": 0, "value": "working", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": ["worker"], "events": [{"time": 0, "kind": "start", "generation": 1, "input": {"label": "completion"}}]}, "errors": []},
+      {"time": 25, "value": "working", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": ["worker"], "events": []}, "errors": []},
+      {"time": 25, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [{"time": 25, "context": {"n": 0}, "event": {"type": "FINISH"}, "params": {"label": "finishing"}}, {"time": 25, "context": {"n": 0}, "event": {"type": "FINISH"}, "params": {"label": "finished"}}], "children": {"ids": [], "events": [{"time": 25, "kind": "stop", "generation": 1}]}, "errors": []},
+      {"time": 25, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 1000, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 1000, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []}
+    ]
+  },
+  {
+    "id": "initial-final-ignores-work",
+    "chart": {
+      "id": "initial-terminal",
+      "context": {
+        "n": 0
+      },
+      "initial": "done",
+      "after": {
+        "1000": {
+          "actions": "increment"
+        }
+      },
+      "on": {
+        "PING": {
+          "actions": "increment"
+        }
+      },
+      "states": {
+        "done": {
+          "type": "final"
+        }
+      }
+    },
+    "commands": [
+      {
+        "type": "start"
+      },
+      {
+        "type": "send",
+        "event": {
+          "type": "PING"
+        }
+      },
+      {
+        "type": "advance",
+        "ms": 1000
+      }
+    ],
+    "expected": [
+      {"time": 0, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 0, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 1000, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []}
+    ]
+  },
+  {
+    "id": "completed-root-invocation-reference",
+    "chart": {
+      "id": "root-terminal",
+      "context": {
+        "n": 0
+      },
+      "invoke": {
+        "id": "worker",
+        "src": "worker",
+        "input": {
+          "label": "root"
+        }
+      },
+      "after": {
+        "1000": {
+          "actions": "increment"
+        }
+      },
+      "on": {
+        "PING": {
+          "actions": "increment"
+        }
+      },
+      "initial": "working",
+      "states": {
+        "working": {
+          "on": {
+            "FINISH": "done"
+          }
+        },
+        "done": {
+          "type": "final"
+        }
+      }
+    },
+    "commands": [
+      {
+        "type": "start"
+      },
+      {
+        "type": "advance",
+        "ms": 25
+      },
+      {
+        "type": "send",
+        "event": {
+          "type": "FINISH"
+        }
+      },
+      {
+        "type": "send",
+        "event": {
+          "type": "PING"
+        }
+      },
+      {
+        "type": "advance",
+        "ms": 975
+      }
+    ],
+    "known_difference": "Completed XState snapshots retain stopped root-invocation references; Python removes completed actor children. Both invoke callback cleanup exactly once and ignore later events.",
+    "expected": [
+      {"time": 0, "value": "working", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": ["worker"], "events": [{"time": 0, "kind": "start", "generation": 1, "input": {"label": "root"}}]}, "errors": []},
+      {"time": 25, "value": "working", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": ["worker"], "events": []}, "errors": []},
+      {"time": 25, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": ["worker"], "events": [{"time": 25, "kind": "stop", "generation": 1}]}, "errors": []},
+      {"time": 25, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": ["worker"], "events": []}, "errors": []},
+      {"time": 1000, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": ["worker"], "events": []}, "errors": []}
+    ],
+    "expected_python": [
+      {"time": 0, "value": "working", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": ["worker"], "events": [{"time": 0, "kind": "start", "generation": 1, "input": {"label": "root"}}]}, "errors": []},
+      {"time": 25, "value": "working", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"ids": ["worker"], "events": []}, "errors": []},
+      {"time": 25, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": [], "events": [{"time": 25, "kind": "stop", "generation": 1}]}, "errors": []},
+      {"time": 25, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []},
+      {"time": 1000, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"ids": [], "events": []}, "errors": []}
     ]
   }
 ]

@@ -41,10 +41,18 @@ Every command records these fields:
 - `value`, `context`, `status`, `output`: the resulting machine snapshot.
 - `actions`: ordered action observations during that command, including time,
   context, triggering event, and declared parameters.
-- `children`: active child IDs in runtime order and ordered callback
-  start/cleanup observations, including their generation and logical time.
+- `children.ids`: child-reference keys in runtime order, from Python's
+  `actor.children` or JavaScript's `snapshot.children`.
+- `children.events`: ordered callback start/cleanup observations, including
+  their generation and logical time.
 - `errors`: command failures, with exact class/name and message. A failing
   command ends that scenario; an exception is never treated as a passing skip.
+
+`children.ids` replaces the former `children.active` name without changing or
+filtering its values. JavaScript can retain a stopped child reference in a
+completed snapshot; the name therefore does not imply that every listed child
+is running. Cleanup is observed separately, and the retained-reference
+difference has an exact fixture below.
 
 Only the following representation adapters are applied:
 
@@ -68,12 +76,13 @@ and their matching cleanups.
 
 No adapter changes chart targets, state order, actions, timer resolution, or
 execution semantics. The runners do not sort action or child observations.
-Cleanup after the last command is resource teardown, outside the trace; the
-child fixture explicitly exits its invoking state and checks that cleanup.
+Cleanup after the last command is resource teardown, outside the trace. The
+child fixtures check cleanup during re-entry, state exit, or completion before
+that teardown.
 
 ## What is covered
 
-The corpus contains **12 scenarios and 35 commands**, with **8 required-parity
+The corpus contains **18 scenarios and 66 commands**, with **14 required-parity
 cases** below and **4 exact known differences** in the next section.
 
 | Fixture | Required observation |
@@ -86,9 +95,15 @@ cases** below and **4 exact known differences** in the next section.
 | `named-delay` | `WAIT` resolves to 750 ms; an intervening external event records its arguments at 500 ms. |
 | `guard-assign-raise-eventless` | A false guard prevents movement; an accepted event assigns, raises, and completes through an eventless transition. |
 | `causal-action-arguments` | Records before/after assignment see `n=0`/`n=1`; actions caused by raised and subsequent eventless transitions see `INNER`, with their declared parameters. |
+| `callback-child-reentry` | Re-entry stops child generation 1 and starts generation 2; the later exit cleans up generation 2. |
+| `after-explicit-reentry-reset` | Re-entry at 400 ms replaces the original 1,000 ms deadline with 1,400 ms. |
+| `after-retained-targetless-and-self` | Targetless and explicit `reenter: false` self-transitions retain the original timer and child; expiry occurs at 1,000 ms. |
+| `after-retained-parent-on-child-transition` | A descendant transition retains the parent's timer and child until expiry at 1,000 ms. |
+| `final-completion-stops-work` | Completion runs its effects and child cleanup; later events, the original timer deadline, and a reopening transition have no effect. |
+| `initial-final-ignores-work` | An initially final machine ignores later events and timer work. |
 
-The causal case was promoted from a known difference without changing its
-XState expectations. Both runtimes must now match that same oracle. These
+The causal and child-reentry cases were promoted from known differences without
+changing their XState expectations. Both runtimes must match those oracles. These
 examples establish the listed sequences; they do not establish full JavaScript
 `Number` coercion, arbitrary multiple-timer parity, or a general actor contract.
 
@@ -102,16 +117,21 @@ documents that ownership boundary.
 
 | Fixture | Python observation | Pinned JS observation |
 |---|---|---|
-| `callback-child-reentry` | Explicit reentry retains child generation 1; a later exit cleans it up. | Reentry cleans up generation 1 and starts generation 2; the later exit cleans up generation 2. |
 | `tied-delay-key-order` | JSON declaration order schedules `WAIT` first and reaches `named`. | JS object enumeration schedules numeric key `1000` first and reaches `numeric`. |
 | `coarse-clock-cascade` | One 1,500 ms increment fires at 1,000 and 1,500, reaching `third`. | The clock advances to 1,500 before firing; the next 500 ms timer is due at 2,000, leaving `second`. |
 | `missing-named-delay` | Startup raises `UnregisteredImplementationError`. | An undefined delay queues the after event immediately and reaches `done`. |
+| `completed-root-invocation-reference` | Completion stops the root-invoked worker and removes its ID from `actor.children`. | Completion stops the worker but retains its stopped reference in `snapshot.children`. |
 
-Re-entry and final completion are the next lifecycle priorities. The child
-fixture captures one re-entry difference; it does not prove completion,
-timer reset, or all resource cleanup. The missing-delay case records an
-intentional diagnostic boundary; matching JS's immediate transition is not a
-requirement for this Python fix.
+The root-invocation case requires identical cleanup and ignored-event behavior;
+its difference is the retained reference, not a running child or failed cleanup.
+The missing-delay case records an intentional diagnostic boundary; matching JS's
+immediate transition is not a requirement for this Python implementation.
+
+The completion fixtures check observable behavior beyond the original timer
+deadlines. They do not inspect timer allocations. Python lifecycle regressions
+separately verify timer cancellation and owned-task cleanup. Startup ordering
+and ordinary invocation/delay argument timing remain outside the claimed parity
+subset; see the [compatibility limits](../../../docs/concepts/xstate-compatibility.md#current-evidence-limits).
 
 Both runners use their own **native `SimulatedClock`**. Parity cases advance to
 timer boundaries. The separate coarse-clock fixture makes their differing

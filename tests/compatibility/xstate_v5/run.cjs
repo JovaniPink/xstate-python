@@ -47,7 +47,7 @@ function run(fixture) {
       steps.push(clone({
         time: clock.now(), value: snapshot.value, context: snapshot.context,
         status: snapshot.status, output: snapshot.output ?? null,
-        actions, children: { active: Object.keys(snapshot.children), events: children },
+        actions, children: { ids: Object.keys(snapshot.children), events: children },
         errors,
       }));
       if (errors.length) break;
