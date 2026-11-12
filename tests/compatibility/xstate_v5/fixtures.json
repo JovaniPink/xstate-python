@@ -389,16 +389,10 @@
         }
       }
     ],
-    "known_difference": "WP3: Python deferred actions observe final context and the outer event; XState actions observe context/event at their execution position.",
     "expected": [
       {"time": 0, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
       {"time": 250, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
       {"time": 250, "value": "done", "context": {"n": 1}, "status": "done", "output": null, "actions": [{"time": 250, "context": {"n": 0}, "event": {"type": "GO", "allow": true, "source": "outside"}, "params": {"label": "before"}}, {"time": 250, "context": {"n": 1}, "event": {"type": "GO", "allow": true, "source": "outside"}, "params": {"label": "after"}}, {"time": 250, "context": {"n": 1}, "event": {"type": "INNER"}, "params": {"label": "raised"}}, {"time": 250, "context": {"n": 1}, "event": {"type": "INNER"}, "params": {"label": "eventless"}}], "children": {"active": [], "events": []}, "errors": []}
-    ],
-    "expected_python": [
-      {"time": 0, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 250, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
-      {"time": 250, "value": "done", "context": {"n": 1}, "status": "done", "output": null, "actions": [{"time": 250, "context": {"n": 1}, "event": {"type": "GO", "allow": true, "source": "outside"}, "params": {"label": "before"}}, {"time": 250, "context": {"n": 1}, "event": {"type": "GO", "allow": true, "source": "outside"}, "params": {"label": "after"}}, {"time": 250, "context": {"n": 1}, "event": {"type": "GO", "allow": true, "source": "outside"}, "params": {"label": "raised"}}, {"time": 250, "context": {"n": 1}, "event": {"type": "GO", "allow": true, "source": "outside"}, "params": {"label": "eventless"}}], "children": {"active": [], "events": []}, "errors": []}
     ]
   },
   {

@@ -73,6 +73,9 @@ child fixture explicitly exits its invoking state and checks that cleanup.
 
 ## What is covered
 
+The corpus contains **12 scenarios and 35 commands**, with **8 required-parity
+cases** below and **4 exact known differences** in the next section.
+
 | Fixture | Required observation |
 |---|---|
 | `numeric-delay` | Literal `after: {"1000": "done"}` stays pending at 999 and completes at 1,000 ms. |
@@ -82,23 +85,33 @@ child fixture explicitly exits its invoking state and checks that cleanup.
 | `numeric-delay-registry-collision` | The numeric after key wins over a same-named 2,000 ms registry entry. |
 | `named-delay` | `WAIT` resolves to 750 ms; an intervening external event records its arguments at 500 ms. |
 | `guard-assign-raise-eventless` | A false guard prevents movement; an accepted event assigns, raises, and completes through an eventless transition. |
+| `causal-action-arguments` | Records before/after assignment see `n=0`/`n=1`; actions caused by raised and subsequent eventless transitions see `INNER`, with their declared parameters. |
 
-These numeric examples establish the listed cases. They do not establish full
-JavaScript `Number` coercion compatibility or arbitrary multiple-timer parity.
+The causal case was promoted from a known difference without changing its
+XState expectations. Both runtimes must now match that same oracle. These
+examples establish the listed sequences; they do not establish full JavaScript
+`Number` coercion, arbitrary multiple-timer parity, or a general actor contract.
+
+Python captures action context through its configured `ContextAdapter`; the
+event and parameters remain references. This fixture observes JSON values and
+does not compare object identity or mutation between effects. The
+[Python handler contract](../../../docs/concepts/machines-and-implementations.md#action-arguments-and-migration)
+documents that ownership boundary.
 
 ## Exact known differences
 
 | Fixture | Python observation | Pinned JS observation |
 |---|---|---|
-| `causal-action-arguments` | Deferred actions see final context and the outer event. | Actions see the context and event at their position, including `INNER` for the raised/eventless steps. |
 | `callback-child-reentry` | Explicit reentry retains child generation 1; a later exit cleans it up. | Reentry cleans up generation 1 and starts generation 2; the later exit cleans up generation 2. |
 | `tied-delay-key-order` | JSON declaration order schedules `WAIT` first and reaches `named`. | JS object enumeration schedules numeric key `1000` first and reaches `numeric`. |
 | `coarse-clock-cascade` | One 1,500 ms increment fires at 1,000 and 1,500, reaching `third`. | The clock advances to 1,500 before firing; the next 500 ms timer is due at 2,000, leaving `second`. |
 | `missing-named-delay` | Startup raises `UnregisteredImplementationError`. | An undefined delay queues the after event immediately and reaches `done`. |
 
-The first two are the action and lifecycle work packages in the proposed
-roadmap. The missing-delay case records an intentional diagnostic boundary;
-matching JS's immediate transition is not a requirement for this Python fix.
+Re-entry and final completion are the next lifecycle priorities. The child
+fixture captures one re-entry difference; it does not prove completion,
+timer reset, or all resource cleanup. The missing-delay case records an
+intentional diagnostic boundary; matching JS's immediate transition is not a
+requirement for this Python fix.
 
 Both runners use their own **native `SimulatedClock`**. Parity cases advance to
 timer boundaries. The separate coarse-clock fixture makes their differing
