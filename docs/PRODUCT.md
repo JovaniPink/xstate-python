@@ -8,12 +8,17 @@ milestone.
 ## Product Thesis
 
 `xstate-python` is a Python implementation of XState-style statecharts with
-native XState/Stately JSON compatibility and an SCXML-style execution core.
+an explicitly tested data-only XState subset and an SCXML-style execution core.
 
 The short pitch:
 
-> Design a statechart in Stately, share the JSON with Python, and run it with
-> predictable statechart semantics.
+> Share a supported statechart definition between JavaScript and Python, with
+> executable evidence of where their behavior agrees and where it differs.
+
+The [compatibility contract](concepts/xstate-compatibility.md) pins the reference
+runtime and records exact observations. Its synthetic fixtures do not yet prove
+that representative Stately exports run unchanged. That remains an adoption
+gate, alongside action arguments, actor lifecycles, and snapshot behavior.
 
 The bet is not to out-feature every Python FSM package. The bet is to own the
 bridge between XState's JSON ecosystem and Python backends.
@@ -24,7 +29,7 @@ bridge between XState's JSON ecosystem and Python backends.
 |---|---|
 | Packaging | Python 3.13+ source and wheel metadata are prepared for 0.7.1; package-index name and ownership remain unresolved |
 | Core transition API | `Machine(config).transition(state, event)` |
-| XState JSON | Native Python dict / JSON-compatible config boundary |
+| XState JSON | Dict/JSON boundary with a pinned, fixture-level compatibility contract and explicit known differences |
 | Parser architecture | Typed schema + normalization/parser layer |
 | Handler adaptation | Build-time `HandlerAdapter`; legacy signatures still supported |
 | Setup API | `setup(...).create_machine(...)` exists for stricter named implementations |
@@ -77,6 +82,25 @@ bridge between XState's JSON ecosystem and Python backends.
 The strongest adoption story is a team already using XState or Stately in
 JavaScript and wanting the same machine shape in Python services.
 
+## Decisions Challenged By Current Evidence
+
+The immediate product is the shared-definition bridge. Developer tools and a
+restartable workflow host are separate capability milestones: the bridge must
+be useful and independently testable before either expands its obligations.
+The broader proposal remains in [planning PR #59](https://github.com/JovaniPink/xstate-python/pull/59).
+
+| Assumption | Evidence needed before expanding the claim |
+|---|---|
+| Loading XState-shaped JSON establishes equivalent behavior | Exact cross-runtime observations, including action arguments, lifecycle, and timing; matching snapshots alone are insufficient |
+| More tests make the library more useful | Every advertised fixture passes, known differences are tracked, and one consumer can share a definition without rewriting its control flow |
+| A workflow host is the natural next feature | A concrete consumer needs restart/recovery beyond the core, and the host's transaction, effect, and operator responsibilities have an owner |
+| An independent name creates differentiation | A demonstrated shared-definition use case, maintained compatibility evidence, and confirmed distribution ownership |
+
+These are delivery gates, not demonstrated customer demand. A real shared chart
+from a representative editor export or application is the next adoption
+experiment. Equivalent named implementations are still required on each side;
+sharing the chart does not make arbitrary JavaScript functions portable.
+
 ## Completed Milestones
 
 | Milestone | Result |
@@ -90,6 +114,9 @@ JavaScript and wanting the same machine shape in Python services.
 
 | Priority | Work |
 |---|---|
+| Immediate | Land the numeric JSON delay fix and pinned comparison contract; retain exact known-divergence fixtures |
+| Next | Repair causal action arguments, then re-entry/completion lifecycle, using those fixtures as acceptance gates |
+| Next | Validate one representative shared chart with a consumer; measure unchanged structure and matching observable behavior |
 | High | Resolve the package-index name and prove publication ownership before enabling release publishing |
 | High | Expand SCXML coverage beyond the configured subset without adding JavaScript evaluation |
 | Medium | Inspector protocol compatibility |
@@ -101,10 +128,11 @@ JavaScript and wanting the same machine shape in Python services.
 | Metric | Near-term target |
 |---|---|
 | Package distribution | An approved package name installs the reviewed 0.7.1 artifact after ownership and publication are verified |
-| Primary test count | Maintain 300+ focused tests |
+| Compatibility evidence | Every advertised fixture passes against the pinned reference; any unexpected mismatch or stale known difference fails CI |
+| Shared-definition adoption | One representative consumer chart loads unchanged in both runtimes with explicit equivalent bindings and matching observations |
 | SCXML pass rate | Keep the configured 57-case suite green while expanding supported coverage |
 | Docs | Keep every public runtime boundary represented by a maintained concept guide |
-| Examples | Keep JSON, sync, async, actor, persistence, and SCXML runners green in CI; add framework integrations next |
+| Examples | Keep JSON, sync, async, actor, persistence, and SCXML runners green in CI; add adapters only for a demonstrated consumer need |
 
 ## Maintenance Notes
 

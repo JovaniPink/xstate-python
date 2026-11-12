@@ -6,6 +6,8 @@ match the runtime boundary you need:
 
 - [Machines and implementations](./concepts/machines-and-implementations.md):
   XState JSON, events, actions, guards, delays, `setup()`, and pure transitions.
+- [XState compatibility](./concepts/xstate-compatibility.md): the pinned
+  comparison contract, numeric JSON delays, migration, and known differences.
 - [Runtime choices](./concepts/runtimes.md): `Machine.transition`, the sync and
   async interpreters, actors, subscriptions, clocks, and run-to-completion.
 - [Actors](./concepts/actors.md): actor lifecycle, invocation, actor logic,

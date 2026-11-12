@@ -22,6 +22,27 @@ jobs:
         run: poetry install
       - name: Run tests
         run: poetry run pytest tests/ --ignore=tests/test_scxml.py --cov --cov-report=xml
+  xstate-v5-compatibility:
+    name: XState v5 compatibility contract
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24.22.1"
+      - name: Install Poetry
+        run: python -m pip install "poetry==2.4.1"
+      - name: Install Python dependencies
+        run: poetry install
+      - name: Install pinned JavaScript reference
+        run: npm ci --prefix tests/compatibility/xstate_v5 --ignore-scripts --no-audit --no-fund
+      - name: Compare shared JSON in both runtimes
+        run: poetry run python scripts/compare_xstate_v5.py
   scxml-smoke:
     name: SCXML smoke
     runs-on: ubuntu-latest
