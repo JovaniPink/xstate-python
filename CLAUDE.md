@@ -144,7 +144,7 @@ boundary.
 | 0.6.0 | Setup & parity | `setup()`, composable guards (`and_`/`or_`/`not_`), snapshot serialization |
 | 0.7.0 | Snapshot and action parity | State `tags` + `meta`, `hasTag()`, `stateIn` guard, `choose`/`pure` actions, Mermaid diagrams |
 | 0.7.1 | SCXML release hardening | Vendored fixture subset, expanded parallel conformance, safe integer-data subset |
-| 0.8.0+ | Next parity + internals | `enqueueActions`, `reenter`, `stopChild`, dynamic `sendTo`, wildcard event descriptors, graph/test helpers, inspector protocol, `ParamSpec` handler typing |
+| 0.8.0+ | Next parity + internals | `enqueueActions`, `reenter`, `stopChild`, dynamic `sendTo`, graph/test helpers, inspector protocol, `ParamSpec` handler typing |
 
 The differentiating niche: **XState / Stately.ai JSON compatibility** — neither `transitions`
 nor `python-statemachine` accepts XState JSON natively.
@@ -182,6 +182,8 @@ Targets drawn from XState v5 (https://stately.ai/docs/xstate) and the Python sta
 landscape (`transitions`, `python-statemachine`, `Sismic`). Ranked by parity value × differentiation.
 
 **Already on master:**
+- **Wildcard event descriptors** — ✅ in 0.7.1: exact names, partial `UPDATE.*`, and `*` catch-all with exact/longest-prefix precedence.
+- **Traces, target paths, `ActorRef`, bounded macrosteps** — ✅ in 0.7.1: `TransitionTrace`/`MicrostepTrace`/`MacrostepTrace`, sibling-descendant target paths, structural `ActorRef`, and `max_iterations` macrostep bounds (see CHANGELOG).
 - **State `tags`** — ✅ in 0.7.0: `tags: ["loading"]` in config; `state.has_tag("loading")` and `state.hasTag("loading")` on `MachineSnapshot`.
 - **`choose` action** — ✅ in 0.7.0: conditional action selection that runs the first branch whose guard passes.
 - **`pure` action** — ✅ in 0.7.0: a function returning a list of actions to run, with no side effects of its own.
@@ -194,7 +196,6 @@ landscape (`transitions`, `python-statemachine`, `Sismic`). Ranked by parity val
 - **Transition `reenter: true`** — re-enter the source state on a self-transition (vs. internal).
 - **`stopChild` action** — explicitly stop a spawned/invoked actor.
 - **Dynamic `sendTo` targets** — `to=` resolved from `(context, event)`.
-- **Partial event descriptors / wildcard** — `on: {"UPDATE.*": ...}` style matching.
 
 **Differentiators worth owning (gaps in the Python field):**
 - **Graphviz diagram export** — Mermaid export is present; Graphviz remains deferred.
@@ -235,6 +236,22 @@ poetry check --lock
 poetry build
 poetry run python scripts/validate_distribution.py
 ```
+
+---
+
+## Known behaviors to keep in mind
+
+- **Unsupported config keys are silently ignored** (verified 2026-11-12): unknown top-level,
+  state, or transition keys — including the real but unimplemented XState key `reenter` —
+  neither raise nor warn. Invalid targets, `initial`, and state `type` raise
+  `InvalidConfigError` at construction; unregistered guards raise at transition time;
+  unregistered actions only warn; unknown `invoke.src` and `after` delay names are not checked.
+  A construction-time strictness/lint pass is planned (Tier 1); do not change this silently.
+- **Coverage:** CI runs `pytest --cov` with `fail_under = 90`; actual is ~91.7%. When running from a
+  git worktree with an editable install pointing at another checkout, coverage double-counts
+  both source trees and reports ~79% — run with `PYTHONPATH=src` to measure the worktree.
+- **PyPI name:** `xstate` on PyPI is an unrelated 0.0.1 (2021). Publishing under this name is an
+  open owner decision; releases are gated by the `PYPI_PUBLISH_ENABLED` repo variable.
 
 ---
 
@@ -333,7 +350,7 @@ replace `algorithm.py` — evolve it.
 | `python-statemachine` | ~1,200 | W3C SCXML test suite; strong statechart features |
 | `xstate-statemachine` (basiltt) | ~14 | XState JSON compatible; active |
 | `Sismic` | ~163 | Design by Contract; formal verification |
-| `xstate` (this) | 194 | **XState JSON native; SCXML algorithm core** |
+| `xstate` (this fork) | 0 (upstream `statelyai/xstate-python`: ~199, dormant since 2021) | **XState JSON native; SCXML algorithm core** |
 
 Our bet: own native XState JSON compatibility + SCXML algorithm correctness.
 Consider shipping a `SKILL.md` with the library once the 0.7+ public docs settle.
