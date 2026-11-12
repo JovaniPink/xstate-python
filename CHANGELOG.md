@@ -6,6 +6,10 @@ All notable changes to this project will be documented here.
 
 ### Added
 
+- Added a development-only comparison contract using shared JSON, pinned
+  XState 5.33.4 and Node 24.22.1, independent expected observations, and exact
+  known-divergence cases. A separate CI job runs the comparison.
+
 - Added an optional standard-library local inspector for the JSON fetch/retry
   example, with event and simulated-time controls, active-state visualization,
   bounded microstep history, synthetic scenarios, JSON export, and equivalence
@@ -70,6 +74,13 @@ All notable changes to this project will be documented here.
   thread per clock.
 
 ### Fixed
+
+- Numeric JSON `after` keys now schedule millisecond delays in both runtimes.
+  Finite nonnegative decimal/exponent spellings are supported; overflowing
+  numeric keys fail during construction. A numeric key takes precedence over
+  a same-named delay registry entry. Rename numeric registry keys used by
+  `after` to descriptive names when migrating; string delays in `send` keep
+  their registry behavior. See the [compatibility guide](docs/concepts/xstate-compatibility.md).
 
 - Promise actors now pass their input to ordinary positional parameters even
   when the parameter is not named `input`, matching the public callable type.
