@@ -21,3 +21,14 @@ match the runtime boundary you need:
   retry workflow, inspect microsteps, and reproduce direct-execution comparisons.
 - [Runnable examples](./examples/README.md): complete programs exercised by the
   test suite.
+
+## Plans and evidence
+
+- [Statechart and workflow direction](./plans/statechart-workflow-roadmap.md):
+  proposed XState compatibility milestone, structured diagnostics, restoration
+  contracts, scenario tooling, and restartable workflow examples, with ordered
+  work packages and acceptance criteria.
+- [November 12, 2026 evidence](./plans/statechart-workflow-evidence.md): pinned
+  repository observations, baseline test receipts, and runnable Python/JavaScript
+  comparisons supporting that plan. This is a dated audit, not an implementation
+  completion claim.
