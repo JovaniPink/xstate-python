@@ -12,6 +12,11 @@ All notable changes to this project will be documented here.
   now covers 18 scenarios / 66 commands, with 14 required parity cases and four
   exact known differences, including completed child-reference representation.
 
+- Added `find_config_issues(config)` and `ConfigIssue`, and extended
+  `Machine(..., strict=True)` (and therefore `setup(...)`) to reject unknown
+  config keys and real-but-unimplemented XState keys (invoke `autoForward`)
+  with an aggregated `InvalidConfigError`. Transition `reenter` is accepted.
+  The default permissive `Machine(config)` boundary is unchanged.
 - Added an optional standard-library local inspector for the JSON fetch/retry
   example, with event and simulated-time controls, active-state visualization,
   bounded microstep history, synthetic scenarios, JSON export, and equivalence
