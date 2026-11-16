@@ -17,7 +17,8 @@ The short pitch:
 The [compatibility contract](concepts/xstate-compatibility.md) pins the reference
 runtime and records exact observations. Its synthetic fixtures do not yet prove
 that representative Stately exports run unchanged. That remains an adoption
-gate, alongside the remaining actor lifecycle, completion, and snapshot limits.
+gate, alongside the documented argument-timing, startup-order, and persistence
+limits. Re-entry and completion now have fixture-level lifecycle evidence.
 
 The bet is not to out-feature every Python FSM package. The bet is to own the
 bridge between XState's JSON ecosystem and Python backends.
@@ -41,7 +42,9 @@ bridge between XState's JSON ecosystem and Python backends.
 | Async runtime | `AsyncInterpreter` with async start/send/stop, awaitable actions, and event-loop timers |
 | Actor model | `create_actor`, `ActorSystem`, spawn, parent/child tree, `send_parent`, `send_to` |
 | Actor logic | `from_promise`, `from_callback`, `from_observable`, `to_promise` |
-| Invoke | Child actor lifetime reconciliation with `done.invoke.*` and `error.platform.*` events |
+| Re-entry | Boolean `reenter`, defaulting to false for JSON; retained resources survive and exited/re-entered owners reset; explicit legacy/SCXML policy remains available |
+| Invoke | Child reconciliation before public notifications, replacement on owner re-entry, and guarded emissions from replaced invocations |
+| Completion | Terminal machine runtimes retain final snapshots, release owned work, and ignore later events; pure done transitions emit no actions |
 | SCXML XML import | Present; safe Boolean and narrow integer-data subset; configured 57-case suite passes |
 
 ## What Works Today
@@ -105,6 +108,7 @@ sharing the chart does not make arbitrary JavaScript functions portable.
 
 | Milestone | Result |
 |---|---|
+| Shared-runtime contracts | 18 scenarios / 66 commands against pinned XState; 14 required parity cases cover the checked delay, action, re-entry, and completion behavior, with four exact known differences |
 | Parallel transition domains | All 15 configured `more-parallel` cases pass; the configured SCXML suite is `57 passed`, `0 failed` |
 | Concept documentation | Machines, implementations, sync/async runtimes, actors, persistence, and SCXML import are documented |
 | Runnable examples | `docs/examples/` is canonical and every runner has subprocess smoke coverage |
@@ -114,9 +118,9 @@ sharing the chart does not make arbitrary JavaScript functions portable.
 
 | Priority | Work |
 |---|---|
-| Immediate | Repair re-entry and final completion lifecycle, with explicit child cleanup/replacement, timer reset, and terminal behavior acceptance gates |
-| Next | Validate one representative shared chart with a consumer; measure unchanged structure, observable behavior, and context-capture cost |
-| Ongoing | Preserve required parity for numeric JSON delays and causal action arguments; keep four known differences explicit and promote cases only after reviewed fixes |
+| Immediate | Validate one representative shared chart with a consumer; measure unchanged structure, observable behavior, and transition/context-capture cost |
+| Next | Resolve gaps demonstrated by that chart before expanding into a workflow host or more integrations |
+| Ongoing | Preserve all 14 required parity cases; keep four known differences explicit and promote cases only after reviewed fixes |
 | High | Resolve the package-index name and prove publication ownership before enabling release publishing |
 | High | Expand SCXML coverage beyond the configured subset without adding JavaScript evaluation |
 | Medium | Inspector protocol compatibility |
@@ -130,6 +134,7 @@ sharing the chart does not make arbitrary JavaScript functions portable.
 | Package distribution | An approved package name installs the reviewed 0.7.1 artifact after ownership and publication are verified |
 | Compatibility evidence | Every advertised fixture passes against the pinned reference; any unexpected mismatch or stale known difference fails CI |
 | Shared-definition adoption | One representative consumer chart loads unchanged in both runtimes with explicit equivalent bindings and matching observations |
+| Performance evidence | Reproducible measurements for that chart, its context sizes, action counts, context policy, and tracing mode; synthetic fixture success alone does not meet this gate |
 | SCXML pass rate | Keep the configured 57-case suite green while expanding supported coverage |
 | Docs | Keep every public runtime boundary represented by a maintained concept guide |
 | Examples | Keep JSON, sync, async, actor, persistence, and SCXML runners green in CI; add adapters only for a demonstrated consumer need |

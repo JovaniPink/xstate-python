@@ -300,7 +300,14 @@ def convert_state(element: ET.Element, data_ids: frozenset[str]) -> StateNodeCon
 def convert_transition(
     element: ET.Element, data_ids: frozenset[str]
 ) -> TransitionConfig:
-    result: TransitionConfig = {}
+    transition_type = element.attrib.get("type", "external")
+    if transition_type not in ("internal", "external"):
+        raise InvalidConfigError(
+            "SCXML transition type must be 'internal' or 'external'."
+        )
+    result: TransitionConfig = {
+        "type": "internal" if transition_type == "internal" else "external"
+    }
     target = element.attrib.get("target")
     if target is not None:
         result["target"] = [f"#{target_id}" for target_id in target.split()]

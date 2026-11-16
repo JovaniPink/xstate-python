@@ -310,10 +310,10 @@ def test_stop_blocks_late_invocation_reconciliation():
     release_reconciliation = threading.Event()
     original_sync = parent._sync_invocations
 
-    def delayed_sync() -> None:
+    def delayed_sync(exited_states=()) -> None:
         reconciliation_entered.set()
         assert release_reconciliation.wait(timeout=2.0)
-        original_sync()
+        original_sync(exited_states)
 
     parent._sync_invocations = delayed_sync
     sender = threading.Thread(target=parent.send, args=("GO",))

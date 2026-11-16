@@ -36,9 +36,9 @@ The runner README owns the fixture format and the small representation adapters.
 Those adapters do not discard actions or replace causal arguments with final
 context to make the runtimes agree.
 
-The current corpus contains **12 scenarios and 35 commands: 8 required-parity
-cases and 4 exact known differences**. Causal action arguments now use the
-same expected observations in both runtimes.
+The current corpus contains **18 scenarios and 66 commands: 14 required-parity
+cases and 4 exact known differences**. Causal action arguments and invoked-child
+re-entry use the same expected observations in both runtimes.
 
 ## Numeric After Keys
 
@@ -118,6 +118,29 @@ define context ownership. See the [handler contract and context policy](machines
 and the [runtime boundary](runtimes.md#action-arguments-and-committed-state)
 for committed snapshots, delayed sends, and copying costs.
 
+## Re-entry And Completion
+
+JSON transitions default to `reenter: false`. Explicit `reenter: true` resets
+resources owned by a state that exits and re-enters; retained states keep their
+timer deadlines and invoked children. `reenter` must be a Boolean. An explicit
+legacy `type` retains its transition policy when `reenter` is absent, and SCXML
+import preserves its external default. Existing JSON charts that relied on
+implicit external self/descendant transitions need an explicit reset policy;
+see [re-entry migration](machines-and-implementations.md#re-entry-and-migration).
+
+The comparison checks child replacement, timer reset, retained resources on
+targetless/self/descendant transitions, and final completion. Completed machine
+runtimes release their owned work and ignore later events; pure transitions
+from a done snapshot emit no actions. The original child-reentry XState oracle
+is now required for Python too. These fixtures establish the listed lifecycle
+sequences, including initially final machines.
+
+The runner records `children.ids`, preserving each runtime's child-reference
+keys without filtering. A completed XState snapshot can retain a stopped
+root-invocation reference that Python removes. The exact known-difference case
+requires the same cleanup callback and ignored post-completion events on both
+sides; retained-reference representation is distinct from failed cleanup.
+
 ## Current Evidence Limits
 
 The passing fixtures establish the checked command sequences. They do not
@@ -125,12 +148,15 @@ imply general parity for timer ordering, action execution, or actors.
 
 | Boundary | Current limit |
 |---|---|
-| Re-entry and child lifecycle | Explicit re-entry can retain an invoked child rather than replacing it; the comparison retains the observed child start/cleanup sequence |
+| Invocation and delay arguments | Ordinary `invoke.input` and state `after` expressions use committed context and the outer event, not per-entry argument captures |
+| Startup ordering | JavaScript child startup and entry-effect ordering can differ; lifecycle fixture parity does not establish general startup-order parity |
+| Parallel transition domains | Modern `reenter` rules and explicit legacy/SCXML transition-domain rules are separate policies, not globally equivalent |
+| Completed child references | XState can retain stopped root-invocation references in completed snapshots; Python removes the owned children after cleanup |
 | Tied delays | JavaScript enumerates array-index-shaped object keys before other keys; Python preserves declaration order, which can select a different transition at the same deadline |
 | Numeric aliases | Different keys such as `"1000"` and `"1e3"` can share an internal event identity in JavaScript; equivalent-duration multi-key charts are outside the claimed parity subset |
 | Large simulated-time jumps | Python executes chained timers at their due times; JavaScript's simulated clock advances to the target before callbacks. One large jump can produce different states |
 | Missing or unusual delays | Python's missing-name errors and bounded numeric grammar deliberately differ from JavaScript coercion/fallback behavior |
-| Final completion and persistence | A done snapshot alone does not prove child cleanup, terminal runtime behavior, or a complete restartable execution checkpoint |
+| Persistence | Lifecycle checks do not turn a serialized snapshot into a complete restartable execution checkpoint |
 
 For ordinary parity timing fixtures, commands end at explicit deadlines. Known
 clock differences are retained separately; neither clock is rewritten by the
@@ -138,13 +164,12 @@ comparison runner. No universal timer or lifecycle compatibility is claimed.
 
 ## What This Enables Next
 
-The next core improvements are re-entry and final completion. They need
-resource-lifecycle changes and fixtures for child cleanup/replacement, timer
-reset, and terminal runtime behavior. Causal argument parity alone does not
-establish those guarantees.
+The next product gate is a representative application or Stately export that
+runs in both runtimes without rewriting its structure. Supply equivalent named
+implementations, compare observable behavior, and measure transition cost with
+the application's context size and copying policy. Synthetic fixture parity
+does not establish consumer adoption or acceptable application performance.
 
-Before promoting the broader shared-chart product claim, validate a
-representative application or Stately export without rewriting its structure.
 The [product notes](../PRODUCT.md) separate that compatibility milestone from
 an optional workflow host, framework integrations, and package identity work.
 This implements a first slice of [#55](https://github.com/JovaniPink/xstate-python/issues/55)

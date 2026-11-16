@@ -54,6 +54,7 @@ if TYPE_CHECKING:
 __all__ = [
     "NOT_STARTED",
     "RUNNING",
+    "DONE",
     "STOPPED",
     "Subscription",
     "Interpreter",
@@ -63,6 +64,7 @@ __all__ = [
 # Interpreter lifecycle states.
 NOT_STARTED = "not_started"
 RUNNING = "running"
+DONE = "done"
 STOPPED = "stopped"
 
 
@@ -192,8 +194,7 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
                     self._sync_delays()
             if initial_trace is not None:
                 self._inspect_trace(initial_trace)
-            self._execute(state)
-            self._notify(state)
+            self._finish_snapshot(state)
         except BaseException:
             with self._lock:
                 self._event_queue.clear()
@@ -223,7 +224,7 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
     ) -> State[ContextT, EventDataT, OutputT]:
         """Send an event.  Events sent during processing are queued (RTC)."""
         with self._lock:
-            if self._status != RUNNING:
+            if self._status != RUNNING or self.state.status == "done":
                 # Match XState: events before start / after stop are dropped.
                 return self.state
 
@@ -275,8 +276,47 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
 
         if trace is not None:
             self._inspect_trace(trace)
-        self._execute(next_state)
-        self._notify(next_state)
+        self._finish_snapshot(next_state)
+
+    def _finish_snapshot(self, state: State[ContextT, EventDataT, OutputT]) -> None:
+        terminal = state.status == "done"
+        try:
+            try:
+                self._execute(state)
+            except BaseException as effect_error:
+                if terminal:
+                    try:
+                        self._complete()
+                    except BaseException as cleanup_error:
+                        raise effect_error from cleanup_error
+                raise
+            if terminal:
+                self._complete()
+            elif self._actor is not None:
+                self._actor._sync_invocations(state._exited_states)
+            self._notify(state)
+        finally:
+            if terminal:
+                # The committed terminal snapshot owns no ongoing work, even
+                # when one of its final effects raises.
+                try:
+                    self._complete()
+                finally:
+                    with self._lock:
+                        self._listeners.clear()
+
+    def _complete(self) -> None:
+        with self._lock:
+            if self._status != RUNNING:
+                return
+            self._status = DONE
+            for timeout_id in (*self._scheduled.values(), *self._send_timers.values()):
+                self.clock.clear_timeout(timeout_id)
+            self._scheduled.clear()
+            self._send_timers.clear()
+            self._event_queue.clear()
+        if self._actor is not None:
+            self._actor._complete()
 
     # -- subscriptions ------------------------------------------------------
 
@@ -296,7 +336,7 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
             listeners = tuple(self._listeners)
         for listener in listeners:
             with self._lock:
-                if self._status != RUNNING:
+                if self._status not in (RUNNING, DONE):
                     return
             listener(state)
 
@@ -419,13 +459,19 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
         states are cancelled; newly entered states with `after` are scheduled.
         """
         wanted: dict[str, object] = {}
-        for node in self.state.configuration:
+        reset = {
+            event_name
+            for node in self.state._exited_states
+            for _delay_spec, event_name in node.after
+        }
+        nodes = self.state.configuration if self.state.status != "done" else ()
+        for node in sorted(nodes, key=lambda item: item.order):
             for delay_spec, event_name in getattr(node, "after", []):
                 wanted[event_name] = delay_spec
 
         # Cancel timers whose state is no longer active.
         for event_name in list(self._scheduled):
-            if event_name not in wanted:
+            if event_name not in wanted or event_name in reset:
                 self.clock.clear_timeout(self._scheduled.pop(event_name))
 
         # Schedule timers for newly entered delayed transitions.

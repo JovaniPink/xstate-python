@@ -27,6 +27,9 @@ class Transition:
     cond: GuardSpec | None = None
     in_state: Any | None = None
     type: Literal["internal", "external"] = "external"
+    # None selects the explicit legacy/SCXML `type` contract. JSON transitions
+    # otherwise use XState's non-reentering default.
+    reenter: bool | None = None
 
     @property
     def target(self) -> list[StateNode]:

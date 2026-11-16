@@ -48,6 +48,41 @@ actions should be executed automatically. Each action retains the arguments
 captured at its position, even when later assignments change the returned
 snapshot's context.
 
+Once a snapshot is done, further `Machine.transition(snapshot, event)` calls
+preserve its terminal value and output and return no actions. `state.can(event)`
+returns `False`. The transition that first completes the machine includes exit
+effects for the remaining active states, in reverse document order; the final
+configuration remains available for inspection. See
+[runtime completion](runtimes.md#final-completion) for resource cleanup.
+
+## Re-entry And Migration
+
+JSON transitions use XState-style `reenter: false` when neither `reenter` nor
+the legacy `type` field is supplied. For a transition targeting its own state
+or a descendant, the source state remains active. Descendants can still exit
+and enter as the target requires. Resources owned by retained states remain
+running; resources owned by states that actually exit are reconciled.
+
+| Configuration | Transition policy |
+|---|---|
+| `reenter` omitted, `type` omitted | XState-style `reenter: false` |
+| `"reenter": false` | Retain the source for self/descendant targets |
+| `"reenter": true` | Exit and re-enter the source for self/descendant targets, resetting its timers and invoked children |
+| Explicit `"type": "internal"` or `"type": "external"`, with no `reenter` | Preserve the legacy SCXML-style transition-domain rules |
+
+An explicit `reenter` takes precedence over a valid legacy `type`. It must be
+a Boolean: strings, numbers, and `null` raise `InvalidConfigError` with the
+configuration path. A targetless transition still performs its actions without
+exiting its source.
+
+**Migration:** older JSON charts could rely on implicit external behavior for
+self or descendant targets. Use `{"target": "active", "reenter": true}` when
+a self-transition should reset that state. Use an explicit legacy
+`"type": "external"` to preserve the earlier transition-domain policy.
+SCXML import keeps its explicit or default external policy. Modern XState and
+SCXML domain rules can differ in parallel charts; these migration choices are
+not a claim that the two policies are equivalent.
+
 ## Named Implementations
 
 JSON refers to implementations by name. Register those names when constructing

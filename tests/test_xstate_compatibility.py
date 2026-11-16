@@ -37,7 +37,7 @@ def test_duplicate_ids_cannot_overwrite_reference_results():
 
 @pytest.mark.parametrize("key", ["expected", "expected_python"])
 def test_every_command_requires_an_expected_observation(key):
-    fixture = deepcopy(FIXTURES["callback-child-reentry"])
+    fixture = deepcopy(FIXTURES["tied-delay-key-order"])
     fixture[key].pop()
     with pytest.raises(ValueError, match=f"{key} must contain one observation"):
         comparison.validate_fixtures([fixture])
@@ -64,7 +64,7 @@ def test_causal_action_argument_drift_names_the_field():
 
 
 def test_fixed_known_gap_requires_explicit_promotion():
-    fixture = FIXTURES["callback-child-reentry"]
+    fixture = FIXTURES["tied-delay-key-order"]
     failures = comparison.check_fixture(
         fixture, fixture["expected"], fixture["expected"]
     )

@@ -148,7 +148,7 @@ def test_external_region_transition_reenters_parallel_siblings():
                     "states": {
                         "a": {
                             "initial": "a1",
-                            "on": {"RESET_A": "#a1"},
+                            "on": {"RESET_A": {"target": "#a1", "type": "external"}},
                             "states": {
                                 "a1": {"id": "a1"},
                                 "a2": {},
@@ -185,7 +185,7 @@ def test_external_region_transition_reenters_parallel_siblings():
     service.stop()
 
 
-def test_atomic_self_transition_does_not_cycle_parallel_parent_or_sibling():
+def test_legacy_atomic_self_does_not_cycle_parallel_parent_or_sibling():
     calls: list[str] = []
     machine = Machine(
         {
@@ -201,7 +201,7 @@ def test_atomic_self_transition_does_not_cycle_parallel_parent_or_sibling():
                             "id": "a",
                             "entry": lambda: calls.append("enterA"),
                             "exit": lambda: calls.append("exitA"),
-                            "on": {"RESET": "#a"},
+                            "on": {"RESET": {"target": "#a", "type": "external"}},
                         },
                         "b": {
                             "id": "b",
@@ -228,7 +228,7 @@ def test_atomic_self_transition_does_not_cycle_parallel_parent_or_sibling():
 def _parallel_conflict_machine(first_region: str) -> Machine:
     a = {
         "initial": "a1",
-        "on": {"T": "#a2"},
+        "on": {"T": {"target": "#a2", "type": "external"}},
         "states": {
             "a1": {},
             "a2": {"id": "a2"},
@@ -282,7 +282,7 @@ def test_parallel_conflict_with_nested_target_reenters_sibling_initial_state():
                     "states": {
                         "a": {
                             "initial": "a1",
-                            "on": {"T": "#a22"},
+                            "on": {"T": {"target": "#a22", "type": "external"}},
                             "states": {
                                 "a1": {
                                     "initial": "a11",

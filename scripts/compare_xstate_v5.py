@@ -157,7 +157,7 @@ def run_python(fixture: dict[str, Any]) -> list[dict[str, Any]]:
                         "output": snapshot.output,
                         "actions": actions,
                         "children": {
-                            "active": list(actor.children),
+                            "ids": list(actor.children),
                             "events": children,
                         },
                         "errors": errors,

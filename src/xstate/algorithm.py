@@ -62,6 +62,7 @@ class MacrostepResult[ContextT, OutputT](NamedTuple):
     context: ContextT
     output: OutputT | None
     microsteps: tuple[AlgorithmMicrostep[ContextT, OutputT], ...]
+    exited_states: tuple[StateNode, ...] = ()
 
 
 class ExitResult[ContextT](NamedTuple):
@@ -122,7 +123,13 @@ def compute_entry_set(
         for s in get_effective_target_states(t, history_value=history_value):
             add_ancestor_states_to_enter(
                 s,
-                ancestor=ancestor,
+                ancestor=(
+                    ancestor.parent
+                    if t.reenter is not None
+                    and is_parallel_state(ancestor)
+                    and ancestor is not None
+                    else ancestor
+                ),
                 states_to_enter=states_to_enter,
                 states_for_default_entry=states_for_default_entry,
                 default_history_content=default_history_content,
@@ -269,6 +276,16 @@ def get_transition_domain(
     tstates = get_effective_target_states(transition, history_value=history_value)
     if not tstates:
         return None
+    if transition.reenter is not None:
+        source = transition.source
+        if not transition.reenter and all(
+            state is source or is_descendent(state, source) for state in tstates
+        ):
+            return source
+        for ancestor in get_proper_ancestors(source, None):
+            if all(is_descendent(state, ancestor) for state in tstates):
+                return ancestor
+        return None if transition.reenter else source.machine.root
     if _is_atomic_self_transition(transition, tstates):
         # A self-transition on one atomic parallel branch exits and re-enters
         # that branch without cycling the containing parallel state or siblings.
@@ -359,6 +376,8 @@ def get_proper_ancestors(
     # upper bound / transition domain). When state2 is None, return all
     # ancestors up to the root.
     ancestors: list[StateNode] = []
+    if state1 is state2:
+        return ancestors
     marker = state1.parent
     while marker and marker != state2:
         ancestors.append(marker)
@@ -392,7 +411,7 @@ def is_in_final_state(state: StateNode, configuration: AbstractSet[StateNode]) -
     elif is_parallel_state(state):
         return all(is_in_final_state(s, configuration) for s in get_child_states(state))
     else:
-        return False
+        return is_final_state(state) and state in configuration
 
 
 def enter_states[ContextT, OutputT](
@@ -406,6 +425,7 @@ def enter_states[ContextT, OutputT](
     output: OutputT | None = None,
     *,
     context_snapshot: Callable[[ContextT], ContextT],
+    exited_states: list[StateNode],
 ) -> MicrostepResult[ContextT, OutputT]:
     states_to_enter: set[StateNode] = set()
     states_for_default_entry: set[StateNode] = set()
@@ -421,6 +441,8 @@ def enter_states[ContextT, OutputT](
     )
 
     for s in sorted(states_to_enter, key=lambda state: state.order):
+        if s in configuration:
+            continue
         configuration.add(s)
 
         # if binding == "late" and s.isFirstEntry:
@@ -444,16 +466,16 @@ def enter_states[ContextT, OutputT](
             continue
         if is_final_state(s):
             parent = s.parent
-            assert parent is not None  # a final state always has a parent
-            grandparent = parent.parent
+            grandparent = parent.parent if parent is not None else None
             donedata = (
                 _invoke(s.donedata, context, event)
                 if callable(s.donedata)
                 else s.donedata
             )
-            internal_queue.append(Event(f"done.state.{parent.id}", donedata))
+            if parent is not None:
+                internal_queue.append(Event(f"done.state.{parent.id}", donedata))
 
-            if grandparent is None:
+            if parent is None or (grandparent is None and is_compound_state(parent)):
                 output = cast(OutputT, donedata)
 
             if (
@@ -465,6 +487,22 @@ def enter_states[ContextT, OutputT](
                 )
             ):
                 internal_queue.append(Event(f"done.state.{grandparent.id}"))
+
+    root = next(iter(configuration)).machine.root
+    if is_in_final_state(root, configuration):
+        # Completion executes final exit effects but retains the final
+        # configuration/output as the observable terminal snapshot.
+        for node in sorted(configuration, key=lambda item: item.order, reverse=True):
+            exited_states.append(node)
+            for action in node.exit:
+                context = execute_content(
+                    action,
+                    actions,
+                    internal_queue,
+                    context,
+                    event,
+                    context_snapshot=context_snapshot,
+                )
 
     return MicrostepResult(configuration, actions, internal_queue, context, output)
 
@@ -479,6 +517,7 @@ def exit_states[ContextT](
     event: Event | None = None,
     *,
     context_snapshot: Callable[[ContextT], ContextT],
+    exited_states: list[StateNode],
 ) -> ExitResult[ContextT]:
     states_to_exit = sorted(
         compute_exit_set(
@@ -494,6 +533,7 @@ def exit_states[ContextT](
     # "deep" remembers the full atomic descendant path; "shallow" remembers only
     # the state's immediate active children.
     for s in states_to_exit:
+        exited_states.append(s)
         for h in s.history_states:
             if h.history == "deep":
                 history_value[h.id] = {
@@ -530,10 +570,12 @@ def compute_exit_set(
     for t in enabled_transitions:
         if t.target:
             tstates = get_effective_target_states(t, history_value=history_value)
-            if _is_atomic_self_transition(t, tstates):
+            if t.reenter is None and _is_atomic_self_transition(t, tstates):
                 states_to_exit.add(t.source)
                 continue
             domain = get_transition_domain(t, history_value=history_value)
+            if t.reenter and t.source is domain:
+                states_to_exit.add(t.source)
             for s in configuration:
                 if is_descendent(s, state2=domain):
                     states_to_exit.add(s)
@@ -841,6 +883,7 @@ def initial_event_loop[ContextT, OutputT](
     capture_microsteps: bool = True,
 ) -> MacrostepResult[ContextT, OutputT]:
     init_event: Event[Any] = Event("xstate.init")
+    exited_states: list[StateNode] = []
     iterations = _consume_iteration(
         iterations=0,
         max_iterations=max_iterations,
@@ -857,6 +900,7 @@ def initial_event_loop[ContextT, OutputT](
         event=init_event,
         output=None,
         context_snapshot=context_snapshot,
+        exited_states=exited_states,
     )
     microsteps: list[AlgorithmMicrostep[ContextT, OutputT]] = []
     if capture_microsteps:
@@ -886,6 +930,7 @@ def initial_event_loop[ContextT, OutputT](
         iterations=iterations,
         microsteps=microsteps,
         capture_microsteps=capture_microsteps,
+        exited_states=exited_states,
     )
 
 
@@ -900,6 +945,7 @@ def main_event_loop[ContextT](
     max_iterations: int | None,
     capture_microsteps: bool = True,
 ) -> MacrostepResult[ContextT, Any]:
+    exited_states: list[StateNode] = []
     enabled_transitions = select_transitions(
         event=event,
         configuration=configuration,
@@ -923,6 +969,7 @@ def main_event_loop[ContextT](
         event=event,
         output=None,
         context_snapshot=context_snapshot,
+        exited_states=exited_states,
     )
     microsteps: list[AlgorithmMicrostep[ContextT, Any]] = []
     if capture_microsteps:
@@ -952,6 +999,7 @@ def main_event_loop[ContextT](
         iterations=iterations,
         microsteps=microsteps,
         capture_microsteps=capture_microsteps,
+        exited_states=exited_states,
     )
 
 
@@ -970,10 +1018,12 @@ def main_event_loop2[ContextT, OutputT](
     iterations: int,
     microsteps: list[AlgorithmMicrostep[ContextT, OutputT]],
     capture_microsteps: bool,
+    exited_states: list[StateNode],
 ) -> MacrostepResult[ContextT, OutputT]:
     enabled_transitions: TransitionSequence = []
     macrostep_done = False
-    while not macrostep_done:
+    root = next(iter(configuration)).machine.root
+    while not macrostep_done and not is_in_final_state(root, configuration):
         enabled_transitions = select_eventless_transitions(
             configuration=configuration,
             context=context,
@@ -1025,6 +1075,7 @@ def main_event_loop2[ContextT, OutputT](
                 event=event,
                 output=output,
                 context_snapshot=context_snapshot,
+                exited_states=exited_states,
             )
             actions.extend(new_actions)
             if capture_microsteps:
@@ -1041,7 +1092,9 @@ def main_event_loop2[ContextT, OutputT](
                     )
                 )
 
-    return MacrostepResult(configuration, actions, context, output, tuple(microsteps))
+    return MacrostepResult(
+        configuration, actions, context, output, tuple(microsteps), tuple(exited_states)
+    )
 
 
 def execute_transition_content[ContextT](
@@ -1166,6 +1219,7 @@ def microstep[ContextT, OutputT](
     output: OutputT | None = None,
     *,
     context_snapshot: Callable[[ContextT], ContextT],
+    exited_states: list[StateNode],
 ) -> MicrostepResult[ContextT, OutputT]:
     actions: list[EmittedAction[ContextT]] = []
 
@@ -1178,6 +1232,7 @@ def microstep[ContextT, OutputT](
         context=context,
         event=event,
         context_snapshot=context_snapshot,
+        exited_states=exited_states,
     )
     context = execute_transition_content(
         enabled_transitions,
@@ -1198,6 +1253,7 @@ def microstep[ContextT, OutputT](
         event=event,
         output=output,
         context_snapshot=context_snapshot,
+        exited_states=exited_states,
     )
     return MicrostepResult(configuration, actions, internal_queue, context, output)
 
