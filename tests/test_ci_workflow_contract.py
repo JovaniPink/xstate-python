@@ -15,8 +15,8 @@ def test_all_python_workflows_pin_action_revisions() -> None:
 
     checkout = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
     setup_python = "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97"
-    assert workflow_text.count(checkout) == 5
-    assert workflow_text.count(setup_python) == 5
+    assert workflow_text.count(checkout) == 6
+    assert workflow_text.count(setup_python) == 6
     assert "actions/checkout@v" not in workflow_text
     assert "actions/setup-python@v" not in workflow_text
     assert "submodules:" not in workflow_text

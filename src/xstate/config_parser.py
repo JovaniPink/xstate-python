@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+import re
 import warnings
 from typing import Any, Literal, cast
 
@@ -14,6 +16,8 @@ from xstate.exceptions import InvalidConfigError
 from xstate.handlers import GuardReference, adapt_handler
 from xstate.state_node import StateNode
 from xstate.transition import Transition
+
+_NUMERIC_AFTER_KEY = re.compile(r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?")
 
 
 class StateNodeConfigParser:
@@ -254,6 +258,16 @@ class StateNodeConfigParser:
             raise InvalidConfigError(f"{self._path(path, 'after')} must be a dict.")
 
         for delay, transition_config in after_config.items():
+            # JSON object keys are strings. Only `after` uses numeric keys as
+            # durations; send(..., delay="1000") still names a registry entry.
+            delay_spec = delay
+            if isinstance(delay, str) and _NUMERIC_AFTER_KEY.fullmatch(delay):
+                delay_spec = float(delay)
+                if not math.isfinite(delay_spec):
+                    raise InvalidConfigError(
+                        f"{self._path(self._path(path, 'after'), delay)} "
+                        "must be a finite number of milliseconds."
+                    )
             after_event = f"xstate.after({delay})#{node.id}"
             for index, raw_transition in enumerate(self._as_list(transition_config)):
                 self._add_transition(
@@ -262,7 +276,7 @@ class StateNodeConfigParser:
                     raw_transition,
                     self._path(self._path(path, "after"), str(delay), index),
                 )
-            node.after.append((delay, after_event))
+            node.after.append((delay_spec, after_event))
 
     def _build_initial_transition(self, node: StateNode, path: str) -> None:
         if node.type == "compound":

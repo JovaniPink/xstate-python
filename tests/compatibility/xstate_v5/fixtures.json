@@ -1,0 +1,587 @@
+[
+  {
+    "id": "numeric-delay",
+    "chart": {
+      "id": "delay",
+      "context": {
+        "n": 0
+      },
+      "initial": "waiting",
+      "states": {
+        "waiting": {
+          "after": {
+            "1000": "done"
+          }
+        },
+        "done": {
+          "type": "final"
+        }
+      }
+    },
+    "commands": [
+      {
+        "type": "start"
+      },
+      {
+        "type": "advance",
+        "ms": 999
+      },
+      {
+        "type": "advance",
+        "ms": 1
+      }
+    ],
+    "expected": [
+      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 999, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 1000, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+    ]
+  },
+  {
+    "id": "fractional-delay",
+    "chart": {
+      "id": "delay",
+      "context": {
+        "n": 0
+      },
+      "initial": "waiting",
+      "states": {
+        "waiting": {
+          "after": {
+            "0.5": "done"
+          }
+        },
+        "done": {
+          "type": "final"
+        }
+      }
+    },
+    "commands": [
+      {
+        "type": "start"
+      },
+      {
+        "type": "advance",
+        "ms": 0.25
+      },
+      {
+        "type": "advance",
+        "ms": 0.25
+      }
+    ],
+    "expected": [
+      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 0.25, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 0.5, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+    ]
+  },
+  {
+    "id": "exponent-delay",
+    "chart": {
+      "id": "delay",
+      "context": {
+        "n": 0
+      },
+      "initial": "waiting",
+      "states": {
+        "waiting": {
+          "after": {
+            "1e3": "done"
+          }
+        },
+        "done": {
+          "type": "final"
+        }
+      }
+    },
+    "commands": [
+      {
+        "type": "start"
+      },
+      {
+        "type": "advance",
+        "ms": 999
+      },
+      {
+        "type": "advance",
+        "ms": 1
+      }
+    ],
+    "expected": [
+      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 999, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 1000, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+    ]
+  },
+  {
+    "id": "zero-delay",
+    "chart": {
+      "id": "delay",
+      "context": {
+        "n": 0
+      },
+      "initial": "waiting",
+      "states": {
+        "waiting": {
+          "after": {
+            "0": "done"
+          }
+        },
+        "done": {
+          "type": "final"
+        }
+      }
+    },
+    "commands": [
+      {
+        "type": "start"
+      },
+      {
+        "type": "advance",
+        "ms": 0
+      }
+    ],
+    "expected": [
+      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 0, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+    ]
+  },
+  {
+    "id": "numeric-delay-registry-collision",
+    "chart": {
+      "id": "delay",
+      "context": {
+        "n": 0
+      },
+      "initial": "waiting",
+      "states": {
+        "waiting": {
+          "after": {
+            "1000": "done"
+          }
+        },
+        "done": {
+          "type": "final"
+        }
+      }
+    },
+    "delays": {
+      "1000": 2000
+    },
+    "commands": [
+      {
+        "type": "start"
+      },
+      {
+        "type": "advance",
+        "ms": 999
+      },
+      {
+        "type": "advance",
+        "ms": 1
+      }
+    ],
+    "expected": [
+      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 999, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 1000, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+    ]
+  },
+  {
+    "id": "named-delay",
+    "chart": {
+      "id": "delay",
+      "context": {
+        "n": 0
+      },
+      "initial": "waiting",
+      "states": {
+        "waiting": {
+          "after": {
+            "WAIT": "done"
+          },
+          "on": {
+            "PING": {
+              "actions": {
+                "type": "record",
+                "params": {
+                  "label": "ping"
+                }
+              }
+            }
+          }
+        },
+        "done": {
+          "type": "final"
+        }
+      }
+    },
+    "delays": {
+      "WAIT": 750
+    },
+    "commands": [
+      {
+        "type": "start"
+      },
+      {
+        "type": "advance",
+        "ms": 500
+      },
+      {
+        "type": "send",
+        "event": {
+          "type": "PING",
+          "source": "outside"
+        }
+      },
+      {
+        "type": "advance",
+        "ms": 249
+      },
+      {
+        "type": "advance",
+        "ms": 1
+      }
+    ],
+    "expected": [
+      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 500, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 500, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [{"time": 500, "context": {"n": 0}, "event": {"type": "PING", "source": "outside"}, "params": {"label": "ping"}}], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 749, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 750, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+    ]
+  },
+  {
+    "id": "guard-assign-raise-eventless",
+    "chart": {
+      "id": "sequence",
+      "context": {
+        "n": 0
+      },
+      "initial": "idle",
+      "states": {
+        "idle": {
+          "on": {
+            "GO": {
+              "guard": "allowed",
+              "target": "receiving",
+              "actions": [
+                "increment",
+                "raiseInner"
+              ]
+            }
+          }
+        },
+        "receiving": {
+          "on": {
+            "INNER": "settling"
+          }
+        },
+        "settling": {
+          "always": "done"
+        },
+        "done": {
+          "type": "final"
+        }
+      }
+    },
+    "commands": [
+      {
+        "type": "start"
+      },
+      {
+        "type": "send",
+        "event": {
+          "type": "GO",
+          "allow": false
+        }
+      },
+      {
+        "type": "send",
+        "event": {
+          "type": "GO",
+          "allow": true
+        }
+      }
+    ],
+    "expected": [
+      {"time": 0, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 0, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 0, "value": "done", "context": {"n": 1}, "status": "done", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+    ]
+  },
+  {
+    "id": "causal-action-arguments",
+    "chart": {
+      "id": "causal",
+      "context": {
+        "n": 0
+      },
+      "initial": "idle",
+      "states": {
+        "idle": {
+          "on": {
+            "GO": {
+              "guard": "allowed",
+              "target": "receiving",
+              "actions": [
+                {
+                  "type": "record",
+                  "params": {
+                    "label": "before"
+                  }
+                },
+                "increment",
+                {
+                  "type": "record",
+                  "params": {
+                    "label": "after"
+                  }
+                },
+                "raiseInner"
+              ]
+            }
+          }
+        },
+        "receiving": {
+          "on": {
+            "INNER": {
+              "target": "settling",
+              "actions": {
+                "type": "record",
+                "params": {
+                  "label": "raised"
+                }
+              }
+            }
+          }
+        },
+        "settling": {
+          "always": {
+            "target": "done",
+            "actions": {
+              "type": "record",
+              "params": {
+                "label": "eventless"
+              }
+            }
+          }
+        },
+        "done": {
+          "type": "final"
+        }
+      }
+    },
+    "commands": [
+      {
+        "type": "start"
+      },
+      {
+        "type": "advance",
+        "ms": 250
+      },
+      {
+        "type": "send",
+        "event": {
+          "type": "GO",
+          "allow": true,
+          "source": "outside"
+        }
+      }
+    ],
+    "known_difference": "WP3: Python deferred actions observe final context and the outer event; XState actions observe context/event at their execution position.",
+    "expected": [
+      {"time": 0, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 250, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 250, "value": "done", "context": {"n": 1}, "status": "done", "output": null, "actions": [{"time": 250, "context": {"n": 0}, "event": {"type": "GO", "allow": true, "source": "outside"}, "params": {"label": "before"}}, {"time": 250, "context": {"n": 1}, "event": {"type": "GO", "allow": true, "source": "outside"}, "params": {"label": "after"}}, {"time": 250, "context": {"n": 1}, "event": {"type": "INNER"}, "params": {"label": "raised"}}, {"time": 250, "context": {"n": 1}, "event": {"type": "INNER"}, "params": {"label": "eventless"}}], "children": {"active": [], "events": []}, "errors": []}
+    ],
+    "expected_python": [
+      {"time": 0, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 250, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 250, "value": "done", "context": {"n": 1}, "status": "done", "output": null, "actions": [{"time": 250, "context": {"n": 1}, "event": {"type": "GO", "allow": true, "source": "outside"}, "params": {"label": "before"}}, {"time": 250, "context": {"n": 1}, "event": {"type": "GO", "allow": true, "source": "outside"}, "params": {"label": "after"}}, {"time": 250, "context": {"n": 1}, "event": {"type": "GO", "allow": true, "source": "outside"}, "params": {"label": "raised"}}, {"time": 250, "context": {"n": 1}, "event": {"type": "GO", "allow": true, "source": "outside"}, "params": {"label": "eventless"}}], "children": {"active": [], "events": []}, "errors": []}
+    ]
+  },
+  {
+    "id": "callback-child-reentry",
+    "chart": {
+      "id": "child",
+      "context": {
+        "n": 0
+      },
+      "initial": "active",
+      "states": {
+        "active": {
+          "invoke": {
+            "id": "worker",
+            "src": "worker",
+            "input": {
+              "label": "worker"
+            }
+          },
+          "on": {
+            "RESET": {
+              "target": "active",
+              "reenter": true
+            },
+            "LEAVE": "idle"
+          }
+        },
+        "idle": {}
+      }
+    },
+    "commands": [
+      {
+        "type": "start"
+      },
+      {
+        "type": "advance",
+        "ms": 25
+      },
+      {
+        "type": "send",
+        "event": {
+          "type": "RESET"
+        }
+      },
+      {
+        "type": "send",
+        "event": {
+          "type": "LEAVE"
+        }
+      }
+    ],
+    "known_difference": "WP4: explicit state reentry does not restart Python invoked children; a later real exit does stop the existing child.",
+    "expected": [
+      {"time": 0, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": ["worker"], "events": [{"time": 0, "kind": "start", "generation": 1, "input": {"label": "worker"}}]}, "errors": []},
+      {"time": 25, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": ["worker"], "events": []}, "errors": []},
+      {"time": 25, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": ["worker"], "events": [{"time": 25, "kind": "stop", "generation": 1}, {"time": 25, "kind": "start", "generation": 2, "input": {"label": "worker"}}]}, "errors": []},
+      {"time": 25, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": [{"time": 25, "kind": "stop", "generation": 2}]}, "errors": []}
+    ],
+    "expected_python": [
+      {"time": 0, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": ["worker"], "events": [{"time": 0, "kind": "start", "generation": 1, "input": {"label": "worker"}}]}, "errors": []},
+      {"time": 25, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": ["worker"], "events": []}, "errors": []},
+      {"time": 25, "value": "active", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": ["worker"], "events": []}, "errors": []},
+      {"time": 25, "value": "idle", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": [{"time": 25, "kind": "stop", "generation": 1}]}, "errors": []}
+    ]
+  },
+  {
+    "id": "tied-delay-key-order",
+    "chart": {
+      "id": "tied",
+      "context": {
+        "n": 0
+      },
+      "initial": "waiting",
+      "states": {
+        "waiting": {
+          "after": {
+            "WAIT": "named",
+            "1000": "numeric"
+          }
+        },
+        "named": {},
+        "numeric": {}
+      }
+    },
+    "delays": {
+      "WAIT": 1000
+    },
+    "commands": [
+      {
+        "type": "start"
+      },
+      {
+        "type": "advance",
+        "ms": 999
+      },
+      {
+        "type": "advance",
+        "ms": 1
+      }
+    ],
+    "known_difference": "JavaScript Object.keys puts canonical integer keys before named keys; Python preserves JSON declaration order. Equal-deadline transitions therefore select different targets.",
+    "expected": [
+      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 999, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 1000, "value": "numeric", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+    ],
+    "expected_python": [
+      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 999, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 1000, "value": "named", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+    ]
+  },
+  {
+    "id": "coarse-clock-cascade",
+    "chart": {
+      "id": "cascade",
+      "context": {
+        "n": 0
+      },
+      "initial": "first",
+      "states": {
+        "first": {
+          "after": {
+            "1000": "second"
+          }
+        },
+        "second": {
+          "after": {
+            "500": "third"
+          }
+        },
+        "third": {}
+      }
+    },
+    "commands": [
+      {
+        "type": "start"
+      },
+      {
+        "type": "advance",
+        "ms": 1500
+      }
+    ],
+    "known_difference": "Native SimulatedClock semantics differ: JS advances now before firing, scheduling the next delay from 1500; Python fires at each deadline and reaches the second deadline at 1500.",
+    "expected": [
+      {"time": 0, "value": "first", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 1500, "value": "second", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+    ],
+    "expected_python": [
+      {"time": 0, "value": "first", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []},
+      {"time": 1500, "value": "third", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+    ]
+  },
+  {
+    "id": "missing-named-delay",
+    "chart": {
+      "id": "delay",
+      "context": {
+        "n": 0
+      },
+      "initial": "waiting",
+      "states": {
+        "waiting": {
+          "after": {
+            "MISSING": "done"
+          }
+        },
+        "done": {
+          "type": "final"
+        }
+      }
+    },
+    "commands": [
+      {
+        "type": "start"
+      }
+    ],
+    "known_difference": "An unregistered descriptive delay fails explicitly in Python. XState 5.33.4 queues the after event immediately when its delay resolves to undefined. This is a diagnostic boundary, not requested parity.",
+    "expected": [
+      {"time": 0, "value": "done", "context": {"n": 0}, "status": "done", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": []}
+    ],
+    "expected_python": [
+      {"time": 0, "value": "waiting", "context": {"n": 0}, "status": "active", "output": null, "actions": [], "children": {"active": [], "events": []}, "errors": [{"type": "UnregisteredImplementationError", "message": "Delay 'MISSING' is not configured. Pass it via Machine(config, delays={'MISSING': ...})."}]}
+    ]
+  }
+]

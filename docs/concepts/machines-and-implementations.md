@@ -85,6 +85,12 @@ Missing named guards and delays raise an implementation error when they are
 needed. Missing side-effect actions emit a warning at the compatibility
 `Machine(config, ...)` boundary.
 
+Numeric JSON `after` keys such as `"1000"` are milliseconds. They take
+precedence over a same-named delay implementation; use a descriptive name such
+as `"reviewTimeout"` when a registry controls the duration. String delays in
+`send(..., delay="1000")` still refer to the registry. See the
+[supported numeric grammar and migration notes](xstate-compatibility.md#numeric-after-keys).
+
 ## `setup()` And Handler Arguments
 
 `setup(...)` registers implementations before creating a machine and enables a

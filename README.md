@@ -40,6 +40,11 @@ machine = Machine(config)
 Only live implementation details need Python bindings: action functions, guard
 functions, delay values, and actor logic.
 
+Compatibility is an [explicitly tested data-only subset](docs/concepts/xstate-compatibility.md),
+checked against XState **5.33.4**. The comparison suite records both matching
+behavior and known differences; loading a chart does not establish full XState
+or Stately export compatibility.
+
 | | xstate-python |
 |---|---|
 | XState JSON | Loaded directly as Python `dict` data |

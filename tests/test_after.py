@@ -5,9 +5,20 @@ entered and cancelled when it is exited.  A SimulatedClock makes time
 deterministic: nothing fires until the test calls ``clock.increment(ms)``.
 """
 
+import asyncio
+import json
+
 import pytest
 
-from xstate import Machine, SimulatedClock, UnregisteredImplementationError, interpret
+from xstate import (
+    InvalidConfigError,
+    Machine,
+    SimulatedClock,
+    UnregisteredImplementationError,
+    interpret,
+    interpret_async,
+    send,
+)
 
 # ---------------------------------------------------------------------------
 # Classic auto-advancing traffic light using `after`.
@@ -243,3 +254,141 @@ def test_after_in_nested_state_fires():
     service = interpret(machine, clock=clock).start()
     clock.increment(1000)
     assert service.state.value == {"outer": "inner2"}
+
+
+def json_after_config(delay):
+    """Exercise the serialized boundary, whose object keys are always strings."""
+    return json.loads(
+        json.dumps(
+            {
+                "id": "jsonDelay",
+                "initial": "waiting",
+                "states": {
+                    "waiting": {"after": {delay: "elapsed"}},
+                    "elapsed": {},
+                },
+            }
+        )
+    )
+
+
+def test_literal_json_after_fires_at_1000_milliseconds():
+    config = json.loads(
+        """{
+            "id": "jsonDelay",
+            "initial": "waiting",
+            "states": {
+                "waiting": {"after": {"1000": "elapsed"}},
+                "elapsed": {}
+            }
+        }"""
+    )
+    clock = SimulatedClock()
+    service = interpret(Machine(config), clock=clock).start()
+    clock.increment(999)
+    assert service.state.value == "waiting"
+    clock.increment(1)
+    assert service.state.value == "elapsed"
+    service.stop()
+
+
+@pytest.mark.parametrize(
+    "delay,milliseconds",
+    [("0", 0), ("0.5", 0.5), ("1e3", 1000), ("2.5E+2", 250), ("1e-2", 0.01)],
+)
+def test_json_after_supports_nonnegative_decimal_and_exponent_keys(delay, milliseconds):
+    clock = SimulatedClock()
+    service = interpret(Machine(json_after_config(delay)), clock=clock).start()
+    assert service.state.value == "waiting"
+    if milliseconds:
+        clock.increment(milliseconds / 2)
+        assert service.state.value == "waiting"
+        clock.increment(milliseconds / 2)
+    else:
+        clock.increment(0)
+    assert service.state.value == "elapsed"
+    service.stop()
+
+
+def test_numeric_after_key_takes_precedence_over_named_registry():
+    def must_not_resolve(*args):
+        pytest.fail("A numeric after key must not invoke a named delay")
+
+    machine = Machine(json_after_config("1000"), delays={"1000": must_not_resolve})
+    clock = SimulatedClock()
+    service = interpret(machine, clock=clock).start()
+    clock.increment(999)
+    assert service.state.value == "waiting"
+    clock.increment(1)
+    assert service.state.value == "elapsed"
+    service.stop()
+
+
+@pytest.mark.parametrize("delay", ["1e309", "9.9e9999"])
+def test_overflowing_numeric_after_key_is_rejected_at_construction(delay):
+    with pytest.raises(InvalidConfigError, match=r"states.waiting.after.*finite"):
+        Machine(json_after_config(delay))
+
+
+@pytest.mark.parametrize(
+    "name", ["001", "+1", " 1 ", "0x10", "Infinity", "-1", "1_000", "NaN", ""]
+)
+def test_strings_outside_numeric_after_grammar_remain_named_delays(name):
+    clock = SimulatedClock()
+    service = interpret(
+        Machine(json_after_config(name), delays={name: 7}), clock=clock
+    ).start()
+    clock.increment(6)
+    assert service.state.value == "waiting"
+    clock.increment(1)
+    assert service.state.value == "elapsed"
+    service.stop()
+
+
+def test_numeric_string_send_delay_still_uses_named_registry():
+    machine = Machine(
+        {
+            "id": "namedSendDelay",
+            "initial": "waiting",
+            "states": {
+                "waiting": {
+                    "entry": send("EXPIRE", delay="1000"),
+                    "on": {"EXPIRE": "elapsed"},
+                },
+                "elapsed": {},
+            },
+        },
+        delays={"1000": 2000},
+    )
+    clock = SimulatedClock()
+    service = interpret(machine, clock=clock).start()
+    clock.increment(1000)
+    assert service.state.value == "waiting"
+    clock.increment(1000)
+    assert service.state.value == "elapsed"
+    service.stop()
+
+
+def test_leaving_state_cancels_literal_json_after_timer():
+    config = json_after_config("1000")
+    config["states"]["waiting"]["on"] = {"CANCEL": "cancelled"}
+    config["states"]["cancelled"] = {}
+    clock = SimulatedClock()
+    service = interpret(Machine(config), clock=clock).start()
+    clock.increment(999)
+    service.send("CANCEL")
+    clock.increment(1)
+    assert service.state.value == "cancelled"
+    service.stop()
+
+
+async def test_async_runtime_schedules_literal_json_after():
+    service = interpret_async(Machine(json_after_config("1")))
+    elapsed = asyncio.Event()
+    service.subscribe(lambda state: elapsed.set() if state.value == "elapsed" else None)
+    try:
+        await service.start()
+        await asyncio.wait_for(elapsed.wait(), timeout=1)
+        assert service.state.value == "elapsed"
+    finally:
+        await service.stop()
