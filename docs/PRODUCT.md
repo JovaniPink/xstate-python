@@ -4,6 +4,14 @@ Research snapshot: June 2026. External ecosystem numbers are approximate and
 should be refreshed before publication or fundraising use. Repo capability notes
 describe this source revision of the unreleased 0.7.1 candidate.
 
+The [November 12, 2026 plan](plans/statechart-workflow-roadmap.md) proposes the
+next milestone: an executable XState compatibility contract, structured
+diagnostics, and inspectable, restartable workflow examples. Its
+[dated evidence](plans/statechart-workflow-evidence.md) records baseline checks
+and concrete differences from JavaScript XState 5.33.4. The native JSON boundary
+below is an existing capability; full cross-runtime equivalence is not yet an
+established guarantee. The new work remains proposed.
+
 ## Product Thesis
 
 `xstate-python` is a Python implementation of XState-style statecharts with
@@ -116,16 +124,21 @@ sharing the chart does not make arbitrary JavaScript functions portable.
 
 ## Roadmap
 
-| Priority | Work |
+The [detailed implementation plan](plans/statechart-workflow-roadmap.md) owns
+dependencies, acceptance identifiers, open decisions, validation, and migration
+policy. Rows other than **Done** are proposed outcomes, not completed features.
+
+| Sequence | Work |
 |---|---|
+| Done | Pinned XState v5 comparison contract with literal JSON delays, causal action arguments, re-entry, child/timer lifecycle, and final completion ([#55](https://github.com/JovaniPink/xstate-python/issues/55); PRs #60–#62) |
 | Immediate | Validate one representative shared chart with a consumer; measure unchanged structure, observable behavior, and transition/context-capture cost |
-| Next | Resolve gaps demonstrated by that chart before expanding into a workflow host or more integrations |
 | Ongoing | Preserve all 14 required parity cases; keep four known differences explicit and promote cases only after reviewed fixes |
-| High | Resolve the package-index name and prove publication ownership before enabling release publishing |
-| High | Expand SCXML coverage beyond the configured subset without adding JavaScript evaluation |
-| Medium | Inspector protocol compatibility |
-| Medium | More XState v5 utilities: `provide`, action helpers, graph/test helpers |
-| Low | Add framework integrations such as Django and FastAPI after the runtime API settles |
+| Alongside compatibility | Repair observable factory input ([#53](https://github.com/JovaniPink/xstate-python/issues/53)) and preserve completed output during restore ([#54](https://github.com/JovaniPink/xstate-python/issues/54)) |
+| Next | Resolve gaps demonstrated by that chart; add structured validation over the existing normalized model, explicit restoration identity, and scenario/trace tools |
+| Then | Demonstrate restartable contribution and synthetic document workflows with explicit effect/recovery boundaries ([#56](https://github.com/JovaniPink/xstate-python/issues/56)) |
+| Parallel decision | Resolve distribution ownership, naming, namespace, and migration before publication ([#57](https://github.com/JovaniPink/xstate-python/issues/57)) |
+| Separate follow-up | Expand the supported SCXML subset without JavaScript evaluation, evaluate XState v6, and assess inspector protocol, `provide`, or graph utilities against concrete consumers |
+| After demonstrated need | Add optional framework or agent adapters after their runtime contracts are proven |
 
 ## Success Metrics
 
