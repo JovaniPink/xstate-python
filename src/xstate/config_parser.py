@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import math
 import re
 import warnings
@@ -455,9 +456,11 @@ class StateNodeConfigParser:
         elif action.type == CHOOSE_TYPE:
             self._adapt_choose(action, path)
         elif action.type == PURE_TYPE:
-            # Returned actions are built lazily at execution time; stash the
-            # registry so string names / inline callables can be resolved then.
-            action.data["_actions"] = self.machine.actions
+            # Dynamic results need the same recursive normalization as declared
+            # actions, including registries and the machine's context policy.
+            action.data["_normalize"] = functools.partial(
+                self._build_actions, path=self._path(path, "result")
+            )
         elif callable(action.type):
             action.type = adapt_handler(
                 action.type,

@@ -4,9 +4,11 @@ from typing import Any, assert_type
 
 from xstate import Event, Machine, State, interpret
 
+observed_actions: list[tuple[Any, str]] = []
+
 
 def legacy_action(context: dict[str, Any], event: Event) -> None:
-    context["seen"] = event.name
+    observed_actions.append((context["seen"], event.name))
 
 
 def legacy_guard(context: dict[str, Any], event: Event) -> bool:

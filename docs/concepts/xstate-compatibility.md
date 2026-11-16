@@ -36,6 +36,10 @@ The runner README owns the fixture format and the small representation adapters.
 Those adapters do not discard actions or replace causal arguments with final
 context to make the runtimes agree.
 
+The current corpus contains **12 scenarios and 35 commands: 8 required-parity
+cases and 4 exact known differences**. Causal action arguments now use the
+same expected observations in both runtimes.
+
 ## Numeric After Keys
 
 JSON object keys are strings. This chart schedules a transition after 1,000 ms:
@@ -85,15 +89,43 @@ The conversion is specific to `after`. `send(..., delay="1000")` still looks up
 `delays["1000"]`; it does not become a numeric duration. The shared resolver and
 the sync/async scheduling ownership remain unchanged.
 
+## Causal Action Arguments
+
+Each deferred action captures context through `ContextAdapter.snapshot` at its
+position in the action sequence, together with the current event and declared
+parameters. This applies to named and inline effects, entry/exit actions, and
+actions expanded by `choose` or `pure`. Raised and eventless microsteps retain
+their effective event. The final macrostep and its microstep traces use the
+same captured arguments; collecting a trace does not execute the effects.
+
+The `causal-action-arguments` fixture requires a record before an assignment to
+see `n=0`, the record after it to see `n=1`, and the raised/eventless actions to
+see `INNER` rather than the outer `GO` event. Its original XState expectations
+are now required for Python too. This establishes that sequence, not general
+action or actor compatibility.
+
+### Migration For Action Handlers
+
+Previously deferred handlers could observe the final macrostep context and
+outer event regardless of their position. Handlers now receive the context
+and event that caused that action. Use `assign` for chart context updates:
+with the default adapter, mutating an action's captured context changes neither
+the committed snapshot nor another action's context.
+
+Event payloads and action parameters remain references, not deep copies;
+callable action parameters remain opaque values. Custom context adapters
+define context ownership. See the [handler contract and context policy](machines-and-implementations.md#action-arguments-and-migration)
+and the [runtime boundary](runtimes.md#action-arguments-and-committed-state)
+for committed snapshots, delayed sends, and copying costs.
+
 ## Current Evidence Limits
 
-The passing delay fixtures establish the checked command sequences. They do
-not imply general parity for timer ordering, action execution, or actors.
+The passing fixtures establish the checked command sequences. They do not
+imply general parity for timer ordering, action execution, or actors.
 
 | Boundary | Current limit |
 |---|---|
-| Action arguments | Deferred Python effects can see final context and the outer event rather than the context/event at the action's position |
-| Re-entry and child lifecycle | Entry/exit behavior and invoked child replacement differ; the comparison retains the observed child start/cleanup sequence |
+| Re-entry and child lifecycle | Explicit re-entry can retain an invoked child rather than replacing it; the comparison retains the observed child start/cleanup sequence |
 | Tied delays | JavaScript enumerates array-index-shaped object keys before other keys; Python preserves declaration order, which can select a different transition at the same deadline |
 | Numeric aliases | Different keys such as `"1000"` and `"1e3"` can share an internal event identity in JavaScript; equivalent-duration multi-key charts are outside the claimed parity subset |
 | Large simulated-time jumps | Python executes chained timers at their due times; JavaScript's simulated clock advances to the target before callbacks. One large jump can produce different states |
@@ -106,10 +138,10 @@ comparison runner. No universal timer or lifecycle compatibility is claimed.
 
 ## What This Enables Next
 
-The next core improvement is causal action binding: preserve the context,
-event, and parameters belonging to each deferred action, then promote its
-known-difference fixture to required parity. Re-entry and completion need their
-own resource-lifecycle changes and fixtures.
+The next core improvements are re-entry and final completion. They need
+resource-lifecycle changes and fixtures for child cleanup/replacement, timer
+reset, and terminal runtime behavior. Causal argument parity alone does not
+establish those guarantees.
 
 Before promoting the broader shared-chart product claim, validate a
 representative application or Stately export without rewriting its structure.

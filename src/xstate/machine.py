@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import functools
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any, cast
 
-from xstate.action import INTERPRETER_TYPES, Action
+from xstate.action import INTERPRETER_TYPES, Action, _BoundAction
 from xstate.algorithm import (
     AlgorithmMicrostep,
+    EmittedAction,
     MacrostepResult,
     initial_event_loop,
     main_event_loop,
@@ -185,9 +186,7 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
             capture_microsteps=capture_microsteps,
         )
 
-        actions, unknown = self._get_actions(
-            result.actions, result.context, event_object
-        )
+        actions, unknown = self._get_actions(result.actions)
         self._warn_unknown_actions(unknown)
 
         next_state = State[ContextT, EventDataT, OutputT](
@@ -205,9 +204,7 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
     ) -> tuple[MicrostepTrace[ContextT, EventDataT, OutputT], ...]:
         result: list[MicrostepTrace[ContextT, EventDataT, OutputT]] = []
         for microstep in microsteps:
-            actions, _unknown = self._get_actions(
-                list(microstep.actions), microstep.context, microstep.event
-            )
+            actions, _unknown = self._get_actions(microstep.actions)
             snapshot = State[ContextT, EventDataT, OutputT](
                 configuration=microstep.configuration,
                 context=microstep.context,
@@ -235,34 +232,46 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
         return tuple(result)
 
     def _get_actions(
-        self, actions: list[Action], context: Any, event: Event | None
+        self, actions: Iterable[EmittedAction[ContextT]]
     ) -> tuple[list[ResolvedAction], list[str]]:
         """Resolve resolved-engine actions for the caller.
 
         Assigns and raises were already applied/queued by the SCXML engine and
         do not reach here. What remains is: interpreter-owned actions (send /
-        cancel / send_parent / send_to — passed through as raw ``Action`` for
-        the interpreter), named side-effect callables (resolved to the callable
-        registered in ``self.actions``), and inline callables. Names with no
-        implementation are collected in ``unknown`` so the caller can warn.
+        cancel / send_parent / send_to — carried as ``Action`` instances with
+        their captured environment), named side-effect callables (resolved to
+        the callable registered in ``self.actions``), and inline callables.
+        Names with no implementation are collected in ``unknown`` so the caller
+        can warn.
         """
         result: list[ResolvedAction] = []
         unknown: list[str] = []
-        for action in actions:
+        for occurrence in actions:
+            action = occurrence.action
             if action.type in INTERPRETER_TYPES:
-                # Passed through as raw Action; the interpreter handles them.
-                result.append(action)
+                result.append(
+                    _BoundAction(action, occurrence.context, occurrence.event)
+                )
             elif action.type in self.actions:
                 result.append(
                     self._bind_action(
                         action,
                         self.actions[action.type],
-                        context,
-                        event,
+                        occurrence.context,
+                        occurrence.event,
+                        occurrence.params,
                     )
                 )
             elif callable(action.type):
-                result.append(self._bind_action(action, action.type, context, event))
+                result.append(
+                    self._bind_action(
+                        action,
+                        action.type,
+                        occurrence.context,
+                        occurrence.event,
+                        occurrence.params,
+                    )
+                )
             else:
                 unknown.append(str(action.type))
         return result, unknown
@@ -273,8 +282,8 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
         implementation: Any,
         context: Any,
         event: Event | None,
+        params: Any,
     ) -> ActionCallable:
-        params = action.data.get("params") if hasattr(action, "data") else None
         if isinstance(implementation, HandlerAdapter):
             return functools.partial(implementation, context, event, params=params)
         if callable(implementation):
@@ -377,7 +386,7 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
         )
         init_event: Event[EventDataT] = Event("xstate.init")
 
-        actions, unknown = self._get_actions(result.actions, result.context, init_event)
+        actions, unknown = self._get_actions(result.actions)
         self._warn_unknown_actions(unknown)
 
         state = State[ContextT, EventDataT, OutputT](

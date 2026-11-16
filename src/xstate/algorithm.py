@@ -29,9 +29,18 @@ type StateValue = str | dict[str, StateValue]
 type DefaultHistoryContent = dict[str, Transition]
 
 
+class EmittedAction[ContextT](NamedTuple):
+    """One deferred occurrence, separate from the shared action definition."""
+
+    action: Action
+    context: ContextT
+    event: Event | None
+    params: Any
+
+
 class MicrostepResult[ContextT, OutputT](NamedTuple):
     configuration: Configuration
-    actions: list[Action]
+    actions: list[EmittedAction[ContextT]]
     internal_queue: InternalQueue
     context: ContextT
     output: OutputT | None
@@ -41,7 +50,7 @@ class AlgorithmMicrostep[ContextT, OutputT](NamedTuple):
     event: Event[Any]
     transitions: tuple[Transition, ...]
     configuration: frozenset[StateNode]
-    actions: tuple[Action, ...]
+    actions: tuple[EmittedAction[ContextT], ...]
     context: ContextT
     history_value: dict[str, frozenset[StateNode]]
     output: OutputT | None
@@ -49,7 +58,7 @@ class AlgorithmMicrostep[ContextT, OutputT](NamedTuple):
 
 class MacrostepResult[ContextT, OutputT](NamedTuple):
     configuration: Configuration
-    actions: list[Action]
+    actions: list[EmittedAction[ContextT]]
     context: ContextT
     output: OutputT | None
     microsteps: tuple[AlgorithmMicrostep[ContextT, OutputT], ...]
@@ -57,7 +66,7 @@ class MacrostepResult[ContextT, OutputT](NamedTuple):
 
 class ExitResult[ContextT](NamedTuple):
     configuration: Configuration
-    actions: list[Action]
+    actions: list[EmittedAction[ContextT]]
     context: ContextT
 
 
@@ -390,11 +399,13 @@ def enter_states[ContextT, OutputT](
     enabled_transitions: TransitionSequence,
     configuration: Configuration,
     history_value: HistoryValue,
-    actions: list[Action],
+    actions: list[EmittedAction[ContextT]],
     internal_queue: InternalQueue,
     context: ContextT,
     event: Event | None = None,
     output: OutputT | None = None,
+    *,
+    context_snapshot: Callable[[ContextT], ContextT],
 ) -> MicrostepResult[ContextT, OutputT]:
     states_to_enter: set[StateNode] = set()
     states_for_default_entry: set[StateNode] = set()
@@ -423,6 +434,7 @@ def enter_states[ContextT, OutputT](
                 internal_queue=internal_queue,
                 context=context,
                 event=event,
+                context_snapshot=context_snapshot,
             )
         if s in states_for_default_entry:
             # executeContent(s.initial.transition)
@@ -461,10 +473,12 @@ def exit_states[ContextT](
     enabled_transitions: TransitionSequence,
     configuration: Configuration,
     history_value: HistoryValue,
-    actions: list[Action],
+    actions: list[EmittedAction[ContextT]],
     internal_queue: InternalQueue,
     context: ContextT,
     event: Event | None = None,
+    *,
+    context_snapshot: Callable[[ContextT], ContextT],
 ) -> ExitResult[ContextT]:
     states_to_exit = sorted(
         compute_exit_set(
@@ -498,6 +512,7 @@ def exit_states[ContextT](
                 internal_queue=internal_queue,
                 context=context,
                 event=event,
+                context_snapshot=context_snapshot,
             )
         # for inv in s.invoke:
         #     cancelInvoke(inv)
@@ -784,7 +799,7 @@ def _capture_algorithm_microstep[ContextT, OutputT](
     event: Event[Any],
     transitions: TransitionSequence,
     configuration: ReadOnlyConfiguration,
-    actions: Iterable[Action],
+    actions: Iterable[EmittedAction[ContextT]],
     context: ContextT,
     history_value: ReadOnlyHistoryValue,
     output: OutputT | None,
@@ -841,6 +856,7 @@ def initial_event_loop[ContextT, OutputT](
         context=context,
         event=init_event,
         output=None,
+        context_snapshot=context_snapshot,
     )
     microsteps: list[AlgorithmMicrostep[ContextT, OutputT]] = []
     if capture_microsteps:
@@ -906,6 +922,7 @@ def main_event_loop[ContextT](
         context=context,
         event=event,
         output=None,
+        context_snapshot=context_snapshot,
     )
     microsteps: list[AlgorithmMicrostep[ContextT, Any]] = []
     if capture_microsteps:
@@ -940,7 +957,7 @@ def main_event_loop[ContextT](
 
 def main_event_loop2[ContextT, OutputT](
     configuration: Configuration,
-    actions: list[Action],
+    actions: list[EmittedAction[ContextT]],
     internal_queue: InternalQueue,
     context: ContextT,
     *,
@@ -1007,6 +1024,7 @@ def main_event_loop2[ContextT, OutputT](
                 context=context,
                 event=event,
                 output=output,
+                context_snapshot=context_snapshot,
             )
             actions.extend(new_actions)
             if capture_microsteps:
@@ -1028,14 +1046,23 @@ def main_event_loop2[ContextT, OutputT](
 
 def execute_transition_content[ContextT](
     enabled_transitions: TransitionSequence,
-    actions: list[Action],
+    actions: list[EmittedAction[ContextT]],
     internal_queue: InternalQueue,
     context: ContextT,
     event: Event | None = None,
+    *,
+    context_snapshot: Callable[[ContextT], ContextT],
 ) -> ContextT:
     for transition in enabled_transitions:
         for action in transition.actions:
-            context = execute_content(action, actions, internal_queue, context, event)
+            context = execute_content(
+                action,
+                actions,
+                internal_queue,
+                context,
+                event,
+                context_snapshot=context_snapshot,
+            )
     return context
 
 
@@ -1073,10 +1100,12 @@ def _eval_action_guard(
 
 def execute_content[ContextT](
     action: Action,
-    actions: list[Action],
+    actions: list[EmittedAction[ContextT]],
     internal_queue: InternalQueue,
     context: ContextT,
     event: Event | None = None,
+    *,
+    context_snapshot: Callable[[ContextT], ContextT],
 ) -> ContextT:
     if action.type == RAISE_TYPE:
         internal_queue.append(Event(action.data.get("event", "")))
@@ -1088,20 +1117,42 @@ def execute_content[ContextT](
             if _eval_action_guard(branch.get("guard"), context, event, guards_registry):
                 for sub in branch.get("actions", []):
                     context = execute_content(
-                        sub, actions, internal_queue, context, event
+                        sub,
+                        actions,
+                        internal_queue,
+                        context,
+                        event,
+                        context_snapshot=context_snapshot,
                     )
                 break
     elif action.type == PURE_TYPE:
         fn = action.data.get("fn")
-        registry = action.data.get("_actions", {})
         result = invoke_handler(fn, context, event)
         if result is not None:
-            specs = result if isinstance(result, list) else [result]
-            for spec in specs:
-                sub = build_action(spec, registry)
-                context = execute_content(sub, actions, internal_queue, context, event)
+            normalize: Callable[[Any], list[Action]] | None = action.data.get(
+                "_normalize"
+            )
+            if normalize is not None:
+                sub_actions = normalize(result)
+            else:
+                specs = result if isinstance(result, list) else [result]
+                registry = action.data.get("_actions", {})
+                sub_actions = [build_action(spec, registry) for spec in specs]
+            for sub in sub_actions:
+                context = execute_content(
+                    sub,
+                    actions,
+                    internal_queue,
+                    context,
+                    event,
+                    context_snapshot=context_snapshot,
+                )
     else:
-        actions.append(action)
+        actions.append(
+            EmittedAction(
+                action, context_snapshot(context), event, action.data.get("params")
+            )
+        )
     return context
 
 
@@ -1113,8 +1164,10 @@ def microstep[ContextT, OutputT](
     context: ContextT,
     event: Event | None = None,
     output: OutputT | None = None,
+    *,
+    context_snapshot: Callable[[ContextT], ContextT],
 ) -> MicrostepResult[ContextT, OutputT]:
-    actions: list[Action] = []
+    actions: list[EmittedAction[ContextT]] = []
 
     configuration, actions, context = exit_states(
         enabled_transitions,
@@ -1124,6 +1177,7 @@ def microstep[ContextT, OutputT](
         internal_queue=internal_queue,
         context=context,
         event=event,
+        context_snapshot=context_snapshot,
     )
     context = execute_transition_content(
         enabled_transitions,
@@ -1131,6 +1185,7 @@ def microstep[ContextT, OutputT](
         internal_queue=internal_queue,
         context=context,
         event=event,
+        context_snapshot=context_snapshot,
     )
 
     configuration, actions, internal_queue, context, output = enter_states(
@@ -1142,6 +1197,7 @@ def microstep[ContextT, OutputT](
         context=context,
         event=event,
         output=output,
+        context_snapshot=context_snapshot,
     )
     return MicrostepResult(configuration, actions, internal_queue, context, output)
 

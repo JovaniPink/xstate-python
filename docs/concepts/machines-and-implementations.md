@@ -44,7 +44,9 @@ state = machine.transition(
 
 Assignments are applied while the next snapshot is computed. Side-effect
 actions are returned on `state.actions`; use an interpreter or actor when those
-actions should be executed automatically.
+actions should be executed automatically. Each action retains the arguments
+captured at its position, even when later assignments change the returned
+snapshot's context.
 
 ## Named Implementations
 
@@ -78,7 +80,7 @@ The registry names have distinct roles:
 |---|---|
 | `actions` | Side effects and built-in action creators such as `assign` |
 | `guards` | Boolean transition conditions |
-| `delays` | Millisecond values or functions used by named `after` transitions |
+| `delays` | Millisecond values or functions used by named `after` and send delays |
 | `actors` | Actor logic referenced by `invoke.src` |
 
 Missing named guards and delays raise an implementation error when they are
@@ -106,12 +108,50 @@ Prefer a single `HandlerArgs` parameter for new handlers. It exposes `context`,
 `event`, and implementation `params`. Legacy `()`, `(context)`, and
 `(context, event)` callables remain supported by `Machine(config, ...)`.
 
+### Action Arguments And Migration
+
+Deferred actions capture their arguments while the machine computes the
+transition. The same rule applies to named and inline handlers, entry and exit
+actions, and actions expanded by `choose(...)` or `pure(...)`:
+
+| Action argument | Meaning |
+|---|---|
+| `context` | `ContextAdapter.snapshot(context)` at this action's position, before any later assignment |
+| `event` | The effective `Event` reference: `xstate.init` for initial entry, the triggering event for each microstep, and the current event carried into eventless transitions |
+| `params` | The declared parameter value by reference; callable action parameters are passed through without evaluation |
+| `state` | `None` for action handlers |
+
+Actions returned by `pure` use the same normalization, named action/guard
+registries, and context policy as configured actions, including nested `choose`
+and `pure` results. Computing a transition or a microstep trace does not execute
+deferred effects.
+
+**Migration:** normal transition results previously bound handlers to the final
+macrostep context and outer event. A handler before an assignment now sees the
+earlier context; a handler caused by a raised event sees that internal event. Use `assign` to
+update chart context. With the default adapter, mutating a handler's context
+does not update the committed snapshot or another action's captured context.
+Event payloads and parameters are not copied, so their mutable contents remain
+shared with their owners.
+
+Runtime snapshots are still committed before effects execute. Reading
+`service.state` inside a handler therefore observes the completed macrostep,
+which may differ from that handler's arguments. See the
+[runtime guide](runtimes.md#action-arguments-and-committed-state).
+
 ## Context And Snapshots
 
 Snapshots isolate context through the configured `ContextAdapter`. The default
 adapter deep-copies context; `dataclass_context()` supports immutable dataclass
 contexts. Public snapshot containers remain immutable: configuration is a
 `frozenset`, actions are a tuple, and history values are read-only.
+
+The same context policy captures each deferred action's context, independently
+of whether tracing is enabled. Large mutable contexts and many deferred actions
+therefore incur repeated deep copies with the default adapter. Measure this
+cost on the application chart. `dataclass_context()` shares context without
+copying and requires immutable values, including nested contents; custom
+adapters define their own ownership and copying policy.
 
 Use `state.matches(...)`, `state.can(...)`, `state.has_tag(...)`, and
 `state.meta` to query a snapshot without reaching into algorithm internals.

@@ -50,7 +50,14 @@ from collections import deque
 from collections.abc import Awaitable, Callable
 from typing import Any, cast
 
-from xstate.action import CANCEL_TYPE, SEND_PARENT_TYPE, SEND_TO_TYPE, SEND_TYPE, Action
+from xstate.action import (
+    CANCEL_TYPE,
+    SEND_PARENT_TYPE,
+    SEND_TO_TYPE,
+    SEND_TYPE,
+    Action,
+    _BoundAction,
+)
 from xstate.event import Event, EventInput, RuntimeEventPayload
 from xstate.interpreter import NOT_STARTED, RUNNING, STOPPED, resolve_delay_ms
 from xstate.machine import Machine
@@ -350,7 +357,12 @@ class AsyncInterpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
         send_id = action.data.get("id")
         if delay is not None:
             delay_ms = resolve_delay_ms(
-                self.machine, delay, self.state.context, self.state.event
+                self.machine,
+                delay,
+                action.context
+                if isinstance(action, _BoundAction)
+                else self.state.context,
+                action.event if isinstance(action, _BoundAction) else self.state.event,
             )
             task = self._schedule(self.send, event, delay_ms)
             # Key by explicit id when given so cancel() can find it; otherwise key

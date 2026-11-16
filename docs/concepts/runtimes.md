@@ -129,6 +129,30 @@ The interpreter does not wait for application tasks created outside it.
 
 See [async workflow](../examples/async_workflow.py) for a complete program.
 
+## Action Arguments And Committed State
+
+Transition computation captures each deferred action's context and effective
+event at that action's position. Both runtimes then install the completed
+macrostep snapshot before executing effects. An action can consequently read
+an earlier context through `args.context` while `service.state.context` already
+contains later assignments. Similarly, `args.event` can be an internal event
+while `service.state.event` remains the outer event. `args.state` remains
+`None` for action handlers. Async actions retain their captured arguments
+across awaits; they are still awaited in declaration order.
+
+Named delays on `send` use the send action's captured context/event when the
+runtime executes that action, after committing the snapshot. The same rule
+applies to `send_parent` and `send_to` in the synchronous actor runtime and to
+self-sends in the async runtime. State `after` timers continue to be reconciled
+from the committed configuration, context, and outer event; this action-binding
+change does not alter their lifecycle or reset behavior.
+
+Use `assign` for chart updates. The default adapter isolates each action's
+context from the committed snapshot and other effects; event payloads and
+parameters remain references. The
+[handler and context guide](machines-and-implementations.md#action-arguments-and-migration)
+describes migration, custom adapters, and the cost of copying mutable context.
+
 ## Action Failure And External Completion
 
 Both runtimes install a computed snapshot before executing its side-effect
@@ -181,10 +205,14 @@ for step in steps:
 
 Each intermediate snapshot contains only that microstep's actions. The normal
 `Machine.transition` result still contains every macrostep action in execution
-order. Ignored events appear with an empty `transitions` tuple.
+order. Both surfaces use the same action-position argument captures, even when
+an action's context differs from its microstep's settled context. Retrieving
+traces does not run those effects. Ignored events appear with an empty
+`transitions` tuple.
 
 Normal transitions do not build trace-only context snapshots. Those snapshots
 are collected only when a trace helper or interpreter inspector requests them.
+Action context captures occur with or without tracing.
 
 Sync and async interpreters accept an `inspect` callback. It receives one
 `MacrostepTrace` for initialization and one for each external event after the
