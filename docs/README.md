@@ -26,6 +26,10 @@ match the runtime boundary you need:
 
 ## Plans and evidence
 
+- [Pythonic agent-workflow research](./plans/pythonic-agent-workflows-research.md):
+  the November 20, 2026 product direction; current Codex, Claude Code,
+  Antigravity, Python state-machine, and Measured Skills research; proposed
+  revision-aware goals, evidence, documents, and staged implementation gates.
 - [Statechart and workflow direction](./plans/statechart-workflow-roadmap.md):
   proposed XState compatibility milestone, structured diagnostics, restoration
   contracts, scenario tooling, and restartable workflow examples, with ordered

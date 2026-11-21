@@ -4,6 +4,14 @@ This document describes a possible integration between `xstate-python`, Google
 Agent Development Kit (ADK) workflows, and Agent Skills. It is an architecture
 proposal, not a claim that the integration exists in this repository.
 
+The [November 20, 2026 agent-workflow research](../plans/pythonic-agent-workflows-research.md)
+extends the investigation to Codex, Claude Code, Antigravity, and Measured Skills
+under the maintainer's Pythonic-first direction. It proposes revision-aware
+delivery evidence and separates the statechart core, optional host, provider
+adapters, and instructions. The ADK design below remains one possible outer
+workflow integration; its dated capability claims are not refreshed by that
+research.
+
 ## Status and decision
 
 As of August 30, 2026:
