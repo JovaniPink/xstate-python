@@ -1,26 +1,33 @@
 # xstate-python Product Notes
 
-Research snapshot: June 2026. External ecosystem numbers are approximate and
-should be refreshed before publication or fundraising use. Repo capability notes
-describe this source revision of the unreleased 0.7.1 candidate.
+Product direction updated November 20, 2026. Capability notes describe the
+unreleased 0.7.1 source candidate. Proposed application and integration work is
+identified separately from existing library behavior.
 
-The [November 12, 2026 plan](plans/statechart-workflow-roadmap.md) proposes the
-next milestone: an executable XState compatibility contract, structured
-diagnostics, and inspectable, restartable workflow examples. Its
-[dated evidence](plans/statechart-workflow-evidence.md) records baseline checks
-and concrete differences from JavaScript XState 5.33.4. The native JSON boundary
-below is an existing capability; full cross-runtime equivalence is not yet an
-established guarantee. The new work remains proposed.
+The maintainer's direction is **Pythonic first**: a useful Python statechart
+library with an LLM-assisted software-development niche to investigate.
+The [agent-workflow research](plans/pythonic-agent-workflows-research.md) records
+current Codex, Claude Code, Antigravity, Python-library, and Measured Skills
+evidence, architecture options, and staged acceptance criteria. It updates the
+product priority of the [November 12 plan](plans/statechart-workflow-roadmap.md)
+while preserving its correctness contracts.
 
 ## Product Thesis
 
-`xstate-python` is a Python implementation of XState-style statecharts with
-an explicitly tested data-only XState subset and an SCXML-style execution core.
+`xstate-python` is a Python statechart and actor library with an SCXML-style
+execution core and an explicitly tested data-only XState subset. Its developer
+experience should center Python domain models, functions, typing, and explicit
+runtime behavior. JSON interoperability remains a supported capability.
 
 The short pitch:
 
-> Share a supported statechart definition between JavaScript and Python, with
-> executable evidence of where their behavior agrees and where it differs.
+> Model software workflows in Python, make their decisions inspectable, and
+> keep the evidence for advancing work attached to the revision it describes.
+
+The first application hypothesis is coordinating agent-assisted contributions
+and reviews across changing goals, code revisions, checks, and sessions.
+Revision-aware review records, provider adapters, and a durable application
+host are proposed work. They are not shipped features of the current library.
 
 The [compatibility contract](concepts/xstate-compatibility.md) pins the reference
 runtime and records exact observations. Its synthetic fixtures do not yet prove
@@ -28,8 +35,10 @@ that representative Stately exports run unchanged. That remains an adoption
 gate, alongside the documented argument-timing, startup-order, and persistence
 limits. Re-entry and completion now have fixture-level lifecycle evidence.
 
-The bet is not to out-feature every Python FSM package. The bet is to own the
-bridge between XState's JSON ecosystem and Python backends.
+The product hypothesis is that explicit state and current acceptance evidence
+can reduce handoff mistakes and reconstruction effort in Python development
+workflows. That benefit must be measured against ordinary prompts, repository
+documents, and existing CI before expanding runtime obligations.
 
 ## Current State
 
@@ -83,34 +92,40 @@ bridge between XState's JSON ecosystem and Python backends.
 
 ## Competitive Position
 
-| Library | Main strength | Why xstate-python is different |
+| Reference | Lesson to apply | Evidence and implication |
 |---|---|---|
-| `transitions` | Popular, flexible FSMs | Does not consume XState JSON or model XState actors |
-| `python-statemachine` | Strong docs and SCXML credibility | Does not target Stately/XState JSON compatibility |
-| `Sismic` | Formal statecharts and contracts | Different audience; no XState JSON bridge |
-| `xstate-statemachine` | Closest XState JSON niche | Smaller surface; weaker actor/setup/runtime parity |
+| Python state-machine libraries | Domain models, typed interfaces, useful rejection reasons, explicit runtime contracts | Primary-source comparison in the [research](plans/pythonic-agent-workflows-research.md#2-what-to-learn-from-state-machine-libraries) |
+| yay-machine | Concise state-oriented APIs and maintained examples | Adapt the ergonomics to Python while preserving this library's semantics |
+| Coding-agent harnesses | Existing execution, continuation, skills, sessions and artifacts | Integrate supported surfaces; additional prompt execution alone is weak differentiation |
+| Measured Skills | Acceptance vocabulary, bounded review, and a prepared comparison study | Test a specific coordination need before implementing a host |
 
-The strongest adoption story is a team already using XState or Stately in
-JavaScript and wanting the same machine shape in Python services.
+The candidate niche is revision-aware acceptance and review coordination around
+Python software delivery. The research also identifies an existing
+`python-statemachine` coding-assistant example, so "state machines for agents"
+alone is not an established differentiator. Shared-definition interoperability
+remains a separate useful adoption experiment.
 
 ## Decisions Challenged By Current Evidence
 
-The immediate product is the shared-definition bridge. Developer tools and a
-restartable workflow host are separate capability milestones: the bridge must
-be useful and independently testable before either expands its obligations.
-The broader proposal remains in [planning PR #59](https://github.com/JovaniPink/xstate-python/pull/59).
+Python usability and demonstrated application value now lead product discovery.
+The statechart core, application examples, provider adapters, and durable host
+have separate responsibilities and acceptance gates. Existing compatibility
+cases remain required even when a Python-focused feature does not depend on a
+shared JavaScript chart.
 
 | Assumption | Evidence needed before expanding the claim |
 |---|---|
 | Loading XState-shaped JSON establishes equivalent behavior | Exact cross-runtime observations, including action arguments, lifecycle, and timing; matching snapshots alone are insufficient |
-| More tests make the library more useful | Every advertised fixture passes, known differences are tracked, and one consumer can share a definition without rewriting its control flow |
-| A workflow host is the natural next feature | A concrete consumer needs restart/recovery beyond the core, and the host's transaction, effect, and operator responsibilities have an owner |
-| An independent name creates differentiation | A demonstrated shared-definition use case, maintained compatibility evidence, and confirmed distribution ownership |
+| Pythonic means renaming JavaScript APIs | A typed Python consumer example with ordinary domain objects, clear errors, explicit resource ownership, and measured friction |
+| Agent continuation is a missing feature | Current providers already offer continuation; demonstrate a separate evidence/revision problem |
+| More tests make the library more useful | Advertised behavior remains verified and a representative consumer outcome improves against a documented baseline |
+| A workflow host is the natural next feature | Observed coordination/recovery need, measured benefit, and explicit ownership of transactions, effects, and operations |
+| An independent name creates differentiation | A demonstrated Python use case, maintained guarantees, and confirmed distribution ownership |
 
-These are delivery gates, not demonstrated customer demand. A real shared chart
-from a representative editor export or application is the next adoption
-experiment. Equivalent named implementations are still required on each side;
-sharing the chart does not make arbitrary JavaScript functions portable.
+These are delivery gates, not demonstrated customer demand. The prepared
+Measured review comparison is a useful evidence gate for the proposed niche.
+A representative shared chart is still needed to substantiate the broader
+interoperability story; equivalent named implementations remain necessary.
 
 ## Completed Milestones
 
@@ -124,21 +139,24 @@ sharing the chart does not make arbitrary JavaScript functions portable.
 
 ## Roadmap
 
-The [detailed implementation plan](plans/statechart-workflow-roadmap.md) owns
-dependencies, acceptance identifiers, open decisions, validation, and migration
-policy. Rows other than **Done** are proposed outcomes, not completed features.
+The [agent-workflow research](plans/pythonic-agent-workflows-research.md#11-staged-delivery-plan)
+owns the proposed product sequence. The [earlier plan](plans/statechart-workflow-roadmap.md)
+retains detailed core acceptance and migration work. Rows other than **Done**
+are proposed outcomes, not completed features.
 
 | Sequence | Work |
 |---|---|
 | Done | Pinned XState v5 comparison contract with literal JSON delays, causal action arguments, re-entry, child/timer lifecycle, and final completion ([#55](https://github.com/JovaniPink/xstate-python/issues/55); PRs #60–#62) |
-| Immediate | Validate one representative shared chart with a consumer; measure unchanged structure, observable behavior, and transition/context-capture cost |
+| Immediate runtime work | Define output restoration and preserve completed output ([#54](https://github.com/JovaniPink/xstate-python/issues/54)); repair observable factory input independently ([#53](https://github.com/JovaniPink/xstate-python/issues/53)) |
+| Product validation | Observe contribution/review work and use the prepared Measured comparison to distinguish prompt, skill, and coordination value |
+| First application, if justified | A typed revision-aware review example over recorded events, with current evidence, stable finding IDs, and explicit stopping conditions ([#56](https://github.com/JovaniPink/xstate-python/issues/56)) |
 | Ongoing | Preserve all 14 required parity cases; keep four known differences explicit and promote cases only after reviewed fixes |
-| Alongside compatibility | Repair observable factory input ([#53](https://github.com/JovaniPink/xstate-python/issues/53)) and preserve completed output during restore ([#54](https://github.com/JovaniPink/xstate-python/issues/54)) |
-| Next | Resolve gaps demonstrated by that chart; add structured validation over the existing normalized model, explicit restoration identity, and scenario/trace tools |
-| Then | Demonstrate restartable contribution and synthetic document workflows with explicit effect/recovery boundaries ([#56](https://github.com/JovaniPink/xstate-python/issues/56)) |
+| Compatibility experiment | Validate one representative shared chart; measure unchanged structure, observable behavior, and transition/context-capture cost |
+| Consumer-driven core work | Improve structured validation, restoration identity, and scenario/trace tools where the examples expose a concrete gap |
+| After demonstrated need | One optional provider adapter; a durable host only after recovery requirements justify its transaction and effect responsibilities |
 | Parallel decision | Resolve distribution ownership, naming, namespace, and migration before publication ([#57](https://github.com/JovaniPink/xstate-python/issues/57)) |
 | Separate follow-up | Expand the supported SCXML subset without JavaScript evaluation, evaluate XState v6, and assess inspector protocol, `provide`, or graph utilities against concrete consumers |
-| After demonstrated need | Add optional framework or agent adapters after their runtime contracts are proven |
+| Later extraction | Reusable Python authoring or typed state views and a second provider after repeated consumer needs establish the interface |
 
 ## Success Metrics
 
@@ -146,8 +164,10 @@ policy. Rows other than **Done** are proposed outcomes, not completed features.
 |---|---|
 | Package distribution | An approved package name installs the reviewed 0.7.1 artifact after ownership and publication are verified |
 | Compatibility evidence | Every advertised fixture passes against the pinned reference; any unexpected mismatch or stale known difference fails CI |
+| Python usability | One maintained typed application example with documented setup, clear rejection behavior, and recorded consumer friction |
+| Coordination value | Compare stale-evidence incidents, lost findings, verification effort, and setup cost against documents/prompts/CI; no improvement claimed before observations |
 | Shared-definition adoption | One representative consumer chart loads unchanged in both runtimes with explicit equivalent bindings and matching observations |
-| Performance evidence | Reproducible measurements for that chart, its context sizes, action counts, context policy, and tracing mode; synthetic fixture success alone does not meet this gate |
+| Performance evidence | Reproducible measurements for representative charts, context sizes, action counts, context policy, and tracing mode; separate runtime cost from model latency and human effort |
 | SCXML pass rate | Keep the configured 57-case suite green while expanding supported coverage |
 | Docs | Keep every public runtime boundary represented by a maintained concept guide |
 | Examples | Keep JSON, sync, async, actor, persistence, and SCXML runners green in CI; add adapters only for a demonstrated consumer need |
@@ -159,6 +179,6 @@ policy. Rows other than **Done** are proposed outcomes, not completed features.
   arbitrary JavaScript.
 - Algorithm changes require SCXML verification.
 - Keep `Machine(config, actions=..., guards=..., delays=..., actors=...)`
-  compatible; it is the JSON boundary that makes the project valuable.
+  compatible while improving the Python experience around the same core.
 - Prefer current XState v5 terminology in docs (`guard`, `output`, `always`) and
   mention legacy aliases only as compatibility notes.

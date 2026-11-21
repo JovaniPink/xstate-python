@@ -2,6 +2,12 @@
 
 ## Status and scope
 
+- Product priority update (2026-11-20): the
+  [Pythonic agent-workflow research](pythonic-agent-workflows-research.md)
+  makes Python usability and a revision-aware contribution/review application
+  the next product hypothesis. The core contracts below remain applicable;
+  a durable host now has an explicit consumer-evidence gate. Issue #55 is
+  closed; #53, #54, #56, and #57 remain open at that research snapshot.
 - Status: **Draft implementation plan**, prepared November 12, 2026.
 - Audited base: [d98f2227669770aa78566b32db2d88e318cb2392](https://github.com/JovaniPink/xstate-python/tree/d98f2227669770aa78566b32db2d88e318cb2392).
 - Evidence owner: [dated source and execution evidence](statechart-workflow-evidence.md).
