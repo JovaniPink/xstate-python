@@ -2,14 +2,37 @@
 
 ## Status and scope
 
+- Implementation update (2026-11-25):
+  [#64](https://github.com/JovaniPink/xstate-python/pull/64) merged stored
+  completed-output preservation during deserialization. The [merged persistence
+  contract at #64](https://github.com/JovaniPink/xstate-python/blob/fdc5df06ce87622fbc91aa88a5d8ab09de62041d/docs/concepts/persistence.md)
+  distinguishes the separate constructor-initialization work. Observable input
+  [#66](https://github.com/JovaniPink/xstate-python/pull/66), duplicate IDs and
+  strict `systemId` classification
+  [#67](https://github.com/JovaniPink/xstate-python/pull/67), and constructor
+  snapshot initialization
+  [#68](https://github.com/JovaniPink/xstate-python/pull/68) are now **merged**,
+  through runtime baseline
+  [`6f8470f`](https://github.com/JovaniPink/xstate-python/commit/6f8470ff52330e04658a55de53a4c4095e1da91a).
+  #53 is closed as completed; #54 remains open for broader restoration.
+  #56/#57 remain open. The Measured comparison remains `prepared_not_run` with
+  `execution_authorized: false`; the [bounded observation protocol](pythonic-agent-workflows-research.md#bounded-observation-of-the-current-pr-series-56)
+  records this PR series separately and defines the next prospective evidence
+  step. These changes do not establish application acceptance or adoption.
+- Product priority update (2026-11-20): the
+  [Pythonic agent-workflow research](pythonic-agent-workflows-research.md)
+  makes Python usability and a revision-aware contribution/review application
+  the next product hypothesis. The core contracts below remain applicable;
+  a durable host now has an explicit consumer-evidence gate. Issue #55 is
+  closed; #53, #54, #56, and #57 remain open at that research snapshot.
 - Status: **Draft implementation plan**, prepared November 12, 2026.
 - Audited base: [d98f2227669770aa78566b32db2d88e318cb2392](https://github.com/JovaniPink/xstate-python/tree/d98f2227669770aa78566b32db2d88e318cb2392).
 - Evidence owner: [dated source and execution evidence](statechart-workflow-evidence.md).
-- Existing tracking: [#53](https://github.com/JovaniPink/xstate-python/issues/53),
+- Tracking at the original November 12 baseline: [#53](https://github.com/JovaniPink/xstate-python/issues/53),
   [#54](https://github.com/JovaniPink/xstate-python/issues/54),
   [#55](https://github.com/JovaniPink/xstate-python/issues/55),
   [#56](https://github.com/JovaniPink/xstate-python/issues/56), and
-  [#57](https://github.com/JovaniPink/xstate-python/issues/57), all open when refreshed.
+  [#57](https://github.com/JovaniPink/xstate-python/issues/57), all open at that time.
 - Progress (2026-11-16): WP1, WP3, and WP4 landed on `master` through
   [#60](https://github.com/JovaniPink/xstate-python/pull/60),
   [#61](https://github.com/JovaniPink/xstate-python/pull/61), and
@@ -17,7 +40,8 @@
   descriptions hold the validation results. Opt-in strict key validation
   (`find_config_issues`, [#58](https://github.com/JovaniPink/xstate-python/pull/58))
   is a raw-config precursor that WP6 should absorb into the normalized model.
-  Individual acceptance items below are not yet marked.
+  Package status is updated below; individual acceptance items require their
+  own implementation and validation evidence.
 - Decision owner: the repository maintainer. Module ownership below identifies
   implementation locations, not assignments to people.
 
@@ -36,17 +60,19 @@ subset and an optional host for restartable human/AI workflows.
 > Define the process, validate it before execution, observe why it moved, and
 > integrate external work through explicit effects.
 
-The next capability milestone is complete when literal shared JSON runs against
-a pinned JavaScript reference and Python with the promised observable behavior,
-unsupported models receive useful diagnostics, and one synthetic contribution
-workflow demonstrates review, failure, retry, restart, and duplicate delivery.
-A subsequent document-packet example should reuse those contracts.
+The original November 12 capability milestone combined literal shared JSON
+behavior, useful diagnostics, and a synthetic contribution workflow demonstrating
+review, failure, retry, restart, and duplicate delivery, followed by a
+document-packet example. The November 20 product update separates these tracks:
+Python correctness work can proceed independently, while a workflow application
+and durable host require consumer evidence. The acceptance contracts below
+remain useful without making that host the next committed feature.
 
 This extends the existing [product thesis](../PRODUCT.md). It does not establish
 full XState compatibility, full W3C conformance, arbitrary formal verification,
 or exactly-once external execution. These require separate evidence.
 
-## Current evidence and constraints
+## Original baseline evidence and constraints — November 12
 
 The baseline already has hierarchical/parallel/history states, actors, sync and
 async runtimes, snapshot helpers, a two-pass parser, typed handlers, Mermaid
@@ -61,15 +87,15 @@ document records commands, tool versions, reproduction output, and limits.
 
 Despite that baseline, direct comparisons with JavaScript XState 5.33.4 found:
 
-| Evidence family | Observed difference | Planned owner |
+| Evidence family | Difference at the audited baseline | Follow-up status on November 25 |
 |---|---|---|
-| Numeric JSON delays | An after key of "1000" becomes an unregistered Python delay name | WP1 |
-| Action arguments | Deferred effects see final context and the outer event rather than the context/event at their position | WP3 |
-| Re-entry | Default/false reenter behavior differs; actual re-entry does not restart children or deadlines | WP4 |
-| Final completion | A done snapshot can leave the actor running and processing later events | WP4 |
-| Observable input | Ordinary positional factory input is not bound correctly | WP2 / #53 |
-| Restored output | A computed final output can be lost during reconstruction | WP5 / #54 |
-| Validation | Duplicate IDs and contradictory state shapes can pass construction | WP6 |
+| Numeric JSON delays | An after key of "1000" becomes an unregistered Python delay name | WP1 merged in #60 |
+| Action arguments | Deferred effects see final context and the outer event rather than the context/event at their position | WP3 merged in #61 |
+| Re-entry | Default/false reenter behavior differs; actual re-entry does not restart children or deadlines | WP4 merged in #62 |
+| Final completion | A done snapshot can leave the actor running and processing later events | WP4 merged in #62 |
+| Observable input | Ordinary positional factory input is not bound correctly | WP2 merged in #66; #53 closed |
+| Restored output | A computed final output can be lost during reconstruction | WP5: deserialization slice merged in #64; distinct constructor follow-up merged in #68; broader #54 open |
+| Validation | Duplicate IDs and contradictory state shapes can pass construction | WP6: duplicate-ID slice merged in #67; broader structural validation remains proposed |
 
 The observable and restoration cases already have issues. Output reconstruction,
 mutable nested context, and the sync/async split have documented boundaries;
@@ -207,23 +233,25 @@ See the [announcement](https://stately.ai/blog/2026-11-05-xstate-v6-beta),
 
 ## Delivery sequence and dependency gates
 
-Each package includes behavior, documentation, and tests. Status is **proposed**
-for every package. Implementations should be small, independently reviewable PRs
-where their prerequisites allow that.
+Each package includes behavior, documentation, and tests. The table records
+November 25 package status; the detailed implementation instructions and
+acceptance IDs below retain the original plan, with scoped status notes for
+later work. A merged prerequisite does not establish every broader acceptance
+case. Further implementations should remain independently reviewable.
 
-| Package | Observable outcome | Dependencies |
-|---|---|---|
-| WP1 | Literal JSON numeric delays run equivalently, with a pinned comparison harness | Baseline and D1/D2 |
-| WP2 | Observable factories satisfy the advertised input contract | Baseline; can run alongside WP1 |
-| WP3 | Deferred actions observe their own context/event/parameters | WP1 harness |
-| WP4 | Re-entry and completion own the correct resource lifecycle | WP1; coordinate result contract with WP3 |
-| WP5 | Final output survives supported snapshot round trips | Baseline; independent narrow #54 slice |
-| WP6 | One normalized model supports structured validation | WP1/WP3/WP4 semantics reviewed |
-| WP7 | Restore has a versioned, explicit compatibility contract | WP5 and WP6 definition identity |
-| WP8 | Scenario and trace tools explain outcomes reproducibly | WP3/WP4; diagnostic vocabulary from WP6 |
-| WP9 | Contribution workflow recovers across defined failure boundaries | WP1–WP8 outcomes needed by the scenario |
-| WP10 | Document-packet example reuses the contribution host contracts | WP9 |
-| WP11 | Independent distribution identity and release policy are decided | Research can run in parallel; release depends on required capability gates |
+| Package | Observable outcome | Status on November 25 | Dependencies |
+|---|---|---|---|
+| WP1 | Literal JSON numeric delays run equivalently, with a pinned comparison harness | Merged #60 | Baseline and D1/D2 |
+| WP2 | Observable factories satisfy the advertised input contract | Merged #66 / #53 closed | Independent input-binding fix |
+| WP3 | Deferred actions observe their own context/event/parameters | Merged #61 | WP1 harness |
+| WP4 | Re-entry and completion own the correct resource lifecycle | Merged #62 | WP1; result contract coordinated with WP3 |
+| WP5 | Final output survives supported snapshot round trips | Deserialization slice merged #64; constructor follow-up merged #68; #54 remains open | Broader restoration stays in WP7 |
+| WP6 | One normalized model supports structured validation | Bounded duplicate-ID/unsupported-alias slice merged #67; remainder proposed | WP1/WP3/WP4 semantics reviewed |
+| WP7 | Restore has a versioned, explicit compatibility contract | Proposed | WP5 and WP6 definition identity |
+| WP8 | Scenario and trace tools explain outcomes reproducibly | Proposed | WP3/WP4; diagnostic vocabulary from WP6 |
+| WP9 | Contribution workflow recovers across defined failure boundaries | Proposed / open #56 | Consumer/recovery evidence; only the core outcomes needed by the scenario |
+| WP10 | Document-packet example reuses the contribution host contracts | Proposed | WP9, if its host is justified |
+| WP11 | Independent distribution identity and release policy are decided | Proposed / open #57 | Research can run in parallel; publication requires ownership and release evidence |
 
 ### WP1 — Literal JSON compatibility and numeric delays (#55)
 
@@ -257,6 +285,13 @@ precedence decision is D2. Do not claim additional numeric-string grammar
 without a reference case.
 
 ### WP2 — Observable input binding (#53)
+
+**Current status:** [#66](https://github.com/JovaniPink/xstate-python/pull/66)
+merged this slice, implemented at
+[`ee8695f`](https://github.com/JovaniPink/xstate-python/tree/ee8695feee8d1600d94bbae0b99036ce32c312d0).
+Its focused factory tests, typing assertions, and actor guide provide the
+implementation evidence, with validation receipts in the PR. #53 is closed as
+completed. The original acceptance contract below remains the maintenance scope.
 
 **Outcome:** the public unary factory contract works regardless of an ordinary
 parameter's name. Extend `_ObservableBackend.start` and reuse the safe signature
@@ -334,6 +369,23 @@ any later unification. D3 controls the migration from legacy transition behavior
 
 ### WP5 — Preserve completed output (#54, first slice)
 
+**Current status:** [#64](https://github.com/JovaniPink/xstate-python/pull/64)
+merged the `deserialize_snapshot()` output-preservation slice. The [merged
+persistence guide](https://github.com/JovaniPink/xstate-python/blob/fdc5df06ce87622fbc91aa88a5d8ab09de62041d/docs/concepts/persistence.md)
+defines present output, explicit null, detached copying, and legacy fallback.
+The implementation instructions below describe that original repair; do not
+schedule it again.
+
+The distinct constructor follow-up merged in
+[#68](https://github.com/JovaniPink/xstate-python/pull/68), with a [pinned
+contract](https://github.com/JovaniPink/xstate-python/blob/ad04c891ce3b40eb594065d69a893de31797897b/docs/concepts/persistence.md)
+for `create_actor(machine, snapshot=...)`: skip fresh initial assignments,
+guards, and output computation while retaining supplied snapshots and normal
+startup behavior. Actors without a constructor snapshot and standalone
+interpreters retain eager initialization. Neither change establishes general
+process recovery, versioned migration, or application-level reviewed-output
+acceptance; #54 remains open.
+
 **Outcome:** supported round trips retain completed output without re-running
 its computation. Extend `deserialize_snapshot` and State's output construction
 with an explicit absent-field sentinel where needed.
@@ -351,6 +403,17 @@ guide's reconstruction contract. Keep broad schema migration and deep context
 ownership out of this narrow fix; they belong to WP7.
 
 ### WP6 — Normalized definition and structured diagnostics
+
+**Current status:** [#67](https://github.com/JovaniPink/xstate-python/pull/67)
+merged a bounded slice proposed in research
+[#65](https://github.com/JovaniPink/xstate-python/pull/65). Its [pinned
+contract](https://github.com/JovaniPink/xstate-python/blob/24125bc938a479282382e0f2362ccbc751aa1aec/docs/concepts/machines-and-implementations.md)
+rejects duplicate resolved state IDs before lookup overwrite at all machine
+construction boundaries, reports both paths, and preserves valid repeated local
+names. It also classifies `invoke.systemId` as unsupported in strict validation;
+permissive construction still ignores it and does not register an alias. This
+change does not implement the alias, a normalized-definition redesign, or all
+VALID acceptance cases below. Broader WP6 work remains proposed.
 
 **Outcome:** execution and tooling consume the same resolved semantics and
 invalid charts fail with actionable diagnostics.
@@ -418,6 +481,15 @@ if that information is made available.
 
 ### WP9 — Restartable contribution workflow (#56)
 
+**Current status:** proposed; #56 remains open. The Measured comparison remains
+`prepared_not_run`. The [bounded observation protocol](pythonic-agent-workflows-research.md#bounded-observation-of-the-current-pr-series-56)
+records the real PR series as one retrospective case and makes prospective
+handoff packets against the existing document/CI baseline the next evidence
+step. Effort, tokens, and cost for the retrospective case remain unknown. This
+does not satisfy the [later product plan](pythonic-agent-workflows-research.md#11-staged-delivery-plan)
+gate for a coordinator or the recovery acceptance below. A durable host
+additionally requires an observed recovery need.
+
 **Outcome:** one synthetic workflow progresses through implementation,
 validation, review, ready-to-merge, and merged, with inspectable recovery.
 
@@ -437,7 +509,8 @@ providers optional and do not perform real repository writes in the demo.
 | FLOW-07 | A reader can inspect events, transitions, intent/result records, and the reason work is waiting or blocked |
 | FLOW-08 | Intent eligibility carries its authorized revision/generation; superseded or canceled undispatched work is suppressed, and late external results are recorded without advancing the current workflow |
 
-A standard-library SQLite host is the recommended first implementation.
+If recovery evidence justifies a host, a standard-library SQLite implementation
+is the first candidate.
 Commit the durable inbox/snapshot/outbox transaction before dispatching an
 external effect. Executing an effect and recording its result remain a separate
 failure window: use idempotency or query/reconciliation, not an exactly-once
@@ -479,6 +552,9 @@ An LLM may propose structured events or extracted data. Its prose is not an
 approval, authenticated event source, or provider receipt.
 
 ### WP11 — Independent identity and packaging (#57)
+
+**Current status:** proposed; #57 remains open. Runtime fixes and research PRs do
+not decide distribution ownership, authorize publication, or reserve a name.
 
 **Outcome:** the project has a clear ownership, installation, and compatibility
 story. "Measured Statecharts" and `measured-statecharts` are working candidates,
@@ -550,9 +626,12 @@ poetry run python scripts/validate_distribution.py
 Run relevant narrow regressions first, then the required primary/SCXML gates
 when algorithm, transition selection, queueing, timers, history, or eventless
 behavior changes. Preserve the coverage floor and supported Python CI matrix.
-The JS compatibility gate and host crash tests are proposed additions, not
-commands already available in this baseline. Before release, run the existing
-release preflight on the exact target and record hosted results for that SHA.
+The JS compatibility gate was proposed at the November 12 baseline and is now
+available through `scripts/compare_xstate_v5.py`; follow the
+[compatibility guide](../concepts/xstate-compatibility.md) for its pinned runtime
+and setup requirements. Host crash tests remain proposed. Before release, run
+the existing release preflight on the exact target and record hosted results for
+that SHA.
 
 ### Rollout and rollback
 

@@ -18,13 +18,19 @@
 
 ## Why This Library?
 
-This project has a narrow, useful goal: load native
-[XState](https://github.com/statelyai/xstate) / [Stately](https://stately.ai/editor)
-JSON in Python and run it with a statechart engine that follows the SCXML
-microstep/macrostep model.
+Build application statecharts with ordinary Python functions, typed events,
+dataclass contexts, and explicit actor lifecycles. The project direction is
+Pythonic first, supported by an SCXML-style microstep/macrostep engine and
+separate pure, synchronous, and asynchronous execution APIs.
 
-That means a chart designed visually in Stately, or shared with a JavaScript
-frontend, can stay declarative:
+The [product research](docs/plans/pythonic-agent-workflows-research.md) investigates
+coordinating agent-assisted software changes with evidence tied to the goal and
+code revision it describes. That application remains a proposal; provider
+adapters and a durable workflow host are not shipped features.
+
+Data-only [XState](https://github.com/statelyai/xstate) /
+[Stately](https://stately.ai/editor) interoperability remains a supported
+boundary. A chart shared with a JavaScript frontend can stay declarative:
 
 ```python
 import json
@@ -51,7 +57,7 @@ or Stately export compatibility.
 | Engine | W3C SCXML-style run-to-completion algorithm |
 | Core runtime deps | None |
 | Main runtime APIs | Pure `Machine.transition`, `Interpreter`, `AsyncInterpreter`, `Actor` |
-| Current focus | XState v5 alignment, actors, setup, and SCXML correctness |
+| Current focus | Python usability, execution correctness, and explicit lifecycle contracts |
 
 ## Installation
 
