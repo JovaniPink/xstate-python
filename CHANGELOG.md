@@ -99,6 +99,11 @@ All notable changes to this project will be documented here.
 
 ### Fixed
 
+- Restore stored completed snapshot output without rerunning output callbacks.
+  Explicit JSON `null` is preserved; legacy payloads without `output` retain
+  their earlier literal/`None` fallback. Restored stored output is detached
+  from the payload, and active snapshots keep `output=None`.
+
 - Reconciled timers and invocations from actual macrostep exits. Retained owners
   keep their resources; exited and re-entered owners cancel/reset timers and
   replace children. Transient states do not start new timers or invocations.

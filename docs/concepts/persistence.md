@@ -75,14 +75,37 @@ checkpoints.
 ## What Is Reconstructed
 
 The active configuration, context, and known history nodes are reconstructed.
-Snapshot status and output are derived again from the restored configuration;
-the serialized `output` field is descriptive rather than assigned independently.
-An error status is restored, with the serialized error representation exposed
-as text.
+The configuration determines whether the snapshot is active or completed. An
+error status is restored, with the serialized error representation exposed as
+text; the original exception object is not recreated.
+
+For a completed configuration, a present `output` field is restored as an
+independent deep copy. This preserves computed output without calling the
+original output function again. Explicit JSON `null` restores `None`, even if
+the machine definition has a literal output value. Mutating a stored payload
+after restore does not change the restored output, and mutating the restored
+output does not change the payload.
+
+Legacy payloads that omit `output` keep the earlier fallback: a literal final
+output is read from the compatible machine definition, while a callable final
+output yields `None`. Restore never invokes that callable to recover a missing
+value. Applications that need completed results should persist the `output`
+field emitted by `serialize_snapshot()`. Active configurations always have
+`output=None`, even if the payload contains an output value.
+
+The no-recomputation guarantee applies to `deserialize_snapshot()`. Creating
+a machine-backed actor currently constructs an interpreter and evaluates the
+machine's initial state before applying a supplied snapshot. An output callback
+can therefore run during actor construction if initialization reaches a final
+state, although the supplied snapshot's stored output is retained. Keep output
+callbacks free of external effects; actor construction is not a side-effect-free
+restore boundary.
 
 The restored public snapshot keeps the normal immutable boundary:
 configuration is a `frozenset`, actions are a tuple, and history values are
-read-only.
+read-only. This does not make context or output dictionaries recursively
+read-only. Live context follows the configured `ContextAdapter` policy;
+serialization provides a detached copy for storage or observation.
 
 ## What Is Not Persisted
 
