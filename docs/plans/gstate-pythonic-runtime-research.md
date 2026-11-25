@@ -17,19 +17,19 @@ coordinate that work; provider harnesses should execute it. Gstate supplies
 useful mechanisms and counterexamples, but its example is not evidence that we
 should build a general workflow platform.
 
-The highest-value immediate work is small: fix observable factory input,
-reject duplicate state IDs, and avoid unnecessary initialization when an actor
-receives a snapshot at construction. These three slices now have draft
-implementations linked below. Then test the coordination hypothesis with
-recorded events and the existing Measured Skills evaluation plan before
-extracting new public APIs.
+The first three improvements are now merged: observable factory input binding,
+duplicate state-ID rejection, and skipping fresh initialization when an actor
+receives a snapshot at construction. The next step is the bounded observation
+protocol in the Python-first research: determine what existing GitHub, Git,
+Markdown, and CI evidence can reconstruct before proposing coordination APIs.
+The existing Measured Skills evaluation remains a separate, prepared study.
 
-This follows the user's Python-first direction and the proposal in
-[draft PR #63](https://github.com/JovaniPink/xstate-python/pull/63). That PR was
-still open and unmerged when researched. The current merged product notes still
-describe the older compatibility-first positioning; this document does not
-silently treat the draft as merged policy. The supported JSON boundary and its
-behavioral tests remain responsibilities of the library.
+This follows the user's Python-first direction recorded in
+[PR #63](https://github.com/JovaniPink/xstate-python/pull/63). At the original
+research snapshot that PR was still a draft and merged product notes described
+the older compatibility-first positioning. The dated implementation update
+below separates that historical baseline from subsequent work. The supported
+JSON boundary and its behavioral tests remain responsibilities of the library.
 
 ## Evidence and revision boundary
 
@@ -55,22 +55,26 @@ follow-up. [PERSIST]
 ### Implementation follow-through — November 25, 2026
 
 The maintainer authorized proceeding with the proposals after reviewing current
-PRs and issues. The first three slices are implemented in independent draft PRs
-based on `master` at `fdc5df06ce87622fbc91aa88a5d8ab09de62041d`:
+PRs and issues. The first three slices were reviewed and merged in order
+#66, #67, #68. Their implementation commits were independently based on
+`fdc5df06ce87622fbc91aa88a5d8ab09de62041d`; the resulting merged runtime is
+[`6f8470f`](https://github.com/JovaniPink/xstate-python/commit/6f8470ff52330e04658a55de53a4c4095e1da91a).
+Its tree is identical to the previously verified combined runtime tree.
 
-| Proposal | Draft implementation | Acceptance and remaining boundary |
+| Proposal | Merged implementation | Acceptance and remaining boundary |
 | --- | --- | --- |
-| A — Observable factory input | [#66](https://github.com/JovaniPink/xstate-python/pull/66), [implementation](https://github.com/JovaniPink/xstate-python/commit/ee8695feee8d1600d94bbae0b99036ce32c312d0) | Shared promise/observable binding, actual emissions, call-once errors, cancellation, and type inference; resolves #53 when merged |
+| A — Observable factory input | [#66](https://github.com/JovaniPink/xstate-python/pull/66), [implementation](https://github.com/JovaniPink/xstate-python/commit/ee8695feee8d1600d94bbae0b99036ce32c312d0) | Shared promise/observable binding, actual emissions, call-once errors, cancellation, and type inference; #53 is closed |
 | B — Definition validation | [#67](https://github.com/JovaniPink/xstate-python/pull/67), [implementation](https://github.com/JovaniPink/xstate-python/commit/24125bc938a479282382e0f2362ccbc751aa1aec) | Reject duplicate resolved state IDs with distinct paths; classify ignored `invoke.systemId` as unsupported in strict mode; broader normalized diagnostics/composition remain proposed |
 | C — Constructor restoration | [#68](https://github.com/JovaniPink/xstate-python/pull/68), [implementation](https://github.com/JovaniPink/xstate-python/commit/ad04c891ce3b40eb594065d69a893de31797897b) | A constructor-supplied snapshot replaces fresh initialization; default eager construction and normal startup policies remain; #54 stays open |
 
-These PRs contain their regression, migration, local validation, and hosted CI
-records. They are draft implementations, not merged capabilities. Their
-research baselines below remain pinned historical observations; for example,
-the successful #53 reproduction describes `fdc5df0`, not the #66 branch.
+These merged PRs contain their regression, migration, local validation, and
+hosted CI records. Research baselines below remain pinned historical
+observations; for example, the successful #53 reproduction describes
+`fdc5df0`, before #66 repaired it.
 
 The existing [Python-first direction PR #63](https://github.com/JovaniPink/xstate-python/pull/63)
-is updated in place to reflect this sequence. PR #64's completed-output repair
+records this sequence and the bounded contribution-workflow observation.
+PR #64's completed-output repair
 is already merged and is not scheduled again. The broader restoration issue
 [#54](https://github.com/JovaniPink/xstate-python/issues/54), contribution/recovery
 experiment [#56](https://github.com/JovaniPink/xstate-python/issues/56), and
@@ -193,7 +197,7 @@ Python already has structured `ConfigIssue` records with document paths and
 stable traversal order. They currently identify unknown and unsupported keys;
 they are not a comprehensive structural validator. [PVALIDATE]
 
-### Observed gap: duplicate explicit IDs
+### Observed gap at the audited baseline: duplicate explicit IDs
 
 This configuration is accepted even with `strict=True` at the inspected Python
 revision:
@@ -214,34 +218,36 @@ to `b`: `_register()` overwrites the earlier mapping. A local probe also
 confirmed that `find_config_issues()` returns no findings. This creates an
 ambiguous addressing and restoration boundary. [PREGISTER] [PVALIDATE]
 
-**Proposed first validation PR:** reject duplicate resolved IDs before a
-registry entry is overwritten, with both declaration paths in the error. Cover
-explicit duplicates, collisions with generated IDs, valid repeated local state
-names under different parents, and references/history targeting distinct IDs.
-Decide and document whether rejection applies at all constructors or initially
-through strict validation; ambiguous IDs should never silently become a
-supported addressing contract.
+**Implemented in [#67](https://github.com/JovaniPink/xstate-python/pull/67):**
+duplicate resolved IDs are rejected before registry overwrite, with both
+declaration paths in the error. Explicit/generated collisions, history IDs, and
+ambiguous dotted path segments are covered. Rejection applies to all machine
+construction modes; valid repeated local names under distinct parents remain
+supported. `find_config_issues()` remains a raw-key checker, not a complete
+structural validator.
 
 Broader diagnostics can follow concrete findings. Do not import all gstate
 restrictions wholesale: globally unique local names, required completion
 fallbacks, and cross-region rules are design choices that must be reconciled
 with Python's supported JSON and SCXML behavior.
 
-One adjacent source-confirmed gap deserves its own small classification decision:
-strict validation recognizes `invoke.systemId`, but invoke normalization drops
-that field. Either implement the advertised alias or classify it as unsupported
-until implemented. Recognition by the key validator alone does not establish
-behavioral support. [PVALIDATE] [PINVOKEPARSER]
+At the audited baseline, strict validation recognized `invoke.systemId`, but
+invoke normalization dropped that field. [PVALIDATE] [PINVOKEPARSER]
+Merged #67 classifies it as unsupported in strict mode; permissive construction
+still ignores it and does not register the alias. Recognition by a key validator
+alone does not establish behavioral support.
 
 ### A separate Pythonic correctness fix
 
-Issue #53 remains reproducible: `from_observable()` calls a factory through
+Issue #53 was reproducible at `fdc5df0`: `from_observable()` called a factory through
 keyword-name filtering. An async generator factory named `input` succeeds;
 the same unary factory named `count` fails with a missing positional argument.
-Promise logic already has a richer call-binding path. Normalize the observable
-factory once, preserving supported legacy forms, and report genuine signature
-errors clearly. No new authoring facade is needed to fix this. [POBSERVABLE]
-[PPROMISE]
+Promise logic already had a richer call-binding path. [POBSERVABLE] [PPROMISE]
+Merged [#66](https://github.com/JovaniPink/xstate-python/pull/66) reuses that
+binder for observable factories and adds the zero-argument typing overload.
+Optional/variadic input policy, original exceptions, real emissions, and
+cancellation are tested and documented. #53 is closed; a new authoring facade
+was not needed for this repair.
 
 ## 4. Data ownership: make the cost and the contract explicit
 
@@ -437,13 +443,16 @@ For Python, define these operations separately before adding API names:
 | Inspect | Query/visualize the stored state and metadata without effectful stabilization |
 | Resume | Explicitly choose timer and invocation policy, then run the live actor |
 
-Python already has a useful standalone deserializer. The immediate gap is
-that constructing a machine-backed actor first initializes its interpreter,
-then applies the supplied snapshot. An initially final chart can therefore
-call an output function during actor construction. The persistence guide now
-documents this precisely. Removing unnecessary initialization is a bounded
-follow-up to #64; it is not evidence that #64's output restoration failed.
-[PERSIST] [PINIT]
+Python already had a useful standalone deserializer. At the audited baseline,
+constructing a machine-backed actor first initialized its interpreter, then
+applied the supplied snapshot. An initially final chart could therefore call an
+output function during actor construction. [PERSIST] [PINIT]
+Merged [#68](https://github.com/JovaniPink/xstate-python/pull/68) now supplies the
+constructor snapshot before initial-state computation. Default construction
+remains eager, raw pending actions retain their startup behavior, and active
+resources follow the existing resume policy. This closes that specific caveat;
+it does not implement separate hydration modes or durable recovery, and #54
+remains open.
 
 ### Atomic state plus metadata
 
@@ -620,15 +629,15 @@ initial recorded-event example can prove about a real external service.
 
 ## 11. Proposed PR sequence
 
-The dated implementation update above records draft PRs for A–C. D–G remain
+The dated implementation update above records merged PRs for A–C. D–G remain
 proposed work, not a commitment to implement the whole table. Keep compatibility
 fixtures and pure/runtime boundaries visible in each.
 
 | Order | Proposed PR | Concrete acceptance boundary | Dependency or stop condition |
 | --- | --- | --- | --- |
-| A | Normalize observable factory input ([draft #66](https://github.com/JovaniPink/xstate-python/pull/66)) | Positional unary, keyword `input`, positional-only, supported legacy signatures and real binding errors are covered | Reproduced at the audited baseline; closes #53 when merged |
-| B | Reject duplicate resolved state IDs ([draft #67](https://github.com/JovaniPink/xstate-python/pull/67)) | Both conflicting paths reported; valid nested local names and existing target/history behavior preserved; strict `systemId` classified unsupported | Concrete addressing gap; no DSL or alias implementation |
-| C | Avoid initial computation when constructing from a supplied snapshot ([draft #68](https://github.com/JovaniPink/xstate-python/pull/68)) | No unnecessary initial assignment/guard/output evaluation; stored output, lifecycle and trace semantics preserved | Constructor-supplied snapshot only; follow-up to still-open #54, not a repeat of #64 |
+| A | Normalize observable factory input ([merged #66](https://github.com/JovaniPink/xstate-python/pull/66)) | Positional unary, keyword `input`, positional-only, supported legacy signatures and real binding errors are covered | #53 closed |
+| B | Reject duplicate resolved state IDs ([merged #67](https://github.com/JovaniPink/xstate-python/pull/67)) | Both conflicting paths reported; valid nested local names and existing target/history behavior preserved; strict `systemId` classified unsupported | Concrete addressing gap; no DSL or alias implementation |
+| C | Avoid initial computation when constructing from a supplied snapshot ([merged #68](https://github.com/JovaniPink/xstate-python/pull/68)) | No unnecessary initial assignment/guard/output evaluation; stored output, lifecycle and trace semantics preserved | Constructor-supplied snapshot only; follow-up to still-open #54, not a repeat of #64 |
 | D | Run coordination/adoption evaluation | Record whether revision, evidence, review or budget loss occurs and whether explicit state helps | Preserve PR #63's evaluation gate; stop expansion if a simpler approach suffices |
 | E | Add one typed recorded-event workflow | Cases above for stale results, evidence, outcomes and budgets pass; no real publishing/model dependency | Only if D justifies the coordinator |
 | F | Add the missing runtime observations/checkpoint contract | Correlation and effect outcomes meet the example's actual needs; disabled observations avoid extra payload work | Extract from E; no generic observability platform |
@@ -653,7 +662,7 @@ orchestration are not prerequisites for the first useful workflow.
 | Guard-purity probe | A deliberately reference-mutating false guard retained the map mutation despite a correct `Clone()`; ownership requires pure guards |
 | Stabilization-budget probe | A finite 101-step targetless Go computation stopped at 100 with `ErrAlwaysLimit` |
 | Python focused tests | 46 existing snapshot, context and raw-config validation cases passed with Python 3.13.5 and pytest/plugin versions from `poetry.lock` |
-| Python observable input probe | Equivalent unary factories named `input` and `count` behave differently; #53 remains reproducible |
+| Python observable input probe | Equivalent unary factories named `input` and `count` behaved differently at `fdc5df0`; subsequently fixed in #66 |
 | Python duplicate-ID probe | Strict configuration accepted the duplicate; registry selected the later declaration |
 | Current completed output | Source and focused tests include merged #64; not reported as missing |
 

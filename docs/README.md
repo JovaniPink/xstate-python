@@ -36,5 +36,5 @@ match the runtime boundary you need:
   completion claim.
 - [Gstate and a Python-first runtime](./plans/gstate-pythonic-runtime-research.md):
   November 25, 2026 source audit of composition, validation, ownership, actor
-  lifecycle, observation and restoration, with executable findings, draft
-  implementation links, and remaining consumer evidence gates.
+  lifecycle, observation and restoration, with executable findings, merged
+  runtime improvements, and remaining consumer evidence gates.
