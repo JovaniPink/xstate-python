@@ -213,6 +213,12 @@ def from_observable[InputT, OutputT](
 
 @overload
 def from_observable[OutputT](
+    fn: Callable[[], AsyncIterable[OutputT]],
+) -> ObservableLogic[None, OutputT]: ...
+
+
+@overload
+def from_observable[OutputT](
     fn: AsyncIterable[OutputT],
 ) -> ObservableLogic[None, OutputT]: ...
 
@@ -223,7 +229,10 @@ def from_observable(
     """Create observable actor logic from ``fn`` (XState v5 ``fromObservable``).
 
     ``fn`` is a callable returning an async iterable (e.g. an async generator
-    function), or an async iterable directly.  Requires a running event loop.
+    function), or an async iterable directly. Factories use the same input
+    binding as :func:`from_promise`: any unary positional parameter, no
+    arguments, keyword-only ``input``, or ``**kwargs``. Requires a running event
+    loop.
     """
     return ObservableLogic(fn)
 
@@ -274,8 +283,8 @@ def _call_with_supported_kwargs(fn: Callable[..., Any], **kwargs: Any) -> Any:
     return fn(*args, **kwargs_to_pass)
 
 
-def _call_promise(fn: Callable[..., Any], input_value: Any) -> Any:
-    """Bind promise input before calling, retaining supported keyword forms.
+def _call_with_input(fn: Callable[..., Any], input_value: Any) -> Any:
+    """Bind actor input before calling, retaining supported keyword forms.
 
     ``Signature.bind`` inspects compatibility without executing the function;
     exceptions from the handler itself must never trigger a second call.
@@ -467,7 +476,7 @@ class _PromiseBackend(_ListenerBackend):
             return
         self._status = RUNNING
         try:
-            result = _call_promise(self._fn, self._input)
+            result = _call_with_input(self._fn, self._input)
         except Exception as exc:  # noqa: BLE001 - surfaced as actor error
             self._snapshot = ActorSnapshot("error", error=exc)
             self._notify()
@@ -563,7 +572,7 @@ class _ObservableBackend(_ListenerBackend):
         self._status = RUNNING
         try:
             source = (
-                _call_with_supported_kwargs(self._fn, input=self._input)
+                _call_with_input(self._fn, self._input)
                 if callable(self._fn)
                 else self._fn
             )

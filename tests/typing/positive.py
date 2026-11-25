@@ -27,6 +27,7 @@ from xstate import (
     MachineSnapshot,
     MacrostepTrace,
     MicrostepTrace,
+    ObservableLogic,
     OutputHandler,
     State,
     SubscriptionProtocol,
@@ -247,6 +248,29 @@ async def values(input: int) -> AsyncIterable[int]:
 
 observable_actor = create_actor(from_observable(values), input=1)
 assert_type(observable_actor, Actor[object, ActorSnapshot[int], int])
+
+
+async def values_by_count(count: int) -> AsyncIterable[str]:
+    for value in range(count):
+        yield str(value)
+
+
+async def values_positional_only(count: int, /) -> AsyncIterable[str]:
+    yield str(count)
+
+
+async def values_without_input() -> AsyncIterable[str]:
+    yield "ready"
+
+
+positional_observable_logic = from_observable(values_by_count)
+assert_type(positional_observable_logic, ObservableLogic[int, str])
+assert_type(from_observable(values_positional_only), ObservableLogic[int, str])
+assert_type(from_observable(values_without_input), ObservableLogic[None, str])
+assert_type(from_observable(values_without_input()), ObservableLogic[None, str])
+positional_observable_actor = create_actor(positional_observable_logic, input=2)
+assert_type(positional_observable_actor, Actor[object, ActorSnapshot[str], str])
+assert_type(to_promise(positional_observable_actor), asyncio.Future[str])
 
 
 class CallbackEvent(TypedDict):
