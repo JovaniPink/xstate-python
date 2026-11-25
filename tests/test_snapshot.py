@@ -11,6 +11,8 @@ Covers:
 import json
 from dataclasses import asdict, dataclass
 
+import pytest
+
 from xstate import (
     Machine,
     create_actor,
@@ -242,6 +244,121 @@ def test_deserialize_restores_context():
     data = serialize_snapshot(actor.get_snapshot())
     state = deserialize_snapshot(machine, data)
     assert state.context == {"count": 3}
+
+
+def test_completed_computed_output_round_trip_does_not_repeat_callback():
+    calls = []
+
+    def output(context, event):
+        calls.append(event.name)
+        return {"answer": context["answer"], "nested": {"count": 1}}
+
+    machine = Machine(
+        {
+            "id": "computed-output",
+            "context": {"answer": 42},
+            "initial": "working",
+            "states": {
+                "working": {"on": {"FINISH": "done"}},
+                "done": {"type": "final", "output": output},
+            },
+        }
+    )
+    snapshot = machine.transition(machine.initial_state, "FINISH")
+    data = json.loads(json.dumps(serialize_snapshot(snapshot)))
+
+    restored = deserialize_snapshot(machine, data)
+    resumed = create_actor(machine, snapshot=restored).start()
+
+    assert restored.status == "done"
+    assert restored.output == {"answer": 42, "nested": {"count": 1}}
+    assert resumed.get_snapshot().output == restored.output
+    assert calls == ["FINISH"]
+    data["output"]["nested"]["count"] = 99
+    assert restored.output["nested"]["count"] == 1
+    restored.output["nested"]["count"] = 2
+    assert snapshot.output["nested"]["count"] == 1
+    assert data["output"]["nested"]["count"] == 99
+    resumed.stop()
+
+
+@pytest.mark.parametrize("stored_output", [None, False, 0, {"answer": 7}])
+def test_completed_snapshot_restores_explicit_output(stored_output):
+    machine = Machine(
+        {
+            "id": "stored-output",
+            "initial": "done",
+            "states": {"done": {"type": "final", "output": {"answer": 42}}},
+        }
+    )
+    data = json.loads(json.dumps(serialize_snapshot(machine.initial_state)))
+    data["output"] = stored_output
+
+    restored = deserialize_snapshot(machine, data)
+
+    assert restored.status == "done"
+    assert restored.output == stored_output
+    assert type(restored.output) is type(stored_output)
+
+
+def test_legacy_completed_snapshot_without_output_uses_literal_definition():
+    machine = Machine(
+        {
+            "id": "legacy-literal",
+            "initial": "done",
+            "states": {"done": {"type": "final", "output": {"answer": 42}}},
+        }
+    )
+    data = serialize_snapshot(machine.initial_state)
+    del data["output"]
+
+    restored = deserialize_snapshot(machine, data)
+
+    assert restored.status == "done"
+    assert restored.output == {"answer": 42}
+
+
+def test_legacy_completed_snapshot_without_output_does_not_compute_it():
+    calls = []
+
+    def output(context, event):
+        calls.append(event.name)
+        return {"answer": 42}
+
+    machine = Machine(
+        {
+            "id": "legacy-computed",
+            "initial": "working",
+            "states": {
+                "working": {"on": {"FINISH": "done"}},
+                "done": {"type": "final", "output": output},
+            },
+        }
+    )
+    snapshot = machine.transition(machine.initial_state, "FINISH")
+    data = serialize_snapshot(snapshot)
+    del data["output"]
+
+    restored = deserialize_snapshot(machine, data)
+
+    assert restored.status == "done"
+    assert restored.output is None
+    assert calls == ["FINISH"]
+
+
+@pytest.mark.parametrize("include_output", [False, True])
+def test_active_snapshot_does_not_gain_completed_output(include_output):
+    machine = _toggle_machine()
+    data = json.loads(json.dumps(serialize_snapshot(machine.initial_state)))
+    if include_output:
+        data["output"] = {"answer": 42}
+    else:
+        del data["output"]
+
+    restored = deserialize_snapshot(machine, data)
+
+    assert restored.status == "active"
+    assert restored.output is None
 
 
 # ---------------------------------------------------------------------------

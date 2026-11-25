@@ -80,8 +80,11 @@ def deserialize_snapshot[ContextT, EventDataT, OutputT](
     ``actor.start(initial_state=...)`` to resume execution.
     ``context_deserializer`` reconstructs a custom context value before the
     machine's context adapter applies its snapshot policy.
+    Completed snapshots restore an independent copy of stored ``output``,
+    including explicit ``None``, without invoking an output callable. Legacy
+    payloads without that field retain configuration-derived output behavior.
     """
-    from xstate.state import State
+    from xstate.state import _OUTPUT_UNSET, State
 
     configuration = set(machine._get_configuration(data["value"]))
 
@@ -100,6 +103,7 @@ def deserialize_snapshot[ContextT, EventDataT, OutputT](
         configuration=configuration,
         context=machine.context_adapter.snapshot(context),
         history_value=history_value,
+        output=copy.deepcopy(data["output"]) if "output" in data else _OUTPUT_UNSET,
     )
     if data.get("status") == "error":
         state.status = "error"
