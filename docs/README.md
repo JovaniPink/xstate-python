@@ -26,6 +26,10 @@ match the runtime boundary you need:
 
 ## Plans and evidence
 
+- [Gstate and a Python-first runtime](./plans/gstate-pythonic-runtime-research.md):
+  November 25, 2026 source audit of composition, validation, ownership, actor
+  lifecycle, observation and restoration, with executable findings and a scoped
+  sequence of proposed Python improvements.
 - [Statechart and workflow direction](./plans/statechart-workflow-roadmap.md):
   proposed XState compatibility milestone, structured diagnostics, restoration
   contracts, scenario tooling, and restartable workflow examples, with ordered
