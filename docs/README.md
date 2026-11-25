@@ -1,8 +1,8 @@
 # Documentation
 
-`xstate-python` loads XState-style statechart data and runs it with Python
-implementations for the live parts of a machine. Start with the concepts that
-match the runtime boundary you need:
+`xstate-python` provides Python statecharts and actors with typed domain data,
+ordinary functions, explicit lifecycle contracts, and a tested XState JSON
+boundary. Start with the concepts that match the runtime you need:
 
 - [Machines and implementations](./concepts/machines-and-implementations.md):
   XState JSON, events, actions, guards, delays, `setup()`, and pure transitions.
@@ -27,9 +27,9 @@ match the runtime boundary you need:
 ## Plans and evidence
 
 - [Pythonic agent-workflow research](./plans/pythonic-agent-workflows-research.md):
-  the November 20, 2026 product direction; current Codex, Claude Code,
-  Antigravity, Python state-machine, and Measured Skills research; proposed
-  revision-aware goals, evidence, documents, and staged implementation gates.
+  the November 20, 2026 product research and November 25 implementation status;
+  provider and Measured Skills evidence, a bounded observation of this PR series,
+  and remaining gates for a contribution-workflow application.
 - [Statechart and workflow direction](./plans/statechart-workflow-roadmap.md):
   proposed XState compatibility milestone, structured diagnostics, restoration
   contracts, scenario tooling, and restartable workflow examples, with ordered

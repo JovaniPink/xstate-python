@@ -30,16 +30,21 @@ has its own implementation evidence and review status:
 
 | Work | Status | Exact boundary |
 |---|---|---|
-| Stored completed output | **Merged: [#64][X12]** | `deserialize_snapshot()` preserves stored output, including explicit null, without rerunning its callable; detached copies and legacy fallback are documented on [current master][X13]. |
-| Observable factory input (#53) | **Draft: [#66][X14]** | [Candidate implementation][X15] shares the promise input binder and covers positional factories, supported legacy forms, emissions, errors, and cancellation. #53 remains open until the fix merges. |
-| Duplicate IDs and `invoke.systemId` | **Draft: [#67][X16]** | [Candidate implementation][X17] rejects duplicate resolved state IDs at construction and classifies `systemId` as unsupported in strict validation. Permissive construction still ignores that alias; it is not implemented. |
-| Constructor snapshot initialization (#54) | **Draft: [#68][X18]** | [Candidate implementation][X19] skips fresh initial computation for `create_actor(machine, snapshot=...)`. Standalone interpreters and actors without a constructor snapshot retain eager initialization; normal startup resources and pending actions retain their existing policy. |
+| Stored completed output | **Merged: [#64][X12]** | `deserialize_snapshot()` preserves stored output, including explicit null, without rerunning its callable; detached copies and legacy fallback are documented in the [#64 persistence contract][X13]. |
+| Observable factory input (#53) | **Merged: [#66][X14]** | The [implementation][X15] shares the promise input binder and covers positional factories, supported legacy forms, emissions, errors, and cancellation. #53 is closed as completed. |
+| Duplicate IDs and `invoke.systemId` | **Merged: [#67][X16]** | The [implementation contract][X17] rejects duplicate resolved state IDs at construction and classifies `systemId` as unsupported in strict validation. Permissive construction still ignores that alias; it is not implemented. |
+| Constructor snapshot initialization (#54) | **Merged: [#68][X18]** | The [implementation contract][X19] skips fresh initial computation for `create_actor(machine, snapshot=...)`. Standalone interpreters and actors without a constructor snapshot retain eager initialization; normal startup resources and pending actions retain their existing policy. |
 
-The last two slices follow the [gstate research in draft #65][X20]. They do not
+The merge commits are [#66 at `a8c85c9`](https://github.com/JovaniPink/xstate-python/commit/a8c85c96ceedec8cc134f7f893ea8dc12f91f491),
+[#67 at `797a3f9`](https://github.com/JovaniPink/xstate-python/commit/797a3f98849b5523d3c1cb27a1640d2861cf5c8e),
+and [#68 at `6f8470f`][X21], the merged runtime baseline for this update.
+The last two slices follow the [gstate research in PR #65][X20]. They do not
 complete general structural validation or durable restoration. #54 remains open
-for broader restoration work. #56 and #57 remain open, and the Measured
-comparison remains `prepared_not_run`; these runtime changes provide no new
-application, provider-integration, or adoption evidence.
+for broader restoration work. #56 and #57 remain open. Measured's comparison is
+`prepared_not_run` with `execution_authorized: false` at both the original
+inspected revision and the separately checked November 25 revision. The
+retrospective observation below is separate from that study and establishes no
+causal product benefit. [M13] [M16]
 
 ### Original research evidence — November 20, 2026
 
@@ -137,11 +142,11 @@ proof of an agent application or full XState equivalence. [X4]
 
 At the November 20 baseline, observable factory input ([#53][X5]) and completed
 output restoration ([#54][X6]) were open defects. [#64][X12] has since repaired
-stored completed output during deserialization; [#66][X14] is the draft input
-fix. The remaining constructor-initialization caveat is addressed separately by
-draft [#68][X18], not by repeating the #64 repair. Snapshot helpers still omit
+stored completed output during deserialization, and merged [#66][X14] closed
+#53. Merged [#68][X18] addresses constructor initialization with a supplied
+snapshot, separately from the #64 repair. Snapshot helpers still omit
 pending queues, deadlines, and in-flight child progress. A future host must work
-from these actual boundaries. [X13]
+from these actual boundaries. [X19]
 
 ## 3. Provider research: reuse the harnesses that exist
 
@@ -381,8 +386,8 @@ finding something is distinct from the owner accepting a repair.
    it; do not claim that a new local state reversed an external action.
 
 This revision/evidence sequence remains a hypothetical acceptance scenario.
-[#64][X12] has delivered the stored-output deserialization prerequisite, while
-the constructor follow-up is draft [#68][X18] and #54 remains open. Those core
+[#64][X12] has delivered the stored-output deserialization prerequisite, and
+the constructor follow-up merged in [#68][X18]; #54 remains open. Those core
 changes do not establish that the application-level review scenario works.
 
 ## 6. Integrating Measured Skills without creating a second authority
@@ -732,6 +737,94 @@ fewer false positives or more missed defects; a faster run might have skipped
 the important boundary. Preserve per-case outcomes and denominators instead of
 collapsing them into one marketing score.
 
+### Bounded observation of the current PR series (#56)
+
+**Retrospective record, November 25, 2026:** the runtime changes in #66–#68 and
+their planning/documentation context in #63/#65 form **one clustered case**.
+They share a repository, participants, and task context. They are not independent
+trials or matched comparison arms. #64 supplies the preceding restoration
+context; the merged runtime cutoff is [`6f8470f`][X21].
+
+| Observation | Source | What it establishes |
+|---|---|---|
+| The earlier planning sequence proposed completed-output restoration; the resulting work separated deserialization from constructor initialization. | [Historical R1 proposal][X22], [#64][X12], and [#68][X18] | Scope and status needed reconciliation as implementation progressed. The older dated proposal is not itself evidence that anyone performed an incorrect action. |
+| Observable validation reports distinguish the published PR head, local environment corrections, a local combined tree, and hosted checks. | [#66 verification receipts][X14] and the [CI workflow][X23] | These receipts have different subjects and authorities. A local combined-tree result cannot silently replace a receipt for an individual or subsequently merged revision. |
+| The observable fix closes its issue, while the two completed restoration slices leave broader restoration work open. | [#53][X5], [#54][X6], [#66][X14], and [#68][X18] | PR completion and issue scope are distinct facts; completion of a narrow fix does not complete a broader contract. |
+
+Human reconstruction effort, input/output tokens, and model cost for this case
+are **unknown**. They were not collected under a common protocol; do not replace
+them with zero or infer human effort from GitHub timestamps. Passing checks and
+merged PRs establish delivery facts, not a causal benefit from skills, a
+coordinator, or statecharts. No independent replay or measured comparison is
+claimed for this record.
+
+**Current engineering judgment:** the linked repository artifacts are sufficient
+to explain these three observations. They do not yet demonstrate a recurring
+coordination failure that warrants new runtime infrastructure. The next step is
+prospective collection with the existing baseline, not implementation of a
+coordinator on the strength of this retrospective alone.
+
+The original Measured manifest remains `prepared_not_run` and
+`execution_authorized: false` at the inspected revision. Its eight fixtures and
+three arms remain unchanged. Its receipt linter requires those case identities
+and numeric resource fields; this real PR series must not be inserted as a
+study receipt or supplied with invented metrics to make lint pass. The rubric
+also requires adjudication beyond structural checks. [M13] [M14] [M15]
+
+**Separate status check, November 25:** the manifest and README at Measured
+revision `7b092d916c83a83b1dd74549e7760e9d45bb0191` still report the prepared,
+unauthorized study with the same three arms and eight cases. The README still
+has no `--run` command and retains its client/model/repetition/budget gate.
+This records current published status, not execution of the comparison. The
+offline `--check` receipt obtained during this research applies only to the
+original `610bc7e` checkout and establishes manifest/fixture integrity. [M16] [M17]
+
+#### Next prospective packet
+
+For the next repository contribution, record the handoffs from implementation
+to verification, review, and delivery as they happen. Before collection, name
+the included PR, expected handoffs, collector, and artifact cutoff. Use one
+collection pass and one follow-up for missing sources, then report unresolved
+gaps. Keep [#56][X9] as the tracker and append the packet or its durable evidence
+links here; do not create a separate workflow tracker.
+
+Use the existing acceptance-ledger fields, with one row per revision-specific
+handoff or required outcome. [M4]
+
+| Field | Required record |
+|---|---|
+| Subject | PR/requirement, base and head SHA, and eventual merge commit or tree when applicable |
+| Handoff and claim | The decision being made and the exact statement requiring evidence |
+| Authority and receipt | Git object, CI run/job, maintainer decision, review artifact, or explicitly author-reported local check; exact link and observation time in UTC |
+| Applicability | Revision, environment, and freshness/invalidation rule; preserve earlier receipts as historical |
+| Finding continuity | Existing finding reference and disposition, or `not captured`; do not invent a missing review history |
+| State | Keep coverage, claim assessment, disposition, verification, and completion separate; missing evidence stays pending or blocked |
+| Effort and gaps | Actual timed reconstruction effort and artifact lookups if collected; otherwise `unknown`, with the missing source identified |
+| Next action | The smallest existing authorized step or `none` |
+
+The baseline is ordinary repository documents, PR discussion, Git, and CI,
+without a coordinator. Ask whether a reader can identify the current subject,
+applicable checks, unresolved findings, and remaining decision from those
+artifacts. A second reader can replay the same questions from the packet when
+available; otherwise mark that replay unperformed. Record prior familiarity and
+presentation order, so an easier second reading is not attributed to the packet
+without accounting for learning.
+
+Report traceable handoffs over examined handoffs, scope/revision corrections
+with before/after links, reconstructable dispositions over recorded findings,
+actual effort when timed, and missing/disputed observations. Keep denominators
+and unknowns visible. No recorded findings is not evidence of perfect finding
+preservation, and repeated checks are not automatically wasted work.
+
+This evidence step is complete when the declared handoffs have receipts or
+explicit gaps, revision/environment applicability is recorded, and the
+maintainer records whether the existing baseline suffices or a specific
+coordination mechanism needs further investigation. Stop expanding if ordinary
+artifacts suffice or missing evidence remains unavailable after the bounded
+follow-up. Compare that baseline before implementing a coordinator. A later
+controlled study remains separate; this packet does not satisfy Measured's
+adapter gate, #56's runnable recovery acceptance, or an adoption claim. [M3]
+
 ### Proposed deterministic acceptance cases
 
 | ID | Scenario | Required observation | Owner |
@@ -751,7 +844,7 @@ collapsing them into one marketing score.
 | AW-13 | Required evidence is abandoned | Produce a qualified/incomplete delivery decision, never full satisfaction | Gate calculation |
 | AW-14 | Intended skill/configuration was not loaded, including nested instructions or invalid native rule metadata | Record the mismatch; do not qualify that execution envelope | Provider acceptance |
 | AW-15 | Context includes large documents | Benchmark representative sizes and compare immutable references | Python example |
-| AW-16 | Snapshot is restored after completion | Preserve the reviewed output under the explicitly chosen restore contract | Application acceptance; merged [#64][X12] supplies the stored-output prerequisite, draft [#68][X18] addresses constructor initialization under open #54 |
+| AW-16 | Snapshot is restored after completion | Preserve the reviewed output under the explicitly chosen restore contract | Application acceptance; merged [#64][X12] supplies the stored-output prerequisite and merged [#68][X18] addresses constructor initialization; broader #54 remains open |
 | AW-17 | Requested sandbox is unavailable | Detect the effective capability; block or use an authorized alternative without claiming containment | Provider acceptance |
 
 Run these without paid model calls wherever possible, using explicit events,
@@ -781,12 +874,12 @@ R0 and records the independent runtime PRs; it does not deliver their code.
 
 | Stage / PR | Status on November 25 | Concrete scope | Completion evidence and dependency |
 |---|---|---|---|
-| R0 — Pythonic product direction and agent-workflow research | Draft #63 | This document, product notes, documentation links | Reviewable source-backed proposal; no adapter or host claims |
+| R0 — Pythonic product direction and agent-workflow research | Direction recorded here | This document, product notes, documentation links | Reviewable source-backed proposal; no adapter or host claims |
 | R1 — Preserve computed output on restore (#54, narrow slice) | **Merged [#64][X12]** | `snapshot.py`, focused restore tests and persistence guide | Stored completed output survives supported round trips; explicit missing/null policy and no output-callback rerun during deserialization. Constructor initialization is separate. |
-| R1a — Avoid fresh initialization with a constructor snapshot (#54 follow-up) | **Draft [#68][X18]** | Machine-actor construction with `snapshot=` | Skip initial assignments, guards, and output computation while preserving supplied snapshots and normal startup semantics; broader #54 remains open. |
-| R2 — Normalize observable factory input (#53) | **Draft [#66][X14]** | Observable backend and shared promise input binder | Positional/named input, legacy signatures, call-once errors, real emissions, typing, and cancellation regressions; independent small runtime PR. |
-| R2a — Reject ambiguous state IDs and unsupported invoke aliases | **Draft [#67][X16]**, from [#65][X20] | Duplicate resolved state IDs and strict `systemId` classification | Both conflicting paths reported; valid nested local names preserved; no alias implementation or claim of comprehensive structural validation. |
-| R3 — Validate the review-coordination need | **Prepared, not run** | Existing Measured comparison plus real workflow observation | Authorized client/model/repetition/budget plan and reported outcomes; preserve `prepared_not_run` until executed. |
+| R1a — Avoid fresh initialization with a constructor snapshot (#54 follow-up) | **Merged [#68][X18]** | Machine-actor construction with `snapshot=` | Skip initial assignments, guards, and output computation while preserving supplied snapshots and normal startup semantics; broader #54 remains open. |
+| R2 — Normalize observable factory input (#53) | **Merged [#66][X14]; #53 closed** | Observable backend and shared promise input binder | Positional/named input, legacy signatures, single invocation and original errors, real emissions, typing, and cancellation regressions. |
+| R2a — Reject ambiguous state IDs and unsupported invoke aliases | **Merged [#67][X16]**, from [#65][X20] | Duplicate resolved state IDs and strict `systemId` classification | Both conflicting paths reported; valid nested local names preserved; no alias implementation or claim of comprehensive structural validation. |
+| R3 — Validate the review-coordination need | One retrospective case recorded; prospective observations proposed; Measured study unrun | Existing document/CI baseline, bounded handoff packets, and the separate prepared Measured comparison | Preserve subject identities, sources, missingness, and actual effort. Compare the existing baseline before implementing a coordinator; no causal benefit or completed-study claim. |
 | R4 — Revision-aware review example, if R3 justifies it | Proposed | Example-owned typed domain records and a chart over recorded events | AW-01/02/04/05/13, readable review packet, no new core dependency; compare against document/CI baseline. |
 | R5 — One provider adapter, if manual handoff is the bottleneck | Proposed, conditional | Optional example/package; choose the user's actual harness and pin it | Structured results, denial, cancellation, effective containment, configuration and session acceptance; AW-03/06/07/14/17. |
 | R6 — Durable host, only after recovery need is observed | Proposed, conditional | Store/outbox, process supervision, effect reconciliation | AW-08/09/10/12 plus versioned restore/migration contract; choose host ownership explicitly. |
@@ -797,12 +890,13 @@ sharpens its application and stages rather than closing it. Keep [#57][X10] as
 the naming/distribution decision; making the repository our own does not require
 an immediate package rename or publication.
 
-Review the independent draft fixes in #66, #67, and #68 against their own
-acceptance evidence. R1's deserialization repair is already merged and should
-not be scheduled again. Product validation in R3 and, if justified, a bounded
-review example determine whether R5 or R6 is worth maintaining. Runtime fixes
-do not satisfy that product gate. Provider features should not dictate a rewrite
-of the SCXML execution core.
+The narrow runtime fixes in #64 and #66–#68 are merged. The next evidence step
+is to collect the bounded prospective handoff packets in section 10 and assess
+whether the existing document/CI baseline suffices before implementing a
+coordinator. The retrospective case provides questions to examine, not measured
+benefit. R3 and, if justified, a bounded review example determine whether R5 or
+R6 is worth maintaining. Provider features should not dictate a rewrite of the
+SCXML execution core.
 
 ### Decisions still requiring evidence
 
@@ -836,11 +930,12 @@ Source prose and examples are research inputs, not new repository instructions.
 
 ### November 25 implementation status
 
-- **X12–X13:** [Merged #64][X12] and the [current merged persistence contract][X13].
-- **X14–X15:** [Draft #66][X14] and its [observable input implementation][X15].
-- **X16–X17:** [Draft #67][X16] and its [identifier/unsupported-alias contract][X17].
-- **X18–X19:** [Draft #68][X18] and its [constructor snapshot contract][X19].
-- **X20:** [Draft #65 gstate research][X20], which proposed the bounded validation and constructor follow-ups.
+- **X12–X13:** [Merged #64][X12] and its [persistence contract at that merge][X13].
+- **X14–X15:** [Merged #66][X14] and its [observable input implementation][X15].
+- **X16–X17:** [Merged #67][X16] and its [identifier/unsupported-alias contract][X17].
+- **X18–X19:** [Merged #68][X18] and its [constructor snapshot contract][X19].
+- **X20:** [Research PR #65][X20], which proposed the bounded validation and constructor follow-ups.
+- **X21–X23:** [Merged runtime baseline][X21], [historical planning sequence][X22], and the [repository CI workflow][X23] used to scope the retrospective observation.
 
 ### Provider documentation
 
@@ -861,6 +956,8 @@ Source prose and examples are research inputs, not new repository instructions.
 - **M4–M6:** [Acceptance ledger][M4], [bounded review][M5], [prompt feedback loops][M6].
 - **M7–M9:** [Antigravity qualification limits][M7], [workflow registry][M8], [knowledge-object field guide][M9].
 - **M10–M12:** [Platform boundaries][M10], [behavioral evidence model][M11], [qualification schema][M12].
+- **M13–M15:** [Prepared study manifest][M13], [offline receipt linter][M14], and [adjudication rubric][M15]; the real PR series is not a run of that study.
+- **M16–M17:** Separately checked November 25 [study status][M16] and [README/authority boundary][M17] at `7b092d9`; the original research references remain pinned to `610bc7e`.
 
 [X1]: https://github.com/JovaniPink/xstate-python/tree/ed8c331c136bc4f5a872317bb5b88f8d5859a680
 [X2]: https://github.com/JovaniPink/xstate-python/blob/ed8c331c136bc4f5a872317bb5b88f8d5859a680/docs/concepts/typing.md
@@ -882,6 +979,9 @@ Source prose and examples are research inputs, not new repository instructions.
 [X18]: https://github.com/JovaniPink/xstate-python/pull/68
 [X19]: https://github.com/JovaniPink/xstate-python/blob/ad04c891ce3b40eb594065d69a893de31797897b/docs/concepts/persistence.md
 [X20]: https://github.com/JovaniPink/xstate-python/pull/65
+[X21]: https://github.com/JovaniPink/xstate-python/commit/6f8470ff52330e04658a55de53a4c4095e1da91a
+[X22]: https://github.com/JovaniPink/xstate-python/blob/34d80b0b7937e30dbcbccc803afa43b1885381d6/docs/plans/pythonic-agent-workflows-research.md
+[X23]: https://github.com/JovaniPink/xstate-python/blob/6f8470ff52330e04658a55de53a4c4095e1da91a/.github/workflows/pull_request.yaml
 [Y1]: https://github.com/maurice/yay-machine/tree/c2769124087ad30a83b6ea47759b998305ffb49a
 [P1]: https://github.com/pytransitions/transitions/blob/master/README.md
 [P2]: https://python-statemachine.readthedocs.io/en/latest/auto_examples/ai_shell_machine.html
@@ -933,3 +1033,8 @@ Source prose and examples are research inputs, not new repository instructions.
 [M10]: https://github.com/JovaniPink/measured-skills/blob/610bc7ea7c58e11b48d8fcd1eb155a75e5f12069/docs/agent-platform-boundaries.md
 [M11]: https://github.com/JovaniPink/measured-skills/blob/610bc7ea7c58e11b48d8fcd1eb155a75e5f12069/docs/behavioral-evidence-model.md
 [M12]: https://github.com/JovaniPink/measured-skills/blob/610bc7ea7c58e11b48d8fcd1eb155a75e5f12069/evals/qualification-schema-v1.json
+[M13]: https://github.com/JovaniPink/measured-skills/blob/610bc7ea7c58e11b48d8fcd1eb155a75e5f12069/evals/review-comparison-v1/study.json
+[M14]: https://github.com/JovaniPink/measured-skills/blob/610bc7ea7c58e11b48d8fcd1eb155a75e5f12069/scripts/review_comparison.py
+[M15]: https://github.com/JovaniPink/measured-skills/blob/610bc7ea7c58e11b48d8fcd1eb155a75e5f12069/evals/review-comparison-v1/rubric.md
+[M16]: https://github.com/JovaniPink/measured-skills/blob/7b092d916c83a83b1dd74549e7760e9d45bb0191/evals/review-comparison-v1/study.json
+[M17]: https://github.com/JovaniPink/measured-skills/blob/7b092d916c83a83b1dd74549e7760e9d45bb0191/evals/review-comparison-v1/README.md

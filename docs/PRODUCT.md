@@ -10,10 +10,12 @@ The completed-output deserialization repair is merged in
 Observable input [#66](https://github.com/JovaniPink/xstate-python/pull/66),
 identifier validation [#67](https://github.com/JovaniPink/xstate-python/pull/67),
 and constructor snapshot initialization
-[#68](https://github.com/JovaniPink/xstate-python/pull/68) are **draft PRs**.
+[#68](https://github.com/JovaniPink/xstate-python/pull/68) are also **merged**.
 The [dated research status](plans/pythonic-agent-workflows-research.md#implementation-status--november-25-2026)
-links their exact source revisions. These drafts are not merged capabilities;
-the Measured evaluation remains `prepared_not_run`, and #56/#57 remain open.
+links their exact source and merge revisions. #53 is closed as completed;
+broader #54 and #56/#57 remain open. One retrospective observation of this PR
+series is recorded separately from the original Measured evaluation, which
+remains `prepared_not_run` with `execution_authorized: false` at its inspected pin.
 
 The maintainer's direction is **Pythonic first**: a useful Python statechart
 library with an LLM-assisted software-development niche to investigate.
@@ -59,6 +61,7 @@ documents, and existing CI before expanding runtime obligations.
 | Core transition API | `Machine(config).transition(state, event)` |
 | XState JSON | Dict/JSON boundary with a pinned, fixture-level compatibility contract and explicit known differences |
 | Parser architecture | Typed schema + normalization/parser layer |
+| State identifiers | Duplicate resolved IDs fail construction with both paths; valid repeated local names remain supported. Strict validation rejects unsupported `invoke.systemId`; permissive construction still ignores it ([#67](https://github.com/JovaniPink/xstate-python/pull/67)) |
 | Handler adaptation | Setup-time `HandlerAdapter` for declared handlers; dynamic `pure` results normalize during computation; legacy signatures still supported |
 | Action arguments | Deferred effects capture context at their action position and retain the effective event/parameter references; the causal fixture is required parity |
 | Setup API | `setup(...).create_machine(...)` exists for stricter named implementations |
@@ -71,6 +74,8 @@ documents, and existing CI before expanding runtime obligations.
 | Async runtime | `AsyncInterpreter` with async start/send/stop, awaitable actions, and event-loop timers |
 | Actor model | `create_actor`, `ActorSystem`, spawn, parent/child tree, `send_parent`, `send_to` |
 | Actor logic | `from_promise`, `from_callback`, `from_observable`, `to_promise` |
+| Observable input | Observable factories share promise input binding, including positional, positional-only, and supported legacy forms ([#66](https://github.com/JovaniPink/xstate-python/pull/66); #53 closed) |
+| Constructor snapshot | `create_actor(machine, snapshot=...)` skips fresh initial computation; normal startup semantics remain. Standalone interpreters and actors without a constructor snapshot retain eager initialization ([#68](https://github.com/JovaniPink/xstate-python/pull/68)) |
 | Re-entry | Boolean `reenter`, defaulting to false for JSON; retained resources survive and exited/re-entered owners reset; explicit legacy/SCXML policy remains available |
 | Invoke | Child reconciliation before public notifications, replacement on owner re-entry, and guarded emissions from replaced invocations |
 | Completion | Terminal machine runtimes retain final snapshots, release owned work, and ignore later events; pure done transitions emit no actions |
@@ -155,20 +160,20 @@ interoperability story; equivalent named implementations remain necessary.
 The [agent-workflow research](plans/pythonic-agent-workflows-research.md#11-staged-delivery-plan)
 owns the proposed product sequence. The [earlier plan](plans/statechart-workflow-roadmap.md)
 retains detailed core acceptance and migration work. **Done** identifies merged
-work; **Draft** identifies implementations under review. Other rows describe
-proposed outcomes or ongoing obligations.
+work. Other rows describe evidence collection, proposed outcomes, or ongoing
+obligations; the runtime fixes do not establish product value.
 
 | Sequence | Work |
 |---|---|
 | Done | Pinned XState v5 comparison contract with literal JSON delays, causal action arguments, re-entry, child/timer lifecycle, and final completion ([#55](https://github.com/JovaniPink/xstate-python/issues/55); PRs #60–#62) |
 | Done | Preserve stored completed output during deserialization ([#64](https://github.com/JovaniPink/xstate-python/pull/64), narrow slice of [#54](https://github.com/JovaniPink/xstate-python/issues/54)) |
-| Draft runtime fixes | Observable factory input ([#66](https://github.com/JovaniPink/xstate-python/pull/66), closes [#53](https://github.com/JovaniPink/xstate-python/issues/53) when merged); skip fresh initialization with a constructor snapshot ([#68](https://github.com/JovaniPink/xstate-python/pull/68), follow-up under still-open [#54](https://github.com/JovaniPink/xstate-python/issues/54)) |
-| Draft validation slice | Reject duplicate resolved state IDs and classify `invoke.systemId` as unsupported in strict validation ([#67](https://github.com/JovaniPink/xstate-python/pull/67), from [#65](https://github.com/JovaniPink/xstate-python/pull/65)); no alias implementation or comprehensive structural-validation claim |
-| Product validation | Observe contribution/review work and use the prepared Measured comparison to distinguish prompt, skill, and coordination value |
+| Done | Observable factory input ([#66](https://github.com/JovaniPink/xstate-python/pull/66), [#53](https://github.com/JovaniPink/xstate-python/issues/53) closed); skip fresh initialization with a machine-actor constructor snapshot ([#68](https://github.com/JovaniPink/xstate-python/pull/68), follow-up under still-open [#54](https://github.com/JovaniPink/xstate-python/issues/54)) |
+| Done, bounded validation slice | Reject duplicate resolved state IDs and classify `invoke.systemId` as unsupported in strict validation ([#67](https://github.com/JovaniPink/xstate-python/pull/67), from research [#65](https://github.com/JovaniPink/xstate-python/pull/65)); no alias implementation or comprehensive structural-validation claim |
+| Next evidence step | Collect [bounded prospective handoff packets](plans/pythonic-agent-workflows-research.md#bounded-observation-of-the-current-pr-series-56) and assess the existing document/CI baseline before implementing a coordinator. The retrospective PR series is one clustered case with unknown effort/token/cost, not a Measured study result. |
 | First application, if justified | A typed revision-aware review example over recorded events, with current evidence, stable finding IDs, and explicit stopping conditions ([#56](https://github.com/JovaniPink/xstate-python/issues/56)) |
 | Ongoing | Preserve all 14 required parity cases; keep four known differences explicit and promote cases only after reviewed fixes |
 | Compatibility experiment | Validate one representative shared chart; measure unchanged structure, observable behavior, and transition/context-capture cost |
-| Consumer-driven core work | Extend validation beyond the bounded #67 draft, restoration identity, and scenario/trace tools where the examples expose a concrete gap |
+| Consumer-driven core work | Extend validation beyond the bounded #67 slice, restoration identity, and scenario/trace tools where the examples expose a concrete gap |
 | After demonstrated need | One optional provider adapter; a durable host only after recovery requirements justify its transaction and effect responsibilities |
 | Parallel decision | Resolve distribution ownership, naming, namespace, and migration before publication ([#57](https://github.com/JovaniPink/xstate-python/issues/57)) |
 | Separate follow-up | Expand the supported SCXML subset without JavaScript evaluation, evaluate XState v6, and assess inspector protocol, `provide`, or graph utilities against concrete consumers |

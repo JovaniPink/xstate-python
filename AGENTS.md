@@ -33,6 +33,7 @@ src/xstate/
   __init__.py           Public exports
   machine.py            Machine entry point and pure transition API
   config_parser.py      Two-pass XState config parser and normalizer
+  config_validation.py  Raw-key diagnostics and unsupported-config checks
   schema.py             TypedDict boundary for raw XState config data
   state_node.py         Resolved state hierarchy model
   transition.py         Resolved transition model
@@ -77,7 +78,17 @@ Working:
   actions, event-loop timers, and per-event completion for concurrent sends.
 - Actor model: `create_actor`, `ActorSystem`, `spawn`, `from_promise`,
   `from_callback`, `from_observable`, and `to_promise`.
+- Promise and observable factories share positional/keyword input binding.
+  Optional or variadic positional factories receive actor input, including
+  `None` when omitted; use a zero-argument wrapper to retain factory defaults.
+- Duplicate resolved state IDs fail at construction with both declaration
+  paths. Strict configuration rejects unsupported `invoke.systemId`; the
+  permissive boundary ignores that alias and does not register it.
 - Snapshot serialization and restoration helpers for persistence and replay.
+- Stored completed output survives deserialization without recomputation.
+  Machine actors supplied `snapshot=` at construction skip fresh initial
+  computation; default construction remains eager and startup still owns
+  resources and pending actions. This does not persist queues or child progress.
 - XState v5 alignment: `guard`, `output`, `always`, `MachineSnapshot`,
   `state.matches(...)`, `state.can(...)`, and `setup(...).create_machine(...)`.
 - XState snapshot queries: `tags`, `meta`, `state.has_tag(...)`,
