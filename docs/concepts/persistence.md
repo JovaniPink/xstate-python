@@ -93,13 +93,36 @@ value. Applications that need completed results should persist the `output`
 field emitted by `serialize_snapshot()`. Active configurations always have
 `output=None`, even if the payload contains an output value.
 
-The no-recomputation guarantee applies to `deserialize_snapshot()`. Creating
-a machine-backed actor currently constructs an interpreter and evaluates the
-machine's initial state before applying a supplied snapshot. An output callback
-can therefore run during actor construction if initialization reaches a final
-state, although the supplied snapshot's stored output is retained. Keep output
-callbacks free of external effects; actor construction is not a side-effect-free
-restore boundary.
+Pass the restored snapshot at actor construction to skip fresh chart
+initialization as well:
+
+```python
+restored = deserialize_snapshot(machine, data)
+actor = create_actor(machine, snapshot=restored)
+assert actor.get_snapshot() is restored
+actor.start()
+```
+
+Before `start()`, `get_snapshot()` exposes the supplied snapshot, including its
+status, context, and stored output. The actor runtime remains `"not_started"`.
+Construction does not evaluate the machine's initial assignments, guards, or
+output functions; it does not notify inspectors or subscribers, schedule timers,
+or start invoked children. On startup, an inspector receives the existing
+`xstate.init` notification with the restored snapshot and no computed microsteps.
+Restored active resources follow the normal startup policy described below.
+
+An explicit `actor.start(initial_state=other_snapshot)` still overrides the
+constructor snapshot. Creating an actor without `snapshot=`, or a standalone
+interpreter, retains eager initial-state computation. Supplying a snapshot only
+later through `start(initial_state=...)` cannot undo assignments, guards, or
+output evaluation that already occurred during construction. Skipping fresh
+chart initialization does not bypass machine construction, context codecs, or
+the configured `ContextAdapter` used to prepare the supplied snapshot.
+
+`deserialize_snapshot()` produces a state without pending actions. Passing a
+raw `State` that still contains actions preserves the existing startup behavior:
+those actions execute when the actor starts. Construction does not strip them
+or turn a transition result into an effect-free checkpoint.
 
 The restored public snapshot keeps the normal immutable boundary:
 configuration is a `frozenset`, actions are a tuple, and history values are

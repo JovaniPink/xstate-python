@@ -427,8 +427,11 @@ class _MachineBackend:
         machine: Machine,
         clock: Clock | None,
         inspect: Callable[[MacrostepTrace], None] | None,
+        initial_state: State | None,
     ):
-        self.interpreter = Interpreter(machine, clock=clock, inspect=inspect)
+        self.interpreter = Interpreter(
+            machine, clock=clock, inspect=inspect, _initial_state=initial_state
+        )
         # Back-reference so interpreter-owned actions (send_parent / send_to)
         # can reach the actor and its system.
         self.interpreter._actor = actor
@@ -627,9 +630,10 @@ def _build_backend(
     clock: Clock | None,
     input: Any,
     inspect: Callable[[MacrostepTrace], None] | None,
+    snapshot: Any,
 ) -> ActorBackend:
     if isinstance(logic, Machine):
-        return _MachineBackend(actor, logic, clock, inspect)
+        return _MachineBackend(actor, logic, clock, inspect, snapshot)
     if inspect is not None:
         raise TypeError("inspect is only supported for machine actor logic.")
     if isinstance(logic, PromiseLogic):
@@ -740,7 +744,7 @@ class Actor[SendEventT = Any, SnapshotT = Any, OutputT = Any]:
             self._completed = False
             self._syncing = False
             self._backend: ActorBackend = _build_backend(
-                self, logic, clock, input, inspect
+                self, logic, clock, input, inspect, snapshot
             )
             self._system._register_unlocked(self)
 
@@ -1167,6 +1171,9 @@ def create_actor(
     :meth:`Actor.start`.  If no *system* is given a fresh one is created and
     owned by this actor.  Pass *snapshot* (from
     :func:`~xstate.snapshot.deserialize_snapshot`) to resume from a checkpoint.
+    For machine logic, that snapshot is visible before start and replaces fresh
+    initial-state computation. Startup retains the supplied state's actions and
+    the normal timer/invocation policy.
     """
     return Actor(
         logic,

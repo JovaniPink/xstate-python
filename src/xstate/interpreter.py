@@ -126,15 +126,18 @@ class Interpreter[ContextT = Any, EventDataT = Any, OutputT = Any]:
         inspect: (
             Callable[[MacrostepTrace[ContextT, EventDataT, OutputT]], None] | None
         ) = None,
+        _initial_state: State[ContextT, EventDataT, OutputT] | None = None,
     ):
         self.machine = machine
         self.clock = clock if clock is not None else ThreadClock()
         self._inspector = inspect
-        if inspect is None:
+        self._initial_trace: MacrostepTrace[ContextT, EventDataT, OutputT] | None = None
+        if _initial_state is not None:
+            # Machine actors can already have a restored snapshot at construction.
+            # Avoid computing a fresh initial state that start() would discard.
+            self.state = _initial_state
+        elif inspect is None:
             self.state = machine.initial_state
-            self._initial_trace: (
-                MacrostepTrace[ContextT, EventDataT, OutputT] | None
-            ) = None
         else:
             self.state, self._initial_trace = machine._initial_transition()
         self._status = NOT_STARTED
