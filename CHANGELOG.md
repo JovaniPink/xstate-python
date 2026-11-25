@@ -144,6 +144,14 @@ All notable changes to this project will be documented here.
   `after` to descriptive names when migrating; string delays in `send` keep
   their registry behavior. See the [compatibility guide](docs/concepts/xstate-compatibility.md).
 
+- Observable factories now share promise input binding, including ordinary
+  positional and positional-only parameters, plus typed zero-argument factories.
+  Optional and variadic positional factories receive actor input (`None` when
+  omitted); wrap a factory as `lambda: factory()` to retain its own defaults.
+  Existing named-input and direct-iterable forms remain supported; body errors
+  are preserved without retrying the factory. See the
+  [factory signature contract](docs/concepts/actors.md#promise-and-observable-factory-signatures).
+
 - Promise actors now pass their input to ordinary positional parameters even
   when the parameter is not named `input`, matching the public callable type.
   Optional and variadic positional parameters now receive actor input, even

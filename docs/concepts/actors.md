@@ -128,18 +128,59 @@ Promise input is resolved from `invoke.input` before the child starts. A
 resolved value completes the actor; an exception moves its snapshot to error
 and drives the parent's `onError` transition.
 
-A promise function can receive its input through an ordinary positional
-parameter with any name, such as `def fetch(user_id): ...`. No-argument
-functions and handlers using keyword-only `input` or `**kwargs` also work.
-Optional and variadic positional parameters now receive actor input, even when
-the function also accepts `**kwargs`; previously they could keep their default
-or receive no positional arguments. Wrap a function in a zero-argument callable
-when its own default should be used instead. An explicitly named `input`
-parameter keeps its existing keyword binding when that satisfies the function
-signature. A `**kwargs`-only handler still receives `input` as a keyword.
+### Promise And Observable Factory Signatures
+
+Promise functions and observable factories share input binding. A single
+positional parameter receives actor input regardless of its name, including
+positional-only parameters, bound methods, and partials that accept one remaining
+input. No-argument functions and handlers using keyword-only `input` or
+`**kwargs` also work. An explicitly named `input` parameter takes keyword
+precedence when that satisfies the signature; a `**kwargs`-only handler receives
+`input` as a keyword. Unrecognized required keyword-only parameters are not
+filled automatically.
+
+Optional and variadic positional parameters receive actor input, even when the
+factory also accepts `**kwargs`. **Omitting actor input passes `None`**, rather
+than preserving a factory's positional default: `factory(value=9)` receives
+`None`, and `factory(*args)` receives `(None,)`. This changes the previous
+observable keyword-filtering behavior, which could retain the default or pass
+no positional arguments. Wrap the factory as `lambda: factory()` when its own
+defaults should be used instead. A signature such as
+`factory(value=9, *, input)` keeps `value=9` and receives actor input through the
+explicit keyword parameter.
+
 When a callable's signature cannot be inspected, as with some built-ins, input
 is passed positionally. Wrap an uninspectable zero-argument or keyword-only
 callable in a Python function to make its intended signature visible.
+Binding is selected before calling the factory. A factory runs on the actor's
+first start; repeated `start()` calls do not invoke it again. An exception from
+its body is preserved in the error snapshot and is never used to retry the
+factory with different arguments.
+
+An observable factory returns an async iterable, such as an async generator:
+
+```python
+from collections.abc import AsyncIterable
+
+from xstate import create_actor, from_observable, to_promise
+
+
+async def values(count: int) -> AsyncIterable[int]:
+    for value in range(count):
+        yield value
+
+
+async def consume() -> int:
+    actor = create_actor(from_observable(values), input=3).start()
+    try:
+        return await to_promise(actor)  # Emits 0, 1, 2; final output is 2.
+    finally:
+        actor.stop()
+```
+
+Passing an async iterable directly also remains supported. Observable actors
+consume it on the running event loop, notify subscribers for each value, and
+complete with the last value as output. Stopping the actor cancels consumption.
 
 `to_promise()` accepts concrete actors and structural actor references whose
 snapshots satisfy `CompletionSnapshot[OutputT]`. Output inference remains
