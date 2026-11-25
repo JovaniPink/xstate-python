@@ -38,3 +38,7 @@ boundary. Start with the concepts that match the runtime you need:
   repository observations, baseline test receipts, and runnable Python/JavaScript
   comparisons supporting that plan. This is a dated audit, not an implementation
   completion claim.
+- [Gstate and a Python-first runtime](./plans/gstate-pythonic-runtime-research.md):
+  November 25, 2026 source audit of composition, validation, ownership, actor
+  lifecycle, observation and restoration, with executable findings, merged
+  runtime improvements, and remaining consumer evidence gates.
