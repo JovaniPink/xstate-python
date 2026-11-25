@@ -103,6 +103,13 @@ All notable changes to this project will be documented here.
   Explicit JSON `null` is preserved; legacy payloads without `output` retain
   their earlier literal/`None` fallback. Restored stored output is detached
   from the payload, and active snapshots keep `output=None`.
+- Machine actors constructed with `snapshot=` now use that state immediately
+  instead of computing and discarding a fresh initial state. Pre-start snapshot
+  reads preserve its status/output without initial assignments, guards, or
+  output callbacks. Startup retains normal timer/invocation and pending-action
+  behavior, and an explicit `start(initial_state=...)` still takes precedence.
+  Actors without a constructor snapshot retain eager initialization; see the
+  [persistence contract](docs/concepts/persistence.md).
 
 - Reconciled timers and invocations from actual macrostep exits. Retained owners
   keep their resources; exited and re-entered owners cancel/reset timers and
