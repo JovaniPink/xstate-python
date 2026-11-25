@@ -22,6 +22,36 @@ The configuration can be authored as a Python dictionary or loaded from JSON.
 State structure stays declarative; Python supplies implementations for names
 that cannot be represented as data.
 
+## State And Actor Identifiers
+
+Every resolved state ID must be unique within a machine, including its root and
+history states. A state uses its explicit `id`, or derives one from its parent's
+resolved ID and its local key. Repeated local keys such as `idle` under different
+parents remain valid when their resolved IDs differ. Existing ID generation and
+`#id` transition targets are unchanged.
+
+Duplicate resolved IDs raise `InvalidConfigError` during construction, before
+transition resolution or execution of actions, guards, delays, or invoked logic.
+The error includes the conflicting ID and both state paths, using `<root>` for
+the machine root and brackets for local keys containing path delimiters, such as
+`states['a.states.b']`. This applies to `Machine(config)`, `Machine(config, strict=True)`,
+and `setup(...).create_machine(config)`, including configurations loaded from JSON.
+It also detects collisions between explicit and generated IDs.
+
+**Migration:** earlier versions silently replaced the first state in the ID lookup
+when another state resolved to the same ID. Give conflicting states distinct IDs
+or remove an unnecessary explicit override, then update affected `#id` targets.
+Review persisted history references when changing IDs; this validation does not
+migrate stored snapshots.
+
+Invocation IDs have a separate role: `invoke.id` identifies an invoked actor.
+The XState `invoke.systemId` alias is not implemented. Strict construction and
+`setup(...).create_machine(...)` reject it as an `unsupported_key` with its
+configuration path. The permissive `Machine(config)` boundary continues to ignore
+it and does not register that alias. Remove `systemId` from strict configurations
+and address actors through their supported IDs or references; do not rely on a
+previously accepted `systemId` for lookup or message routing.
+
 ## Pure Transitions
 
 `Machine.transition` is the pure statechart layer. It accepts an immutable

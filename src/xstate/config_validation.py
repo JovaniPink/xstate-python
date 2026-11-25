@@ -57,14 +57,12 @@ _TRANSITION_KEYS = frozenset(
         "meta",
     }
 )
-_INVOKE_KEYS = frozenset(
-    {"id", "src", "input", "onDone", "onError", "onSnapshot", "systemId"}
-)
+_INVOKE_KEYS = frozenset({"id", "src", "input", "onDone", "onError", "onSnapshot"})
 
 # Real XState keys that this library does not implement; ignoring them silently
 # would change machine behavior.
 _UNSUPPORTED_TRANSITION_KEYS: frozenset[str] = frozenset()
-_UNSUPPORTED_INVOKE_KEYS = frozenset({"autoForward"})
+_UNSUPPORTED_INVOKE_KEYS = frozenset({"autoForward", "systemId"})
 
 
 @dataclass(frozen=True)

@@ -323,6 +323,23 @@ class Machine[ContextT = Any, EventDataT = Any, OutputT = Any]:
         )
 
     def _register(self, state_node: StateNode) -> None:
+        existing = self._id_map.get(state_node.id)
+        if existing is not None:
+
+            def config_path(node: StateNode) -> str:
+                parts: list[str] = []
+                while node.parent is not None:
+                    if not node.key or any(char in node.key for char in ".[]"):
+                        parts.append(f"states[{node.key!r}]")
+                    else:
+                        parts.append(f"states.{node.key}")
+                    node = node.parent
+                return ".".join(reversed(parts)) or "<root>"
+
+            raise InvalidConfigError(
+                f"Duplicate resolved state id {state_node.id!r} at "
+                f"{config_path(state_node)}; already used by {config_path(existing)}."
+            )
         state_node.machine = self
         self._id_map[state_node.id] = state_node
 
