@@ -14,9 +14,16 @@ All notable changes to this project will be documented here.
 
 - Added `find_config_issues(config)` and `ConfigIssue`, and extended
   `Machine(..., strict=True)` (and therefore `setup(...)`) to reject unknown
-  config keys and real-but-unimplemented XState keys (invoke `autoForward`)
+  config keys and real-but-unimplemented XState keys (invoke `autoForward`
+  and `systemId`)
   with an aggregated `InvalidConfigError`. Transition `reenter` is accepted.
-  The default permissive `Machine(config)` boundary is unchanged.
+  The default permissive key policy remains unchanged.
+- Duplicate resolved state IDs now fail during construction with the conflicting
+  ID and both declaration paths, before the lookup can silently overwrite a
+  state. Root, history, explicit, and generated IDs share this invariant.
+  Conflicting definitions must rename IDs and review affected targets/history;
+  strict invocation configs must remove unsupported `systemId` aliases. See
+  [identifier migration](docs/concepts/machines-and-implementations.md#state-and-actor-identifiers).
 - Added an optional standard-library local inspector for the JSON fetch/retry
   example, with event and simulated-time controls, active-state visualization,
   bounded microstep history, synthetic scenarios, JSON export, and equivalence

@@ -3,7 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from xstate import InvalidConfigError, Machine, find_config_issues, setup
+from xstate import (
+    InvalidConfigError,
+    Machine,
+    create_actor,
+    find_config_issues,
+    from_callback,
+    setup,
+)
 
 
 def _cfg(**state_extra):
@@ -87,3 +94,45 @@ def test_strict_machine_accepts_valid_config():
 def test_setup_api_is_strict():
     with pytest.raises(InvalidConfigError):
         setup().create_machine(_cfg(nope=1))
+
+
+@pytest.mark.parametrize("as_list", [False, True])
+def test_invoke_system_id_is_reported_as_unsupported(as_list):
+    invocation = {"id": "worker", "src": "workerLogic", "systemId": "alias"}
+    config = _cfg(invoke=[invocation] if as_list else invocation)
+
+    issues = find_config_issues(config)
+
+    assert [(issue.code, issue.path, issue.key) for issue in issues] == [
+        ("unsupported_key", "config.states.a.invoke[0]", "systemId")
+    ]
+    assert "does not implement yet" in issues[0].message
+
+
+@pytest.mark.parametrize("via_setup", [False, True])
+def test_strict_construction_rejects_invoke_system_id_with_path(via_setup):
+    config = _cfg(invoke={"src": "workerLogic", "systemId": "alias"})
+
+    with pytest.raises(InvalidConfigError) as exc:
+        if via_setup:
+            setup().create_machine(config)
+        else:
+            Machine(config, strict=True)
+
+    assert "config.states.a.invoke[0]" in str(exc.value)
+    assert "'systemId'" in str(exc.value)
+    assert "does not implement yet" in str(exc.value)
+
+
+def test_default_machine_ignores_system_id_and_keeps_invoke_id():
+    machine = Machine(
+        _cfg(invoke={"id": "worker", "src": "workerLogic", "systemId": "alias"}),
+        actors={"workerLogic": from_callback(lambda: None)},
+    )
+    actor = create_actor(machine).start()
+    try:
+        child = actor.children["worker"]
+        assert actor.system.get("worker") is child
+        assert actor.system.get("alias") is None
+    finally:
+        actor.stop()
