@@ -2,10 +2,11 @@
 
 ## What This Is
 
-`xstate-python` is a Python implementation of XState-style statecharts and
-actor-based state machines. The project goal is to own the Python niche of
-native XState / Stately JSON compatibility while preserving a W3C SCXML-style
-run-to-completion execution core.
+`xstate-python` is a Python statechart and actor library. The maintainer's
+direction is Pythonic first: ordinary Python functions and domain models,
+useful typing, clear diagnostics, and explicit resource lifecycles. Preserve
+the W3C SCXML-style run-to-completion core and the tested data-only XState JSON
+boundary while improving Python usability.
 
 - Declared distribution name: `xstate` (PyPI ownership is not established)
 - License: MIT
@@ -13,10 +14,17 @@ run-to-completion execution core.
 - Runtime dependencies: none
 - Current status: alpha, `0.7.1` source release candidate
 
-The central bet is simple: charts designed in Stately or shared with a
-JavaScript frontend should load directly as Python `dict` / JSON data, with
-Python supplying only live implementations such as actions, guards, delays, and
-actor logic.
+The application hypothesis is coordinating agent-assisted software changes
+with evidence attached to the goal and code revision it describes. Read
+`docs/PRODUCT.md` and `docs/plans/pythonic-agent-workflows-research.md` for the
+current status and evidence gates. Provider adapters, a durable host, and a
+reusable Python authoring facade remain proposed work; runtime fixes do not
+establish consumer adoption or completed application evaluations.
+
+Charts may still load directly as Python `dict` / JSON data with named Python
+actions, guards, delays, and actor logic. Preserve the compatibility fixtures
+and document known differences; do not claim full XState or Stately-export
+equivalence from config loading alone.
 
 ## Architecture Map
 
@@ -179,8 +187,9 @@ origin   -> JovaniPink/xstate-python
 upstream -> statelyai/xstate-python
 ```
 
-The upstream project is historically useful but mostly dormant. The active
-direction here is Python 3.13+, XState v5 alignment, actor/runtime parity, and
-native XState / Stately JSON compatibility.
+Preserve upstream attribution. This repository's direction centers Python
+usability and demonstrated application value while maintaining its tested
+XState subset and execution contracts. Distribution ownership and any package
+rename remain a separate decision tracked in issue #57.
 
 Do not replace the SCXML algorithm core wholesale. Evolve it carefully.

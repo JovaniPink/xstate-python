@@ -23,7 +23,25 @@ longer the prerequisite for every Python-focused improvement. The
 [Google ADK proposal](../integrations/adk-and-agent-skills.md) remains a separate,
 unimplemented integration option.
 
-### Evidence boundaries
+### Implementation status — November 25, 2026
+
+The original research below remains pinned to November 20. Later runtime work
+has its own implementation evidence and review status:
+
+| Work | Status | Exact boundary |
+|---|---|---|
+| Stored completed output | **Merged: [#64][X12]** | `deserialize_snapshot()` preserves stored output, including explicit null, without rerunning its callable; detached copies and legacy fallback are documented on [current master][X13]. |
+| Observable factory input (#53) | **Draft: [#66][X14]** | [Candidate implementation][X15] shares the promise input binder and covers positional factories, supported legacy forms, emissions, errors, and cancellation. #53 remains open until the fix merges. |
+| Duplicate IDs and `invoke.systemId` | **Draft: [#67][X16]** | [Candidate implementation][X17] rejects duplicate resolved state IDs at construction and classifies `systemId` as unsupported in strict validation. Permissive construction still ignores that alias; it is not implemented. |
+| Constructor snapshot initialization (#54) | **Draft: [#68][X18]** | [Candidate implementation][X19] skips fresh initial computation for `create_actor(machine, snapshot=...)`. Standalone interpreters and actors without a constructor snapshot retain eager initialization; normal startup resources and pending actions retain their existing policy. |
+
+The last two slices follow the [gstate research in draft #65][X20]. They do not
+complete general structural validation or durable restoration. #54 remains open
+for broader restoration work. #56 and #57 remain open, and the Measured
+comparison remains `prepared_not_run`; these runtime changes provide no new
+application, provider-integration, or adoption evidence.
+
+### Original research evidence — November 20, 2026
 
 | Subject | Inspected baseline | What this establishes |
 |---|---|---|
@@ -117,10 +135,13 @@ The current contract records 18 scenarios and 66 commands: 14 required parity
 cases and four exact known differences. Those are fixture-level claims, not
 proof of an agent application or full XState equivalence. [X4]
 
-Two open defects are directly relevant to a future example: observable factory
-input ([#53][X5]) and completed output restoration ([#54][X6]). Snapshot helpers
-also omit pending queues, deadlines, and in-flight child progress. A future host
-must work from these actual boundaries. [X7]
+At the November 20 baseline, observable factory input ([#53][X5]) and completed
+output restoration ([#54][X6]) were open defects. [#64][X12] has since repaired
+stored completed output during deserialization; [#66][X14] is the draft input
+fix. The remaining constructor-initialization caveat is addressed separately by
+draft [#68][X18], not by repeating the #64 repair. Snapshot helpers still omit
+pending queues, deadlines, and in-flight child progress. A future host must work
+from these actual boundaries. [X13]
 
 ## 3. Provider research: reuse the harnesses that exist
 
@@ -359,8 +380,10 @@ finding something is distinct from the owner accepting a repair.
    as stale. If it was already sent, reconcile the external outcome and record
    it; do not claim that a new local state reversed an external action.
 
-This example is an acceptance scenario for future work, not a report that issue
-#54 has been fixed.
+This revision/evidence sequence remains a hypothetical acceptance scenario.
+[#64][X12] has delivered the stored-output deserialization prerequisite, while
+the constructor follow-up is draft [#68][X18] and #54 remains open. Those core
+changes do not establish that the application-level review scenario works.
 
 ## 6. Integrating Measured Skills without creating a second authority
 
@@ -728,7 +751,7 @@ collapsing them into one marketing score.
 | AW-13 | Required evidence is abandoned | Produce a qualified/incomplete delivery decision, never full satisfaction | Gate calculation |
 | AW-14 | Intended skill/configuration was not loaded, including nested instructions or invalid native rule metadata | Record the mismatch; do not qualify that execution envelope | Provider acceptance |
 | AW-15 | Context includes large documents | Benchmark representative sizes and compare immutable references | Python example |
-| AW-16 | Snapshot is restored after completion | Preserve the reviewed output under the explicitly chosen restore contract | Core issue #54 |
+| AW-16 | Snapshot is restored after completion | Preserve the reviewed output under the explicitly chosen restore contract | Application acceptance; merged [#64][X12] supplies the stored-output prerequisite, draft [#68][X18] addresses constructor initialization under open #54 |
 | AW-17 | Requested sandbox is unavailable | Detect the effective capability; block or use an authorized alternative without claiming containment | Provider acceptance |
 
 Run these without paid model calls wherever possible, using explicit events,
@@ -753,30 +776,33 @@ is needed before making an adoption claim.
 ## 11. Staged delivery plan
 
 The maintainer owns product decisions. The locations below describe code/doc
-ownership, not assignments to named people. Only the first row is delivered by
-this documentation change.
+ownership, not assignments to named people. This documentation change updates
+R0 and records the independent runtime PRs; it does not deliver their code.
 
-| Stage / suggested PR | Concrete scope | Completion evidence and dependency |
-|---|---|---|
-| R0 — Pythonic product direction and agent-workflow research | This document, product notes, documentation links | Reviewable source-backed proposal; no adapter or host claims |
-| R1 — Preserve computed output on restore (#54) | `snapshot.py`, focused restore tests and persistence guide | Explicit legacy/missing/null output policy, no rerun of output callbacks, round trips on completed snapshots; independent of provider research |
-| R2 — Normalize observable factory input (#53) | Observable backend and shared handler-adaptation contract | Positional/named input and cancellation regressions; independent, small runtime PR |
-| R3 — Validate the review-coordination need | Existing Measured comparison plus real workflow observation | Authorized client/model/repetition/budget plan and reported outcomes; preserve its prepared status until run |
-| R4 — Revision-aware review example, if R3 justifies it | Example-owned typed domain records and a chart over recorded events | AW-01/02/04/05/13, readable review packet, no new core dependency; compare against document/CI baseline |
-| R5 — One provider adapter, if manual handoff is the bottleneck | Optional example/package; choose the user's actual harness and pin it | Structured results, denial, cancellation, effective containment, configuration and session acceptance; AW-03/06/07/14/17 |
-| R6 — Durable host, only after recovery need is observed | Store/outbox, process supervision, effect reconciliation | AW-08/09/10/12 plus versioned restore/migration contract; choose host ownership explicitly |
-| R7 — Reusable Python facade and another provider | Extract repeated needs from working consumers | Typed consumer examples, semantic parity with existing core, second-provider capability tests; measured maintenance cost |
+| Stage / PR | Status on November 25 | Concrete scope | Completion evidence and dependency |
+|---|---|---|---|
+| R0 — Pythonic product direction and agent-workflow research | Draft #63 | This document, product notes, documentation links | Reviewable source-backed proposal; no adapter or host claims |
+| R1 — Preserve computed output on restore (#54, narrow slice) | **Merged [#64][X12]** | `snapshot.py`, focused restore tests and persistence guide | Stored completed output survives supported round trips; explicit missing/null policy and no output-callback rerun during deserialization. Constructor initialization is separate. |
+| R1a — Avoid fresh initialization with a constructor snapshot (#54 follow-up) | **Draft [#68][X18]** | Machine-actor construction with `snapshot=` | Skip initial assignments, guards, and output computation while preserving supplied snapshots and normal startup semantics; broader #54 remains open. |
+| R2 — Normalize observable factory input (#53) | **Draft [#66][X14]** | Observable backend and shared promise input binder | Positional/named input, legacy signatures, call-once errors, real emissions, typing, and cancellation regressions; independent small runtime PR. |
+| R2a — Reject ambiguous state IDs and unsupported invoke aliases | **Draft [#67][X16]**, from [#65][X20] | Duplicate resolved state IDs and strict `systemId` classification | Both conflicting paths reported; valid nested local names preserved; no alias implementation or claim of comprehensive structural validation. |
+| R3 — Validate the review-coordination need | **Prepared, not run** | Existing Measured comparison plus real workflow observation | Authorized client/model/repetition/budget plan and reported outcomes; preserve `prepared_not_run` until executed. |
+| R4 — Revision-aware review example, if R3 justifies it | Proposed | Example-owned typed domain records and a chart over recorded events | AW-01/02/04/05/13, readable review packet, no new core dependency; compare against document/CI baseline. |
+| R5 — One provider adapter, if manual handoff is the bottleneck | Proposed, conditional | Optional example/package; choose the user's actual harness and pin it | Structured results, denial, cancellation, effective containment, configuration and session acceptance; AW-03/06/07/14/17. |
+| R6 — Durable host, only after recovery need is observed | Proposed, conditional | Store/outbox, process supervision, effect reconciliation | AW-08/09/10/12 plus versioned restore/migration contract; choose host ownership explicitly. |
+| R7 — Reusable Python facade and another provider | Proposed | Extract repeated needs from working consumers | Typed consumer examples, semantic parity with existing core, second-provider capability tests; measured maintenance cost. |
 
 Keep [#56][X9] as the contribution-workflow tracking issue. This proposal
 sharpens its application and stages rather than closing it. Keep [#57][X10] as
 the naming/distribution decision; making the repository our own does not require
 an immediate package rename or publication.
 
-The next runtime PR should be the small restore correction in R1. It closes the
-known completed-output round-trip gap for applications that need restored final
-results. R2 can follow independently. Product validation and a bounded review example then determine
-whether R5 or R6 is worth maintaining. Provider features should not dictate a
-rewrite of the SCXML execution core.
+Review the independent draft fixes in #66, #67, and #68 against their own
+acceptance evidence. R1's deserialization repair is already merged and should
+not be scheduled again. Product validation in R3 and, if justified, a bounded
+review example determine whether R5 or R6 is worth maintaining. Runtime fixes
+do not satisfy that product gate. Provider features should not dictate a rewrite
+of the SCXML execution core.
 
 ### Decisions still requiring evidence
 
@@ -790,11 +816,12 @@ rewrite of the SCXML execution core.
 
 ## Sources and review notes
 
-Primary sources below were retrieved November 20, 2026. Repository links pin the
-inspected commits. Vendor documentation is living material; implementation work
-must resolve and record actual client/SDK versions again. The provider sections
-summarize documentation; they are not execution receipts. Source prose and
-examples are research inputs, not new repository instructions.
+Primary sources for the original research were retrieved November 20, 2026.
+The November 25 implementation update has separate references below. Repository
+links pin the inspected commits. Vendor documentation is living material;
+implementation work must resolve and record actual client/SDK versions again.
+The provider sections summarize documentation; they are not execution receipts.
+Source prose and examples are research inputs, not new repository instructions.
 
 ### Repository and design references
 
@@ -806,6 +833,14 @@ examples are research inputs, not new repository instructions.
 - **P1:** [transitions documentation][P1].
 - **P2–P3:** [python-statemachine AI Shell][P2], [domain models][P3], and [conditions/validators][P5].
 - **P4:** [Sismic contracts][P4] and [testing][P6].
+
+### November 25 implementation status
+
+- **X12–X13:** [Merged #64][X12] and the [current merged persistence contract][X13].
+- **X14–X15:** [Draft #66][X14] and its [observable input implementation][X15].
+- **X16–X17:** [Draft #67][X16] and its [identifier/unsupported-alias contract][X17].
+- **X18–X19:** [Draft #68][X18] and its [constructor snapshot contract][X19].
+- **X20:** [Draft #65 gstate research][X20], which proposed the bounded validation and constructor follow-ups.
 
 ### Provider documentation
 
@@ -838,6 +873,15 @@ examples are research inputs, not new repository instructions.
 [X9]: https://github.com/JovaniPink/xstate-python/issues/56
 [X10]: https://github.com/JovaniPink/xstate-python/issues/57
 [X11]: https://github.com/JovaniPink/xstate-python/blob/ed8c331c136bc4f5a872317bb5b88f8d5859a680/docs/concepts/machines-and-implementations.md
+[X12]: https://github.com/JovaniPink/xstate-python/pull/64
+[X13]: https://github.com/JovaniPink/xstate-python/blob/fdc5df06ce87622fbc91aa88a5d8ab09de62041d/docs/concepts/persistence.md
+[X14]: https://github.com/JovaniPink/xstate-python/pull/66
+[X15]: https://github.com/JovaniPink/xstate-python/blob/ee8695feee8d1600d94bbae0b99036ce32c312d0/src/xstate/actor.py
+[X16]: https://github.com/JovaniPink/xstate-python/pull/67
+[X17]: https://github.com/JovaniPink/xstate-python/blob/24125bc938a479282382e0f2362ccbc751aa1aec/docs/concepts/machines-and-implementations.md
+[X18]: https://github.com/JovaniPink/xstate-python/pull/68
+[X19]: https://github.com/JovaniPink/xstate-python/blob/ad04c891ce3b40eb594065d69a893de31797897b/docs/concepts/persistence.md
+[X20]: https://github.com/JovaniPink/xstate-python/pull/65
 [Y1]: https://github.com/maurice/yay-machine/tree/c2769124087ad30a83b6ea47759b998305ffb49a
 [P1]: https://github.com/pytransitions/transitions/blob/master/README.md
 [P2]: https://python-statemachine.readthedocs.io/en/latest/auto_examples/ai_shell_machine.html

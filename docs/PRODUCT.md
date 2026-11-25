@@ -1,8 +1,19 @@
 # xstate-python Product Notes
 
-Product direction updated November 20, 2026. Capability notes describe the
-unreleased 0.7.1 source candidate. Proposed application and integration work is
-identified separately from existing library behavior.
+Product direction updated November 20, 2026; implementation status refreshed
+November 25. Capability notes describe the unreleased 0.7.1 source candidate.
+Proposed application and integration work is identified separately from existing
+library behavior.
+
+The completed-output deserialization repair is merged in
+[#64](https://github.com/JovaniPink/xstate-python/pull/64).
+Observable input [#66](https://github.com/JovaniPink/xstate-python/pull/66),
+identifier validation [#67](https://github.com/JovaniPink/xstate-python/pull/67),
+and constructor snapshot initialization
+[#68](https://github.com/JovaniPink/xstate-python/pull/68) are **draft PRs**.
+The [dated research status](plans/pythonic-agent-workflows-research.md#implementation-status--november-25-2026)
+links their exact source revisions. These drafts are not merged capabilities;
+the Measured evaluation remains `prepared_not_run`, and #56/#57 remain open.
 
 The maintainer's direction is **Pythonic first**: a useful Python statechart
 library with an LLM-assisted software-development niche to investigate.
@@ -53,6 +64,7 @@ documents, and existing CI before expanding runtime obligations.
 | Setup API | `setup(...).create_machine(...)` exists for stricter named implementations |
 | Context policy | Default deep-copy adapter for snapshots and each deferred action; immutable dataclass adapter avoids copying |
 | Snapshots | `MachineSnapshot = State`; immutable public containers |
+| Stored completed output | Deserialization preserves a present output field, including null, without recomputation; defined legacy fallback and detached copies ([merged #64](https://github.com/JovaniPink/xstate-python/pull/64)) |
 | Snapshot queries | Active `tags`, `meta`, `has_tag`/`hasTag`, and `state_in`/`stateIn` guard helpers are present |
 | Diagrams | Dependency-free Mermaid `stateDiagram-v2` export is present |
 | Sync runtime | `Interpreter` with RTC queue, subscriptions, delayed transitions, and lock-serialized timer sends |
@@ -135,24 +147,28 @@ interoperability story; equivalent named implementations remain necessary.
 | Parallel transition domains | All 15 configured `more-parallel` cases pass; the configured SCXML suite is `57 passed`, `0 failed` |
 | Concept documentation | Machines, implementations, sync/async runtimes, actors, persistence, and SCXML import are documented |
 | Runnable examples | `docs/examples/` is canonical and every runner has subprocess smoke coverage |
-| Persistence adoption | Snapshot compatibility and timer/child-actor restoration limits are documented with a JSON resume example |
+| Persistence example | Snapshot compatibility and timer/child-actor restoration limits are documented with a JSON resume example |
+| Completed-output deserialization | Stored completed output survives supported round trips, with explicit missing/null policy and no output-callback rerun during deserialization ([#64](https://github.com/JovaniPink/xstate-python/pull/64)); constructor initialization is separate |
 
 ## Roadmap
 
 The [agent-workflow research](plans/pythonic-agent-workflows-research.md#11-staged-delivery-plan)
 owns the proposed product sequence. The [earlier plan](plans/statechart-workflow-roadmap.md)
-retains detailed core acceptance and migration work. Rows other than **Done**
-are proposed outcomes, not completed features.
+retains detailed core acceptance and migration work. **Done** identifies merged
+work; **Draft** identifies implementations under review. Other rows describe
+proposed outcomes or ongoing obligations.
 
 | Sequence | Work |
 |---|---|
 | Done | Pinned XState v5 comparison contract with literal JSON delays, causal action arguments, re-entry, child/timer lifecycle, and final completion ([#55](https://github.com/JovaniPink/xstate-python/issues/55); PRs #60–#62) |
-| Immediate runtime work | Define output restoration and preserve completed output ([#54](https://github.com/JovaniPink/xstate-python/issues/54)); repair observable factory input independently ([#53](https://github.com/JovaniPink/xstate-python/issues/53)) |
+| Done | Preserve stored completed output during deserialization ([#64](https://github.com/JovaniPink/xstate-python/pull/64), narrow slice of [#54](https://github.com/JovaniPink/xstate-python/issues/54)) |
+| Draft runtime fixes | Observable factory input ([#66](https://github.com/JovaniPink/xstate-python/pull/66), closes [#53](https://github.com/JovaniPink/xstate-python/issues/53) when merged); skip fresh initialization with a constructor snapshot ([#68](https://github.com/JovaniPink/xstate-python/pull/68), follow-up under still-open [#54](https://github.com/JovaniPink/xstate-python/issues/54)) |
+| Draft validation slice | Reject duplicate resolved state IDs and classify `invoke.systemId` as unsupported in strict validation ([#67](https://github.com/JovaniPink/xstate-python/pull/67), from [#65](https://github.com/JovaniPink/xstate-python/pull/65)); no alias implementation or comprehensive structural-validation claim |
 | Product validation | Observe contribution/review work and use the prepared Measured comparison to distinguish prompt, skill, and coordination value |
 | First application, if justified | A typed revision-aware review example over recorded events, with current evidence, stable finding IDs, and explicit stopping conditions ([#56](https://github.com/JovaniPink/xstate-python/issues/56)) |
 | Ongoing | Preserve all 14 required parity cases; keep four known differences explicit and promote cases only after reviewed fixes |
 | Compatibility experiment | Validate one representative shared chart; measure unchanged structure, observable behavior, and transition/context-capture cost |
-| Consumer-driven core work | Improve structured validation, restoration identity, and scenario/trace tools where the examples expose a concrete gap |
+| Consumer-driven core work | Extend validation beyond the bounded #67 draft, restoration identity, and scenario/trace tools where the examples expose a concrete gap |
 | After demonstrated need | One optional provider adapter; a durable host only after recovery requirements justify its transaction and effect responsibilities |
 | Parallel decision | Resolve distribution ownership, naming, namespace, and migration before publication ([#57](https://github.com/JovaniPink/xstate-python/issues/57)) |
 | Separate follow-up | Expand the supported SCXML subset without JavaScript evaluation, evaluate XState v6, and assess inspector protocol, `provide`, or graph utilities against concrete consumers |
