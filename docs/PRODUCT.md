@@ -39,8 +39,10 @@ The short pitch:
 
 The first application hypothesis is coordinating agent-assisted contributions
 and reviews across changing goals, code revisions, checks, and sessions.
-Revision-aware review records, provider adapters, and a durable application
-host are proposed work. They are not shipped features of the current library.
+A [recorded-input revision gate](guides/revision-gate.md) now demonstrates the
+local evidence policy as a public teaching example. Integrated review
+coordination, provider adapters, and a durable application host remain proposed
+work; the example does not establish those capabilities or consumer demand.
 
 The [compatibility contract](concepts/xstate-compatibility.md) pins the reference
 runtime and records exact observations. Its synthetic fixtures do not yet prove
@@ -59,6 +61,7 @@ documents, and existing CI before expanding runtime obligations.
 |---|---|
 | Packaging | Python 3.13+ source and wheel metadata are prepared for 0.7.1; package-index name and ownership remain unresolved |
 | Core transition API | `Machine(config).transition(state, event)` |
+| Public learning path | [Getting started](getting-started.md), [typed Python context](examples/typed_context.py), [revision-gate walkthrough](guides/revision-gate.md), and a complete [example catalog](examples/README.md) |
 | XState JSON | Dict/JSON boundary with a pinned, fixture-level compatibility contract and explicit known differences |
 | Parser architecture | Typed schema + normalization/parser layer |
 | State identifiers | Duplicate resolved IDs fail construction with both paths; valid repeated local names remain supported. Strict validation rejects unsupported `invoke.systemId`; permissive construction still ignores it ([#67](https://github.com/JovaniPink/xstate-python/pull/67)) |
@@ -104,8 +107,9 @@ documents, and existing CI before expanding runtime obligations.
   `more-parallel` cases.
 - Concept guides cover machine configuration, runtime choices, actors,
   persistence, and SCXML import.
-- Five canonical runnable programs are exercised in isolated subprocesses on
-  supported CI Python versions.
+- Noninteractive public examples run from a temporary working directory in the
+  primary suite and against the isolated installed wheel. The local inspector
+  has separate server lifecycle tests.
 
 ## Competitive Position
 
@@ -151,7 +155,7 @@ interoperability story; equivalent named implementations remain necessary.
 | Shared-runtime contracts | 18 scenarios / 66 commands against pinned XState; 14 required parity cases cover the checked delay, action, re-entry, and completion behavior, with four exact known differences |
 | Parallel transition domains | All 15 configured `more-parallel` cases pass; the configured SCXML suite is `57 passed`, `0 failed` |
 | Concept documentation | Machines, implementations, sync/async runtimes, actors, persistence, and SCXML import are documented |
-| Runnable examples | `docs/examples/` is canonical and every runner has subprocess smoke coverage |
+| Runnable examples | `docs/examples/` is canonical; noninteractive programs have subprocess and installed-wheel coverage, and the inspector has dedicated lifecycle tests |
 | Persistence example | Snapshot compatibility and timer/child-actor restoration limits are documented with a JSON resume example |
 | Completed-output deserialization | Stored completed output survives supported round trips, with explicit missing/null policy and no output-callback rerun during deserialization ([#64](https://github.com/JovaniPink/xstate-python/pull/64)); constructor initialization is separate |
 
@@ -170,7 +174,7 @@ obligations; the runtime fixes do not establish product value.
 | Done | Observable factory input ([#66](https://github.com/JovaniPink/xstate-python/pull/66), [#53](https://github.com/JovaniPink/xstate-python/issues/53) closed); skip fresh initialization with a machine-actor constructor snapshot ([#68](https://github.com/JovaniPink/xstate-python/pull/68), follow-up under still-open [#54](https://github.com/JovaniPink/xstate-python/issues/54)) |
 | Done, bounded validation slice | Reject duplicate resolved state IDs and classify `invoke.systemId` as unsupported in strict validation ([#67](https://github.com/JovaniPink/xstate-python/pull/67), from research [#65](https://github.com/JovaniPink/xstate-python/pull/65)); no alias implementation or comprehensive structural-validation claim |
 | Next evidence step | Collect [bounded prospective handoff packets](plans/pythonic-agent-workflows-research.md#bounded-observation-of-the-current-pr-series-56) and assess the existing document/CI baseline before implementing a coordinator. The retrospective PR series is one clustered case with unknown effort/token/cost, not a Measured study result. |
-| First application, if justified | A typed revision-aware review example over recorded events, with current evidence, stable finding IDs, and explicit stopping conditions ([#56](https://github.com/JovaniPink/xstate-python/issues/56)) |
+| Consumer application, if justified | Apply the [revision-gate teaching example](guides/revision-gate.md) to an observed review workflow, with stable finding IDs and explicit stopping conditions. The example's current-head checks and in-memory handoff do not complete the authority, atomic persistence, or lost-response recovery requirements in [#56](https://github.com/JovaniPink/xstate-python/issues/56). |
 | Ongoing | Preserve all 14 required parity cases; keep four known differences explicit and promote cases only after reviewed fixes |
 | Compatibility experiment | Validate one representative shared chart; measure unchanged structure, observable behavior, and transition/context-capture cost |
 | Consumer-driven core work | Extend validation beyond the bounded #67 slice, restoration identity, and scenario/trace tools where the examples expose a concrete gap |

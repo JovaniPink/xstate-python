@@ -1,10 +1,7 @@
 <h1 align="center">XState for Python</h1>
 
 <p align="center">
-  <strong>Statecharts and actor-based state machines for Python</strong>, shaped around
-  <a href="https://github.com/statelyai/xstate">XState</a> configs and the
-  <a href="https://www.w3.org/TR/scxml/#AlgorithmforSCXMLInterpretation">W3C SCXML</a>
-  execution algorithm.
+  <strong>Python statecharts with ordinary functions, typed data, and explicit lifecycles.</strong>
 </p>
 
 <p align="center">
@@ -14,556 +11,161 @@
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green"></a>
 </p>
 
----
+Describe which events can change application state, keep domain data in context,
+and connect Python actions and actor logic where work needs to happen. Choose
+pure transition evaluation, a synchronous service, an asyncio service, or a
+machine actor according to the resources your application needs to own.
 
-## Why This Library?
+The library has **zero runtime dependencies** and requires **Python 3.13+**.
+The current source candidate is alpha `0.7.1`. This project builds on
+[Stately's Python implementation](https://github.com/statelyai/xstate-python),
+[XState](https://github.com/statelyai/xstate), and the
+[W3C SCXML execution algorithm](https://www.w3.org/TR/scxml/#AlgorithmforSCXMLInterpretation).
 
-Build application statecharts with ordinary Python functions, typed events,
-dataclass contexts, and explicit actor lifecycles. The project direction is
-Pythonic first, supported by an SCXML-style microstep/macrostep engine and
-separate pure, synchronous, and asynchronous execution APIs.
+**Start here:** [Getting started](docs/getting-started.md) ·
+[Runnable examples](docs/examples/README.md) ·
+[Documentation](docs/README.md) · [Contributing](CONTRIBUTING.md)
 
-The [product research](docs/plans/pythonic-agent-workflows-research.md) investigates
-coordinating agent-assisted software changes with evidence tied to the goal and
-code revision it describes. That application remains a proposal; provider
-adapters and a durable workflow host are not shipped features.
+## Install From Source
 
-Data-only [XState](https://github.com/statelyai/xstate) /
-[Stately](https://stately.ai/editor) interoperability remains a supported
-boundary. A chart shared with a JavaScript frontend can stay declarative:
+Distribution ownership and publication are tracked in
+[issue #57](https://github.com/JovaniPink/xstate-python/issues/57). Install this
+repository's source to use the APIs documented here; `pip install xstate` is
+not the installation path for this source candidate.
 
-```python
-import json
-
-from xstate import Machine
-
-with open("machine.json") as f:
-    config = json.load(f)
-
-machine = Machine(config)
-```
-
-Only live implementation details need Python bindings: action functions, guard
-functions, delay values, and actor logic.
-
-Compatibility is an [explicitly tested data-only subset](docs/concepts/xstate-compatibility.md),
-checked against XState **5.33.4**. The comparison suite records both matching
-behavior and known differences; loading a chart does not establish full XState
-or Stately export compatibility.
-
-| | xstate-python |
-|---|---|
-| XState JSON | Loaded directly as Python `dict` data |
-| Engine | W3C SCXML-style run-to-completion algorithm |
-| Core runtime deps | None |
-| Main runtime APIs | Pure `Machine.transition`, `Interpreter`, `AsyncInterpreter`, `Actor` |
-| Current focus | Python usability, execution correctness, and explicit lifecycle contracts |
-
-## Installation
-
-No JovaniPink build of this repository is currently verified as published on
-PyPI. The existing `xstate` project on PyPI is a separate `0.0.1` distribution;
-do not use `pip install xstate` expecting the code documented here.
-
-Install a reviewed source revision by replacing `<commit>` with an exact commit
-SHA:
-
-```bash
-pip install "git+https://github.com/JovaniPink/xstate-python.git@<commit>"
-```
-
-For development, clone the repository and use the locked Poetry environment:
+On macOS or Linux, with Python 3.13 or newer:
 
 ```bash
 git clone https://github.com/JovaniPink/xstate-python.git
 cd xstate-python
-poetry install
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install .
+python docs/examples/typed_context.py
 ```
 
-The core library has no runtime dependencies. The `scxml` extra is intentionally
-dependency-free on Python 3.13+; SCXML expression support is limited to safe
-Boolean conditions and the fixture-proven integer data subset.
+The [installation guide](docs/getting-started.md#install-the-library-and-examples)
+includes Windows commands, how to record the source revision, and the separate
+Poetry environment for contributors. The examples and their JSON/SCXML files
+live in the checkout; they are not installed as library modules by the wheel.
 
-## Quickstart
+## Your First Statechart
 
-`Machine` is the pure state transition layer: `(state, event) -> state`.
+This complete program needs only the installed library:
 
 ```python
 from xstate import Machine
 
-lights = Machine(
+review = Machine(
     {
-        "id": "lights",
-        "initial": "green",
+        "id": "review",
+        "initial": "draft",
         "states": {
-            "green": {"on": {"TIMER": "yellow"}},
-            "yellow": {"on": {"TIMER": "red"}},
-            "red": {"on": {"TIMER": "green"}},
-        },
-    }
-)
-
-state = lights.initial_state
-assert state.value == "green"
-
-state = lights.transition(state, "TIMER")
-assert state.value == "yellow"
-```
-
-Use an event object when you need payload data:
-
-```python
-state = lights.transition(state, {"type": "TIMER", "source": "clock"})
-```
-
-## Loading XState JSON
-
-The JSON stays data-only. Python registries provide implementations by name:
-
-```python
-import json
-
-from xstate import Machine, assign, from_promise
-
-with open("search_machine.json") as f:
-    config = json.load(f)
-
-machine = Machine(
-    config,
-    guards={"hasQuery": lambda ctx, event: bool(event.data.get("query"))},
-    actions={"rememberQuery": assign({"query": lambda _ctx, event: event.data["query"]})},
-    delays={"debounce": 300},
-    actors={"fetchResults": from_promise(lambda input: ["Ada", "Grace"])},
-)
-```
-
-Prefer XState v5 keys such as `guard`, `output`, and `always`. Older `cond`,
-`data`, and `on: {"": ...}` forms remain supported for compatibility and may
-emit deprecation warnings.
-
-## A Python Application Controller
-
-The [docking controller](docs/examples/docking_controller.py) wraps a
-[JSON chart](docs/examples/docking_controller.json) in typed `start(goal)`,
-`tick(sample)`, and `cancel()` methods. It explicitly registers class-bound
-actions such as `"stage": self._stage`, `"scan": self._scan`, and
-`"dock": self._dock`. The controller owns the drive resource; snapshot context
-contains only a small immutable value.
-
-From a source checkout, run a familiar application loop:
-
-```python
-from docs.examples.docking_controller import (
-    DockingController, DockingGoal, FakeDrive, TickSample,
-)
-from xstate import SimulatedClock
-
-clock = SimulatedClock()
-controller = DockingController(FakeDrive(), clock=clock)
-try:
-    controller.start(DockingGoal("bay-7"))
-    samples = (
-        TickSample(staged=True),
-        TickSample(target_visible=True),
-        TickSample(docked=True),
-    )
-    for sample in samples:
-        controller.tick(sample)
-        controller.advance_time(100)
-    print(controller.phase)  # completed
-finally:
-    controller.close()
-```
-
-Each `TICK` controls the current phase once. A transition to the next phase
-waits for another tick before running that phase's control action. The flat
-chart's Enum view is local to this example; general statecharts can have nested
-and parallel state values. See the [controller guide](docs/concepts/controllers.md)
-for integration, failure semantics, and context policy.
-
-Facade calls and timer delivery serialize through the controller. `close()`
-waits for in-flight commands and retries unfinished drive cleanup, even after
-a terminal chart decision. Drive calls can run on caller or timer threads;
-this example does not provide fixed thread affinity.
-
-Generate a bounded Markdown replay after deterministic execution:
-
-```bash
-poetry run python docs/examples/docking_controller.py --trace-md /tmp/docking.md
-poetry run python docs/examples/docking_controller.py --scenario timeout
-poetry run python docs/examples/docking_controller.py --scenario cancel
-poetry run python -m scripts.benchmark_runtime --samples 3000
-```
-
-Replay diagrams annotate active states, with tables of all selected
-transitions. Frames observe chart state before side effects finish; context
-and payload contents are omitted. Capture retains at most 200 frames and
-reports truncation. The benchmark separates ordinary transitions, tracing,
-capture, and report formatting; it supplies local observations without timing
-thresholds or real-time guarantees.
-
-## Explore A Fetch And Retry Workflow
-
-From a source checkout, launch the optional [local inspector](docs/concepts/local-inspector.md):
-
-```bash
-poetry run python docs/examples/local_inspector.py
-```
-
-Open the printed loopback URL, send `FETCH`, and advance time twice by 1,000 ms.
-The synthetic fetch fails twice and then succeeds. Explore the active chart,
-snapshot, and expandable microstep history; export the run as JSON. The example
-uses the existing Python actor runtime, an XState JSON chart, and only standard
-library modules for its local server.
-
-## Running A Machine
-
-`interpret(machine)` turns a pure machine into a stateful service with
-subscriptions, run-to-completion queuing, delayed transitions, and side-effect
-actions:
-
-```python
-from xstate import interpret
-
-service = interpret(machine).start()
-subscription = service.subscribe(lambda state: print("->", state.value))
-
-service.send("SEARCH")
-subscription.unsubscribe()
-service.stop()
-```
-
-Delayed transitions use a pluggable clock. Use `SimulatedClock` in tests:
-
-```python
-from xstate import Machine, interpret
-from xstate.scheduler import SimulatedClock
-
-machine = Machine(
-    {
-        "id": "timer",
-        "initial": "waiting",
-        "states": {
-            "waiting": {"after": {1000: "done"}},
-            "done": {"type": "final"},
-        },
-    }
-)
-
-clock = SimulatedClock()
-service = interpret(machine, clock=clock).start()
-
-clock.increment(1000)
-assert service.state.value == "done"
-```
-
-The synchronous interpreter serializes timer callbacks and user sends with a
-re-entrant lock so `ThreadClock` callbacks cannot interleave state mutation.
-
-## Async Runtime
-
-`interpret_async(machine)` provides the asyncio-native runtime. It supports
-`await start()`, `await send()`, `await stop()`, async action callables, and
-event-loop scheduled `after` transitions:
-
-```python
-from xstate import interpret_async
-
-service = interpret_async(machine)
-await service.start()
-await service.send("SEARCH")
-await service.stop()
-```
-
-Transition computation, guards, and assignments remain synchronous.
-`interpret_async` awaits actions and manages asyncio timers, but it does not
-start invoked actors or route actor messages. `create_actor(machine)` supports
-those actor capabilities through the synchronous interpreter, so its machine
-actions are not awaited. See the [runtime capability matrix](./docs/concepts/runtimes.md)
-for warnings, async child logic, and the complete boundary.
-
-Macrosteps can be bounded with `Machine(..., max_iterations=N)` or portable
-`options.maxIterations` configuration. `get_microsteps(...)` and
-`get_initial_microsteps(...)` return immutable intermediate trace records, and
-sync, async, and machine-backed actor runtimes accept an optional `inspect`
-callback for settled `MacrostepTrace` values. See
-[Runtime Choices](./docs/concepts/runtimes.md#bounded-execution-and-microstep-traces).
-
-## Actors And `invoke`
-
-XState v5 treats running logic as actors. This library supports machine actors,
-promise actors, callback actors, observable actors, spawning, parent/child
-messaging, and `invoke` lifecycle wiring.
-
-```python
-from xstate import Machine, assign, create_actor, from_promise
-
-
-def fetch_user(input):
-    return {"id": input["user_id"], "name": "Ada"}
-
-
-machine = Machine(
-    {
-        "id": "fetcher",
-        "context": {"user_id": 42, "user": None},
-        "initial": "loading",
-        "states": {
-            "loading": {
-                "invoke": {
-                    "id": "getUser",
-                    "src": "fetchUser",
-                    "input": lambda ctx, _event: {"user_id": ctx["user_id"]},
-                    "onDone": {
-                        "target": "success",
-                        "actions": [assign({"user": lambda _ctx, event: event.data})],
-                    },
-                    "onError": "failure",
-                }
+            "draft": {"on": {"SUBMIT": "reviewing"}},
+            "reviewing": {
+                "on": {"APPROVE": "approved", "REQUEST_CHANGES": "draft"}
             },
-            "success": {"type": "final"},
-            "failure": {},
+            "approved": {"type": "final"},
         },
     },
-    actors={"fetchUser": from_promise(fetch_user)},
+    strict=True,
 )
 
-actor = create_actor(machine).start()
-snapshot = actor.get_snapshot()
-
-assert snapshot.value == "success"
-assert snapshot.context["user"]["name"] == "Ada"
+state = review.initial_state
+print(state.value)
+state = review.transition(state, "SUBMIT")
+print(state.value)
+state = review.transition(state, "APPROVE")
+print(state.value)
+assert state.status == "done"
 ```
 
-Actor helpers exported from `xstate` include:
+Output:
 
-- `create_actor(machine_or_logic)`
-- `from_promise(fn)`
-- `from_callback(fn)`
-- `from_observable(fn_or_async_iterable)`
-- `to_promise(actor)`
-- `send_parent(event)` and `send_to(actor_id, event)`
-
-Use `ActorRef[SendEventT, SnapshotT]` for consumer-only send, snapshot, and
-subscription boundaries. Concrete `Actor` values retain lifecycle and spawn
-methods, while `to_promise` also accepts references with a compatible
-`CompletionSnapshot[OutputT]`.
-
-## `setup()` And Handler Signatures
-
-`setup(...)` mirrors XState v5's named implementation style and creates machines
-in stricter mode:
-
-```python
-from xstate import HandlerArgs, setup
-
-
-def has_query(args: HandlerArgs) -> bool:
-    return bool(args.event.data.get("query"))
-
-
-machine = setup(guards={"hasQuery": has_query}).create_machine(
-    {
-        "id": "search",
-        "initial": "idle",
-        "states": {
-            "idle": {"on": {"SEARCH": {"target": "searching", "guard": "hasQuery"}}},
-            "searching": {},
-        },
-    }
-)
+```text
+draft
+reviewing
+approved
 ```
 
-Legacy callables still work through adapter compatibility: `()`, `(context)`,
-`(context, event)`, and keyword-only `(*, context, event)`.
+`Machine.transition(snapshot, event)` computes the next snapshot. Guards and
+assignments run during that computation; deferred side-effect actions need a
+runtime to execute them. Keep guards and assignment functions free of external
+side effects. The [getting-started guide](docs/getting-started.md) explains the
+vocabulary, adds a stateful actor, and points to complete Python examples.
 
-## Context And Snapshots
+## Choose An Execution API
 
-`context` is extended state. Use `assign(...)` to return updated context during
-a transition:
+| What your application needs | Start with | Complete example |
+| --- | --- | --- |
+| Compute the next state from a snapshot and event | `Machine.transition` | [SCXML toggle](docs/examples/scxml_toggle.py) |
+| Synchronous actions, subscriptions, and controlled time | `interpret` | [Traffic intersection](docs/examples/traffic_intersection.py) |
+| Awaitable machine actions | `interpret_async` | [Async workflow](docs/examples/async_workflow.py) |
+| Invoked children, actor messaging, or restored machine actors | `create_actor` | [Fetch with retry](docs/examples/fetch_with_retry.py) |
 
-```python
-from xstate import Machine, assign
+`interpret_async` awaits machine actions but does not start invoked children or
+route actor messages. Machine-backed `create_actor` supports invocation and
+messaging through the synchronous runtime; its machine actions are synchronous.
+Async child logic needs a running event loop on its starting thread. Read the
+[runtime capability matrix](docs/concepts/runtimes.md) before combining these
+capabilities.
 
-counter = Machine(
-    {
-        "id": "counter",
-        "context": {"count": 0},
-        "initial": "active",
-        "states": {
-            "active": {
-                "on": {
-                    "INC": {
-                        "actions": [
-                            assign({"count": lambda ctx, _event: ctx["count"] + 1})
-                        ]
-                    }
-                }
-            }
-        },
-    }
-)
-```
+## Learn Through Runnable Examples
 
-By default, state context is snapshot-isolated with deep copies. Public snapshot
-containers are immutable at the boundary: `configuration` is a `frozenset`,
-`actions` is a `tuple`, and `history_value` is read-only. For immutable
-dataclass contexts, use `dataclass_context()` / `DataclassContextAdapter`.
+The [example catalog](docs/examples/README.md) provides commands, expected
+results, and the contract each example demonstrates. The offline programs use
+scripted data or fake resources and need no model API keys.
 
-Snapshots also expose XState-style query data:
+| Start with | What you learn |
+| --- | --- |
+| [Typed context](docs/examples/typed_context.py) | Frozen dataclass context, typed events, named guards and assignments, and computed final output |
+| [Revision gate](docs/examples/revision_gate.py) · [walkthrough](docs/guides/revision-gate.md) | Bind CI/review evidence to a code revision, invalidate it on a new revision, and hand off a serialized snapshot |
+| [Fetch with retry](docs/examples/fetch_with_retry.py) | JSON configuration, promise actors, success/failure events, and deterministic retry timing |
+| [Snapshot resume](docs/examples/snapshot_resume.py) | Serialize, stop, restore, and continue a machine actor with explicit recovery limits |
+| [Docking controller](docs/examples/docking_controller.py) · [guide](docs/concepts/controllers.md) | Typed application methods, resource ownership, cancellation, timeouts, and Markdown traces |
+| [Local inspector](docs/concepts/local-inspector.md) | Explore the fake fetch workflow in a loopback browser UI and inspect its microsteps |
 
-```python
-state = machine.initial_state
+The revision gate is an executable example of chart policy. It does not contact
+GitHub, authenticate review events, merge code, or provide crash-safe effect
+recovery. The [product notes](docs/PRODUCT.md) and
+[contribution-workflow issue](https://github.com/JovaniPink/xstate-python/issues/56)
+keep those application responsibilities and evidence requirements explicit.
 
-state.has_tag("loading")  # Pythonic
-state.hasTag("loading")   # XState-compatible alias
-state.tags                # frozenset of active state tags
-state.meta                # read-only mapping of active state ids to metadata
-```
+## Capabilities And Boundaries
 
-Use `state_in(...)` / `stateIn(...)` when a reusable guard should depend on the
-current active state configuration:
+- Hierarchical, parallel, final, and history states; guards; context assignments;
+  entry/exit actions; raised events; eventless transitions; delayed transitions.
+- Typed handler arguments, immutable dataclass context adapters, snapshot
+  queries, and a strict `setup(...).create_machine(...)` authoring path.
+- Promise, callback, and observable actor logic; child invocation and messaging.
+- Snapshot serialization, microstep inspection, and dependency-free Mermaid export.
+- XState-shaped data-only JSON and a focused safe SCXML import subset.
 
-```python
-from xstate import Machine, state_in
+The [compatibility contract](docs/concepts/xstate-compatibility.md) compares
+behavior with pinned XState **5.33.4** and records exact known differences.
+Loading a JSON chart does not establish full XState or Stately-export parity.
+SCXML import supports the documented safe expression subset, not general
+JavaScript evaluation.
 
-machine = Machine(
-    {
-        "id": "workflow",
-        "initial": "editing",
-        "states": {
-            "editing": {"on": {"SUBMIT": "review"}},
-            "review": {
-                "on": {
-                    "APPROVE": {
-                        "target": "published",
-                        "guard": state_in("review"),
-                    }
-                }
-            },
-            "published": {"type": "final", "tags": ["done"]},
-        },
-    }
-)
-```
+A snapshot records chart data; it does not persist event queues, timer deadlines,
+child progress, or external effects. Applications own those recovery decisions.
+See [persistence](docs/concepts/persistence.md) and
+[action failure semantics](docs/concepts/runtimes.md#action-failure-and-external-completion).
 
-## Core Statechart Features
+## Documentation Map
 
-- Hierarchical and parallel states
-- State tags, metadata, `matches(...)`, `can(...)`, and `has_tag(...)`
-- Entry, exit, and transition actions
-- Named and inline guards
-- Context and `assign`
-- Higher-order actions with `choose(...)` and `pure(...)`
-- Eventless transitions via `always`
-- Final states and `onDone`
-- Shallow and deep history states
-- Delayed transitions via `after`
-- SCXML XML import
-- Actor invocation with `invoke`, `onDone`, and `onError`
-
-## Diagrams
-
-`to_mermaid(machine)` exports a dependency-free Mermaid `stateDiagram-v2` string:
-
-```python
-from xstate import to_mermaid
-
-print(to_mermaid(machine))
-```
-
-Pass `snapshot=service.state` to append `[active]` to active state captions,
-including nested captions. Initial arrows still show the chart's configured
-initial states. Snapshots containing nodes from another machine raise
-`InvalidConfigError`.
-
-This is intentionally lightweight: it covers state hierarchy, initial states,
-transition arrows, and targetless-transition comments without adding Graphviz or
-browser-rendering dependencies.
-
-## Examples
-
-Runnable examples live in [`docs/examples/`](./docs/examples):
-
-| Example | Showcases |
-|---|---|
-| [`traffic_intersection.json`](./docs/examples/traffic_intersection.json) + [`traffic_intersection.py`](./docs/examples/traffic_intersection.py) | XState JSON loading, parallel regions, nested states, named delays, guards, entry actions, and deterministic clocks |
-| [`fetch_with_retry.py`](./docs/examples/fetch_with_retry.py) | `invoke`, `from_promise`, retries with `after`, context assignment, and guarded transitions |
-| [`async_workflow.py`](./docs/examples/async_workflow.py) | `AsyncInterpreter`, awaitable actions, subscriptions, and per-event completion |
-| [`snapshot_resume.py`](./docs/examples/snapshot_resume.py) | Snapshot serialization, JSON persistence, restoration, and continued actor processing |
-| [`scxml_toggle.scxml`](./docs/examples/scxml_toggle.scxml) + [`scxml_toggle.py`](./docs/examples/scxml_toggle.py) | Path-based SCXML import, safe Boolean conditions, raise actions, and pure transitions |
-
-Run them from the repo root:
-
-```bash
-PYTHONPATH=src python3 docs/examples/traffic_intersection.py
-PYTHONPATH=src python3 docs/examples/fetch_with_retry.py
-PYTHONPATH=src python3 docs/examples/async_workflow.py
-PYTHONPATH=src python3 docs/examples/snapshot_resume.py
-PYTHONPATH=src python3 docs/examples/scxml_toggle.py
-```
-
-## Documentation
-
-Concept guides and the runnable-example index live in [`docs/`](./docs). Start
-with [machines and implementations](./docs/concepts/machines-and-implementations.md)
-or [static typing](./docs/concepts/typing.md) and
-[runtime choices](./docs/concepts/runtimes.md), then continue with
-[actors](./docs/concepts/actors.md) and
-[snapshot persistence](./docs/concepts/persistence.md). The
-[SCXML import guide](./docs/concepts/scxml.md) covers the supported XML and safe
-condition subset.
-
-## Public API
-
-```python
-from xstate import (
-    Machine,
-    MachineSnapshot,
-    setup,
-    HandlerArgs,
-    interpret,
-    interpret_async,
-    create_actor,
-    from_promise,
-    from_callback,
-    from_observable,
-    to_promise,
-    assign,
-    send,
-    send_parent,
-    send_to,
-    cancel,
-    raise_,
-    choose,
-    pure,
-    state_in,
-    stateIn,
-    to_mermaid,
-    dataclass_context,
-)
-from xstate.scheduler import SimulatedClock, ThreadClock
-```
-
-## SCXML
-
-The algorithm core follows the W3C SCXML execution model. XML import is exposed
-through `xstate.scxml.scxml_to_machine(...)` and verified against a focused,
-repository-owned fixture subset from the SCXML Test Framework. See the
-[SCXML import guide](./docs/concepts/scxml.md) for supported elements, safe
-conditions, and current limits. Fixture provenance and the Apache 2.0 license
-are retained under `tests/fixtures/scxml/`.
-
-```bash
-poetry run python -m pytest tests/test_scxml.py
-```
-
-The configured conformance subset contains 57 passing cases, including all 15 enabled
-`more-parallel` cases, plus a fixture inventory/provenance guard. This is a focused SCXML
-subset rather than a claim of full W3C conformance; broader datamodel and executable-content
-coverage remains future work. The `cond-js` subset passes with the safe Boolean evaluator,
-and integer data expressions remain limited to literal initialization, same-variable `+ 1`
-assignment, and strict integer equality guards.
+- **Learn:** [Getting started](docs/getting-started.md),
+  [machines and implementations](docs/concepts/machines-and-implementations.md),
+  [typing](docs/concepts/typing.md), and [examples](docs/examples/README.md).
+- **Integrate:** [Runtime choices](docs/concepts/runtimes.md),
+  [actors](docs/concepts/actors.md), [controllers](docs/concepts/controllers.md),
+  [persistence](docs/concepts/persistence.md), and [SCXML](docs/concepts/scxml.md).
+- **Inspect:** [Local inspector](docs/concepts/local-inspector.md),
+  [tracing](docs/concepts/runtimes.md#bounded-execution-and-microstep-traces), and
+  [comparison with other libraries](docs/comparison.md).
+- **Understand direction:** [Product notes](docs/PRODUCT.md),
+  [roadmap](docs/plans/statechart-workflow-roadmap.md), and
+  [Pythonic agent-workflow research](docs/plans/pythonic-agent-workflows-research.md).
 
 ## Developing
 
@@ -619,20 +221,6 @@ it delegates validation to the same script but can publish only when the
 repository variable `PYPI_PUBLISH_ENABLED` is explicitly set to `true`, the
 token is configured, and ownership of the chosen PyPI project has been verified.
 Creating a tag or GitHub Release is not publication authorization.
-
-## Roadmap
-
-| Area | Current state |
-|---|---|
-| Package distribution | `0.7.1` source and wheel metadata are prepared; PyPI name/ownership and publication authorization remain unresolved |
-| XState v5 setup | `setup(...).create_machine(...)` and composable guards are present |
-| Snapshot queries | `tags`, `meta`, `has_tag`/`hasTag`, and `state_in`/`stateIn` are present |
-| Diagrams | Dependency-free Mermaid export is present |
-| Async | `AsyncInterpreter`, async actors, `from_observable`, and `to_promise` are present |
-| SCXML | Configured 57-case suite passes, including all 15 enabled `more-parallel` cases; broader W3C coverage remains open |
-| Persistence | Snapshot serialization and restore helpers are present |
-| Documentation | Concept guides cover machines, runtimes, actors, persistence, and SCXML import |
-| Examples | `docs/examples/` is the canonical, subprocess-tested example collection |
 
 ## Related Projects
 

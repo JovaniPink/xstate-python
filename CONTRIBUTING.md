@@ -37,6 +37,7 @@ Run type checking and linting:
 
 ```bash
 poetry run mypy src/xstate/
+poetry run mypy --explicit-package-bases docs/examples/typed_context.py docs/examples/revision_gate.py
 poetry run ruff format --check src/ tests/ scripts/ docs/examples/
 poetry run ruff check src/ tests/ scripts/ docs/examples/
 poetry check --lock
@@ -66,6 +67,42 @@ The ordinary Python suite and installed package do not require Node. Read the
 [compatibility guide](docs/concepts/xstate-compatibility.md) before adding a
 fixture or changing a known divergence: a newly matching case must become a
 required parity case, and an unexplained difference must fail the contract.
+
+## Public Examples And Documentation
+
+The [example catalog](docs/examples/README.md) is the public learning path.
+Keep its commands and expected results aligned with the programs:
+
+- Make the default demonstration deterministic and self-contained. Use recorded
+  inputs and fake resources so readers can run it without credentials or paid
+  services.
+- Load adjacent JSON or XML fixtures relative to `__file__`, so the example
+  works when launched from a different directory.
+- Use public APIs and ordinary Python domain types. Explain the behavior the
+  example demonstrates and the responsibilities it leaves to its caller.
+- Stop actors and interpreters in `finally` blocks when the example owns them.
+  Keep external resource cleanup explicit.
+- Add behavioral tests for the example's decisions and failure cases. Update
+  the catalog and relevant concept guide with a command and observable result.
+
+The subprocess suite discovers noninteractive `docs/examples/*.py` programs
+and runs each from a temporary working directory against the current source.
+The installed-wheel validator runs the same collection against the isolated
+wheel, without `PYTHONPATH` or runtime dependencies. `local_inspector.py` is an
+interactive server with its own lifecycle tests; it is excluded from those
+one-shot runs.
+
+```bash
+poetry run python -m pytest tests/test_examples.py tests/test_typed_context_example.py tests/test_revision_gate_example.py
+poetry build
+poetry run python scripts/validate_distribution.py
+```
+
+The [reader setup](docs/getting-started.md) uses a normal virtual environment
+and `python -m pip install .`; the locked Poetry environment above is for
+contributors. Validate copyable Python snippets in the reader environment as
+well as running the developer checks. Examples and guides live in the source
+checkout; installing the wheel alone does not install the documentation tree.
 
 ## Pull Requests
 

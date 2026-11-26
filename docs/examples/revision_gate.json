@@ -1,0 +1,41 @@
+{
+  "id": "revision-gate",
+  "context": {
+    "head_sha": null,
+    "ci_sha": null,
+    "ci_result": null,
+    "review_sha": null,
+    "review_result": null
+  },
+  "initial": "waiting",
+  "on": {
+    "REVISION": {
+      "guard": "isNewRevision",
+      "target": ".collecting",
+      "actions": "changeRevision"
+    },
+    "CI_RESULT": {
+      "guard": "isCurrentCI",
+      "actions": "recordCI"
+    },
+    "REVIEW_RESULT": {
+      "guard": "isCurrentReview",
+      "actions": "recordReview"
+    }
+  },
+  "states": {
+    "waiting": {},
+    "collecting": {
+      "always": {
+        "guard": "hasCurrentEvidence",
+        "target": "ready"
+      }
+    },
+    "ready": {
+      "always": {
+        "guard": "needsEvidence",
+        "target": "collecting"
+      }
+    }
+  }
+}

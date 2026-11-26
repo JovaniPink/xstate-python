@@ -4,6 +4,29 @@ Snapshots can be serialized to plain data and restored against the same
 machine. This supports checkpoints, process handoff, and replay from an
 application-owned store.
 
+## Run A Complete Example
+
+After [installing the checkout](../getting-started.md), run this from the
+repository root:
+
+```bash
+python docs/examples/snapshot_resume.py
+```
+
+Expected output:
+
+```text
+before start: active; count=2
+after resume: active; count=3
+restored completed output: {'total': 3}
+```
+
+The [program](../examples/snapshot_resume.py) stops the old actor, makes the
+restored snapshot visible before startup, continues processing, and round-trips
+a computed final output. It keeps the JSON string in memory. Writing a file or
+database transaction, surviving process failure, and recovering external work
+remain application responsibilities.
+
 ## Serialize And Restore
 
 ```python
@@ -158,4 +181,8 @@ their domain data separately when their internal progress matters.
   timers, invoked work, or side effects.
 
 See [snapshot resume](../examples/snapshot_resume.py) for a JSON round-trip that
-continues processing on a new actor.
+continues processing on a new actor. The
+[revision-gate walkthrough](../guides/revision-gate.md) applies the same boundary
+to recorded CI and review evidence. Restoring that evidence does not establish
+that it is still current or authoritative in GitHub; a host must reconcile it
+with the external system before taking action.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the built wheel in isolation and exercise its public runtime."""
+"""Install the built wheel in isolation and run its public runtime and examples."""
 
 from __future__ import annotations
 
@@ -65,7 +65,13 @@ def built_wheel(version: str) -> Path:
     return wheel
 
 
-def run_checked(command: Sequence[str], *, cwd: Path, env: dict[str, str]) -> None:
+def run_checked(
+    command: Sequence[str],
+    *,
+    cwd: Path,
+    env: dict[str, str],
+    timeout: float | None = None,
+) -> None:
     completed = subprocess.run(
         command,
         cwd=cwd,
@@ -73,6 +79,7 @@ def run_checked(command: Sequence[str], *, cwd: Path, env: dict[str, str]) -> No
         check=False,
         capture_output=True,
         text=True,
+        timeout=timeout,
     )
     if completed.returncode == 0:
         if completed.stdout:
@@ -121,6 +128,22 @@ def validate_distribution() -> None:
             cwd=temp,
             env=env,
         )
+        # The interactive server has a dedicated lifecycle test suite.
+        examples = [
+            path
+            for path in sorted((ROOT / "docs" / "examples").glob("*.py"))
+            if path.name != "local_inspector.py"
+        ]
+        if not examples:
+            fail("no public examples found in docs/examples")
+        for example in examples:
+            print(f"installed-wheel example: {example.name}", flush=True)
+            run_checked(
+                (str(python), str(example)),
+                cwd=temp,
+                env=env,
+                timeout=30,
+            )
 
 
 if __name__ == "__main__":
