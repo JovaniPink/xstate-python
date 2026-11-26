@@ -5,6 +5,12 @@ unparameterized `Machine(...)` calls remain `Any`-compatible. Add type arguments
 when a consumer wants mypy to check context, event objects, output, snapshots,
 and runtime sends end to end.
 
+For a complete program, start with
+[`typed_context.py`](../examples/typed_context.py). It uses frozen dataclasses,
+typed review events, named guards, and `assign` to preserve an earlier context
+while producing a new one. The [getting-started guide](../getting-started.md)
+includes the run command and expected output.
+
 `EventDataT` is the complete external event mapping, including its required
 `type` discriminator. This matches [XState event objects](https://stately.ai/docs/transitions),
 not a payload nested below `type`.
